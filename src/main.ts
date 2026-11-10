@@ -65,11 +65,29 @@ async function start() {
     phaser.scale.resize(s.w, s.h);
   });
 
+  // Updates: iPhone home-screen apps rarely re-check for a new version on their own, so check
+  // whenever the player comes back. If an update is waiting right after launch (before they've
+  // started playing), apply it straight away; mid-session, offer it with a banner instead.
+  const launchedAt = performance.now();
   let updateReady = false;
   const updateSW = registerSW({
+    immediate: true,
     onNeedRefresh() {
+      if (performance.now() - launchedAt < 8000 && !game.away) {
+        game.saveNow();
+        window.setTimeout(() => void updateSW(true), 400);
+        return;
+      }
       updateReady = true;
       draw();
+    },
+    onRegisteredSW(_url, reg) {
+      if (!reg) return;
+      const check = () => void reg.update().catch(() => undefined);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+      window.setInterval(check, 30 * 60 * 1000);
     },
   });
 
