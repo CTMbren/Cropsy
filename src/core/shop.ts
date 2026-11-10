@@ -1,4 +1,4 @@
-import { itemValue, type Content, type ExpansionDef, type ToolDef } from './content';
+import { itemValue, type BarnTier, type Content, type ExpansionDef, type ToolDef } from './content';
 import { addItem, expand, hasItems, takeItems, unlockedCrops, type FarmState } from './farm';
 import { fnv1a } from './save';
 import { rng } from './time';
@@ -7,14 +7,38 @@ import { rng } from './time';
 
 export type BuyResult = { ok: true } | { ok: false; reason: 'locked' | 'owned' | 'no-coins' | 'missing' | 'unknown' };
 
-export function buyTool(state: FarmState, content: Content, id: string): BuyResult {
+/** Goldie's 5-heart perk takes 10% off tools; Bruno's takes 10% off land and barn upgrades. */
+export const toolPrice = (state: FarmState, t: ToolDef) => (state.flags.includes('perk:goldie') && !t.consumable ? Math.round(t.coins * 0.9) : t.coins);
+export const brunoPrice = (state: FarmState, coins: number) => (state.flags.includes('perk:bruno') ? Math.round(coins * 0.9) : coins);
+
+export function buyTool(state: FarmState, content: Content, id: string, n = 1): BuyResult {
   const t: ToolDef | undefined = content.tools.get(id);
   if (!t) return { ok: false, reason: 'unknown' };
-  if (state.tools.includes(id)) return { ok: false, reason: 'owned' };
+  if (!t.consumable && state.tools.includes(id)) return { ok: false, reason: 'owned' };
   if (t.unlock_level > state.level) return { ok: false, reason: 'locked' };
-  if (state.coins < t.coins) return { ok: false, reason: 'no-coins' };
-  state.coins -= t.coins;
-  state.tools.push(id);
+  const price = toolPrice(state, t) * (t.consumable ? n : 1);
+  if (state.coins < price) return { ok: false, reason: 'no-coins' };
+  state.coins -= price;
+  if (t.consumable) addItem(state, id, n);
+  else state.tools.push(id);
+  return { ok: true };
+}
+
+// ── Bruno: barn upgrades ─────────────────────────────────────────
+
+export function nextBarn(state: FarmState, content: Content): BarnTier | null {
+  return content.economy.barn[state.barnLevel + 1] ?? null;
+}
+
+export function buyBarn(state: FarmState, content: Content): BuyResult {
+  const b = nextBarn(state, content);
+  if (!b) return { ok: false, reason: 'unknown' };
+  const coins = brunoPrice(state, b.coins ?? 0);
+  if (state.coins < coins) return { ok: false, reason: 'no-coins' };
+  if (!hasItems(state, b.items ?? {})) return { ok: false, reason: 'missing' };
+  state.coins -= coins;
+  takeItems(state, b.items ?? {});
+  state.barnLevel += 1;
   return { ok: true };
 }
 
@@ -29,9 +53,10 @@ export function buyExpansion(state: FarmState, content: Content): BuyResult {
   const e = nextExpansion(state, content);
   if (!e || e.story) return { ok: false, reason: 'unknown' };
   if ((e.level ?? 1) > state.level) return { ok: false, reason: 'locked' };
-  if (state.coins < (e.coins ?? 0)) return { ok: false, reason: 'no-coins' };
+  const coins = brunoPrice(state, e.coins ?? 0);
+  if (state.coins < coins) return { ok: false, reason: 'no-coins' };
   if (!hasItems(state, e.items ?? {})) return { ok: false, reason: 'missing' };
-  state.coins -= e.coins ?? 0;
+  state.coins -= coins;
   takeItems(state, e.items ?? {});
   expand(state);
   return { ok: true };
@@ -90,4 +115,16 @@ export function deliverStage(state: FarmState, content: Content, id: string): Pr
   state.coins -= st.coins ?? 0;
   state.projects[id] = done + 1;
   return { ok: true, stage: done + 1, finished: done + 1 >= p.stages.length };
+}
+
+// ── Bruno's lumber yard ─────────────────────────────────────────
+
+export function buyMaterial(state: FarmState, content: Content, id: string): BuyResult {
+  const offer = content.economy.lumber_yard.find((o) => o.id === id);
+  if (!offer) return { ok: false, reason: 'unknown' };
+  const coins = brunoPrice(state, offer.coins);
+  if (state.coins < coins) return { ok: false, reason: 'no-coins' };
+  state.coins -= coins;
+  addItem(state, id, offer.qty);
+  return { ok: true };
 }

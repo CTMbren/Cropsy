@@ -289,3 +289,23 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
   animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .level-card .away-list { text-align: left; }
+
+/* Phase 2 part 2 */
+.seed.tool { background: linear-gradient(#fff, #f3ead2); }
+.seed.tool:disabled { opacity: 0.5; }
+.capacity { display: flex; align-items: center; gap: 10px; font-family: 'Lilita One', system-ui; font-size: 15px; }
+.capacity-bar { flex: 1; height: 12px; border-radius: 6px; background: #e9dfcc; border: 2px solid var(--ink); overflow: hidden; }
+.capacity-bar div { height: 100%; background: linear-gradient(#ffd75a, var(--gold-dark)); }
+.friend { display: grid; gap: 4px; padding: 10px; background: #fff; border: 2.5px solid var(--ink); border-radius: 16px; }
+.friend-head { display: flex; align-items: center; gap: 10px; }
+.friend-body { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.friend-body small { font-family: 'Fredoka', system-ui; font-size: 12px; font-weight: 500; color: #6d5440; margin-left: 4px; }
+.hearts { position: relative; display: inline-flex; gap: 1px; flex-wrap: wrap; }
+.heart-next { display: none; }
+.chatter { margin: 2px 0 0; font-size: 14px; font-style: italic; font-weight: 500; }
+.gift-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.gift-item { display: flex; align-items: center; gap: 5px; min-height: 40px; padding: 4px 10px; font-size: 13px; background: #fffdf5; border: 2px solid var(--ink); border-radius: 12px; }
+.gift-item.loved { background: #ffe8ec; }
+/* keep rows in scrolling sheets at their natural height (tab rows were collapsing) */
+.sheet-body { grid-auto-rows: max-content; }
+.tabs { min-height: 46px; flex-shrink: 0; padding-bottom: 4px; }

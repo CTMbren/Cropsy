@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DAILY_ORDERS } from '../core/board';
 import { itemName, itemValue, type Content, type VillagerDef } from '../core/content';
-import { cratePrice, hasFlag, hasItems, nextReady, unlockedCrops } from '../core/farm';
+import { barnCapacity, barnUsed, cratePrice, hasFlag, hasItems, nextReady, unlockedCrops } from '../core/farm';
 import { xpToNext } from '../core/progression';
 import { fromSaveCode, toSaveCode } from '../core/save';
-import { canAffordBuilding, queueView, readyCount, slotUpgradeCost } from '../core/processing';
-import { featuredCrop, marketOpen, marketPrice, nextExpansion, priceFactor } from '../core/shop';
+import { canGiftToday, chatter, friends, heartProgress, hearts, taste } from '../core/friendship';
+import { buildingPrice, canAffordBuilding, queueView, readyCount, slotUpgradeCost } from '../core/processing';
+import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, nextExpansion, priceFactor, toolPrice } from '../core/shop';
 import { activeQuest, canHandIn, inbox, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
 import { formatDuration } from '../core/time';
 import type { Game } from '../game';
@@ -69,6 +70,15 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
     const offFx = game.onFx((e) => {
       if (e.kind === 'levelup') setLevelCard(e.level);
       if (e.kind === 'ribbon') setToast(`+${e.amount} Ribbon · ${e.why}`);
+      if (e.kind === 'heart') {
+        const v = game.content.villagers.get(e.villager);
+        setToast(e.perk ? `${v?.name.split(' ')[0]}: ${e.hearts} hearts! ${e.perk}` : `${v?.name.split(' ')[0]} likes you more: ${e.hearts} ${e.hearts === 1 ? 'heart' : 'hearts'}`);
+      }
+      if (e.kind === 'gift') {
+        const v = game.content.villagers.get(e.villager)?.name.split(' ')[0];
+        setToast(e.taste === 'loved' ? `${v} loved it!` : e.taste === 'liked' ? `${v} liked it.` : e.taste === 'disliked' ? `${v} didn't care for that.` : `${v} said thanks.`);
+      }
+      if (e.kind === 'shipped') setToast(`Barn full! ${e.n} shipped for ${e.coins} coins`);
       if (e.kind === 'quest') setToast(e.done ? `Quest complete: ${e.title}` : `New quest: ${e.title}`);
       if (e.kind === 'expand') setToast('The back field is open!');
       if (e.kind === 'coins') fly(window.innerWidth / 2, window.innerHeight - 200, e.amount);
@@ -212,7 +222,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         <div class="seeds">
           {game.content.crops.map((c) => {
             const locked = !unlocked.has(c.id);
-            const selected = game.selectedCrop === c.id;
+            const selected = game.mode === 'plant' && game.selectedCrop === c.id;
             return (
               <button key={c.id} class={`seed${selected ? ' selected' : ''}${locked ? ' locked' : ''}`} disabled={locked} aria-pressed={selected} aria-label={`${c.name}${locked ? `, unlocks at level ${c.unlock_level}` : ''}`} onClick={() => game.selectCrop(c.id)}>
                 <span class="seed-icon" style={{ background: c.color }} aria-hidden="true" />
@@ -231,6 +241,20 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
               </button>
             );
           })}
+          {s.level >= 8 && (
+            <button class={`seed tool${game.mode === 'fertilize' ? ' selected' : ''}`} aria-pressed={game.mode === 'fertilize'} disabled={!(s.inventory.fertilizer ?? 0)} onClick={() => game.setMode('fertilize')}>
+              <Icon name="fertilizer" size={30} />
+              <span class="seed-name">Fertilize</span>
+              <span class="chip time">×{s.inventory.fertilizer ?? 0}</span>
+            </button>
+          )}
+          {s.level >= 10 && (
+            <button class={`seed tool${game.mode === 'soil' ? ' selected' : ''}`} aria-pressed={game.mode === 'soil'} onClick={() => game.setMode('soil')}>
+              <Icon name="soil" size={30} />
+              <span class="seed-name">Soil</span>
+              <span class="chip time">Upgrade</span>
+            </button>
+          )}
           <button class="seed replant" disabled={!canReplant} onClick={() => game.replantAll()}>
             <Icon name="replant" size={30} />
             <span class="seed-name">Replant all</span>
@@ -349,6 +373,15 @@ function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
   const total = crops.reduce((a, c) => a + cratePrice(c) * (s.inventory[c.id] ?? 0), 0);
   return (
     <Sheet title="Barn" onClose={onClose}>
+      <div class="capacity" aria-label={`Barn ${barnUsed(s, game.content)} of ${barnCapacity(s, game.content)}`}>
+        <div class="capacity-bar">
+          <div style={{ width: `${Math.min(100, (barnUsed(s, game.content) / barnCapacity(s, game.content)) * 100)}%` }} />
+        </div>
+        <span>
+          {barnUsed(s, game.content)}/{barnCapacity(s, game.content)}
+        </span>
+      </div>
+      {barnUsed(s, game.content) >= barnCapacity(s, game.content) && <p class="muted small">Your barn is full. New harvests go straight to the shipping crate. Bruno can build a bigger barn (Town → Land).</p>}
       {!crops.length && !materials.length && <p class="muted">Your barn is empty. Harvested crops land here.</p>}
       {crops.length > 0 && (
         <>
@@ -492,6 +525,10 @@ function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; d
         <input type="checkbox" checked={!s.settings.muted} onChange={(e) => game.setMuted(!(e.target as HTMLInputElement).checked)} />
         <span>Sound effects</span>
       </label>
+      <label class="toggle">
+        <input type="checkbox" checked={s.settings.music !== false} onChange={(e) => game.setMusic((e.target as HTMLInputElement).checked)} />
+        <span>Music</span>
+      </label>
       <p class="muted">Last saved {saved ? new Date(saved).toLocaleTimeString() : 'not yet'}.</p>
       <label class="field">
         <span>Backup code</span>
@@ -601,7 +638,7 @@ function Need({ have, need, label }: { have: number; need: number; label: string
 function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
   const s = game.state;
   const c = game.content;
-  const tabs = ['store', 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(s.flags.includes('mill_project') ? ['projects'] : [])];
+  const tabs = ['store', ...(friends(s, c).length ? ['friends'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(s.flags.includes('mill_project') ? ['projects'] : [])];
   const [tab, setTab] = useState<string>(tabs.includes('projects') && (s.projects.mill ?? 0) < 3 ? 'projects' : 'store');
   const day = game.day();
   const exp = nextExpansion(s, c);
@@ -610,7 +647,7 @@ function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
       <div class="tabs" role="tablist">
         {tabs.map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} class={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'store' ? "Goldie's store" : t === 'land' ? 'Land' : t === 'market' ? 'Market' : 'Projects'}
+            {t === 'store' ? "Goldie's store" : t === 'friends' ? 'Friends' : t === 'land' ? 'Land' : t === 'market' ? 'Market' : 'Projects'}
           </button>
         ))}
       </div>
@@ -620,6 +657,24 @@ function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
           <h3>Tools</h3>
           <ul class="rows">
             {[...c.tools.values()].map((t) => {
+              if (t.consumable) {
+                const locked = t.unlock_level > s.level;
+                return (
+                  <li key={t.id} class="row-item">
+                    <Icon name={t.id} size={30} />
+                    <span class="row-name">
+                      {t.name} <b>×{s.inventory[t.id] ?? 0}</b>
+                      <small>{locked ? `Unlocks at level ${t.unlock_level}` : t.description}</small>
+                    </span>
+                    <button class="btn small" disabled={locked || s.coins < t.coins} onClick={() => game.buyFertilizer(1)}>
+                      <span class="coin sm" aria-hidden="true" /> {t.coins}
+                    </button>
+                    <button class="btn small" disabled={locked || s.coins < t.coins * 5} onClick={() => game.buyFertilizer(5)}>
+                      ×5
+                    </button>
+                  </li>
+                );
+              }
               const owned = s.tools.includes(t.id);
               const locked = t.unlock_level > s.level;
               return (
@@ -632,8 +687,8 @@ function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
                   {owned ? (
                     <span class="chip owned">Owned</span>
                   ) : (
-                    <button class="btn small" disabled={locked || s.coins < t.coins} onClick={() => game.buyTool(t.id)}>
-                      <span class="coin sm" aria-hidden="true" /> {t.coins}
+                    <button class="btn small" disabled={locked || s.coins < toolPrice(s, t)} onClick={() => game.buyTool(t.id)}>
+                      <span class="coin sm" aria-hidden="true" /> {toolPrice(s, t)}
                     </button>
                   )}
                 </li>
@@ -672,7 +727,7 @@ function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
                       <span class="chip owned">Built</span>
                     ) : (
                       <button class="btn small" disabled={locked || !canAffordBuilding(s, b)} onClick={() => game.buyBuilding(b.id)}>
-                        <span class="coin sm" aria-hidden="true" /> {b.cost?.coins ?? 0}
+                        <span class="coin sm" aria-hidden="true" /> {buildingPrice(s, b)}
                       </button>
                     )}
                   </li>
@@ -698,22 +753,38 @@ function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
                 </div>
                 <div class="order-wants">
                   {(exp.level ?? 1) > s.level && <span class="need">Level {exp.level}</span>}
-                  <Need have={s.coins} need={exp.coins ?? 0} label="coins" />
+                  <Need have={s.coins} need={brunoPrice(s, exp.coins ?? 0)} label="coins" />
                   {Object.entries(exp.items ?? {}).map(([id, n]) => (
                     <Need key={id} have={s.inventory[id] ?? 0} need={n} label={itemName(c, id)} />
                   ))}
                 </div>
               </div>
-              <button class="btn small green" onClick={() => game.buyExpansion()} disabled={(exp.level ?? 1) > s.level || s.coins < (exp.coins ?? 0) || !Object.entries(exp.items ?? {}).every(([id, n]) => (s.inventory[id] ?? 0) >= n)}>
+              <button class="btn small green" onClick={() => game.buyExpansion()} disabled={(exp.level ?? 1) > s.level || s.coins < brunoPrice(s, exp.coins ?? 0) || !Object.entries(exp.items ?? {}).every(([id, n]) => (s.inventory[id] ?? 0) >= n)}>
                 Build
               </button>
             </div>
           )}
           <p class="muted small">New land comes with weeds, stumps and boulders to clear. Stumps need a saw and boulders a pickaxe.</p>
+          <h3>Bruno's lumber yard</h3>
+          <ul class="rows">
+            {c.economy.lumber_yard.map((o) => (
+              <li key={o.id} class="row-item">
+                <Icon name={o.id} size={28} />
+                <span class="row-name">
+                  {o.qty} {itemName(c, o.id)} <small>You have {s.inventory[o.id] ?? 0}</small>
+                </span>
+                <button class="btn small" disabled={s.coins < brunoPrice(s, o.coins)} onClick={() => game.buyMaterial(o.id)}>
+                  <span class="coin sm" aria-hidden="true" /> {brunoPrice(s, o.coins)}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <BarnUpgrade game={game} />
         </div>
       )}
 
       {tab === 'market' && <MarketTab game={game} day={day} />}
+      {tab === 'friends' && <FriendsTab game={game} day={day} />}
 
       {tab === 'projects' && (
         <div class="projects">
@@ -873,5 +944,110 @@ function BuildingSheet({ game, id, now, onClose }: { game: Game; id: string; now
         })}
       </ul>
     </Sheet>
+  );
+}
+
+function BarnUpgrade({ game }: { game: Game }) {
+  const s = game.state;
+  const c = game.content;
+  const next = nextBarn(s, c);
+  return (
+    <>
+      <h3>Barn</h3>
+      <p class="muted">
+        Holds {barnCapacity(s, c)} crops and goods.
+      </p>
+      {next ? (
+        <div class="order">
+          <Icon name="barn" size={40} />
+          <div class="order-body">
+            <div class="order-who">Bigger barn: {next.capacity}</div>
+            <div class="order-wants">
+              <Need have={s.coins} need={brunoPrice(s, next.coins ?? 0)} label="coins" />
+              {Object.entries(next.items ?? {}).map(([id, n]) => (
+                <Need key={id} have={s.inventory[id] ?? 0} need={n} label={itemName(c, id)} />
+              ))}
+            </div>
+          </div>
+          <button class="btn small green" disabled={s.coins < brunoPrice(s, next.coins ?? 0) || !hasItems(s, next.items ?? {})} onClick={() => game.buyBarn()}>
+            Build
+          </button>
+        </div>
+      ) : (
+        <p class="muted">Your barn is as big as it gets.</p>
+      )}
+    </>
+  );
+}
+
+function Hearts({ n, progress }: { n: number; progress: number }) {
+  return (
+    <span class="hearts" aria-label={`${n} of 10 hearts`}>
+      {Array.from({ length: 10 }, (_, i) => (
+        <Icon key={i} name={i < n ? 'heart' : 'heart-empty'} size={15} />
+      ))}
+      {n < 10 && <span class="heart-next" style={{ width: `${Math.round(progress * 100)}%` }} />}
+    </span>
+  );
+}
+
+function FriendsTab({ game, day }: { game: Game; day: number }) {
+  const s = game.state;
+  const c = game.content;
+  const [giving, setGiving] = useState<string | null>(null);
+  const giftable = Object.keys(s.inventory).filter((id) => c.cropById.has(id) || c.goods.has(id));
+  return (
+    <>
+      <p class="muted small">Give each friend one gift a day. Filling their orders and finishing their quests helps too. At 5 hearts they'll do something nice for you.</p>
+      <ul class="rows">
+        {friends(s, c).map((id) => {
+          const v = c.villagers.get(id)!;
+          const h = hearts(s, c, id);
+          const can = canGiftToday(s, id, day);
+          return (
+            <li key={id} class="friend">
+              <div class="friend-head">
+                <Portrait v={v} size={48} />
+                <div class="friend-body">
+                  <div class="order-who">
+                    {v.name} <small>{v.role}</small>
+                  </div>
+                  <Hearts n={h} progress={heartProgress(s, c, id)} />
+                </div>
+                <button class="btn small green" disabled={!can || !giftable.length} onClick={() => setGiving(giving === id ? null : id)}>
+                  {can ? 'Gift' : 'Gifted'}
+                </button>
+              </div>
+              <p class="chatter">“{chatter(s, c, id, day)}”</p>
+              <p class="muted small">
+                Loves {v.loves?.map((x) => itemName(c, x).toLowerCase()).join(', ')}
+                {h >= 5 ? ` · ${v.perk}` : ` · At 5 hearts: ${v.perk}`}
+              </p>
+              {giving === id && (
+                <div class="gift-pick">
+                  {giftable.map((item) => {
+                    const t = taste(c, id, item);
+                    return (
+                      <button
+                        key={item}
+                        class={`gift-item ${t}`}
+                        onClick={() => {
+                          game.gift(id, item);
+                          setGiving(null);
+                        }}
+                      >
+                        <span class="seed-icon sm" style={{ background: c.cropById.get(item)?.color ?? c.goods.get(item)?.color }} aria-hidden="true" />
+                        {itemName(c, item)}
+                        {t === 'loved' && <Icon name="heart" size={14} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }

@@ -52,6 +52,26 @@ export interface ToolDef {
   coins: number;
   clears: string;
   description: string;
+  /** Consumables (fertilizer) go to the barn instead of the tool shed. */
+  consumable?: boolean;
+}
+
+export interface SoilDef {
+  tier: number;
+  name: string;
+  level?: number;
+  coins?: number;
+  items?: Record<string, number>;
+  /** Grow-time multiplier (0.9 = 10% faster). */
+  speed: number;
+  /** Chance of one extra crop per harvest. */
+  bonus: number;
+}
+
+export interface BarnTier {
+  capacity: number;
+  coins?: number;
+  items?: Record<string, number>;
 }
 
 export interface ExpansionDef {
@@ -70,6 +90,12 @@ export interface Economy {
   expansions: ExpansionDef[];
   market: { unlock_level: number; min: number; max: number; featured_bonus: number };
   slot_upgrade_ribbons: number[];
+  soil: SoilDef[];
+  barn: BarnTier[];
+  /** Bruno sells wood and stone in bundles, so building never dead-ends on materials. */
+  lumber_yard: { id: string; qty: number; coins: number }[];
+  xp_curve: { base: number; mult: number; exp: number };
+  friendship: { per_heart: number; gift: { loved: number; liked: number; neutral: number; disliked: number }; order: number; quest: number; perk_hearts: number };
 }
 
 export interface ProjectDef {
@@ -85,6 +111,13 @@ export interface VillagerDef {
   role: string;
   color: string;
   hair: string;
+  loves?: string[];
+  likes?: string[];
+  dislikes?: string[];
+  /** What reaching 5 hearts gives you. */
+  perk?: string;
+  /** Idle chatter by heart band: 0–2, 3–5, 6–8, 9–10. */
+  lines?: string[][];
 }
 
 export interface LetterDef {
@@ -212,6 +245,10 @@ export function validateStory(c: Omit<Content, 'questById'>): void {
     for (const k of Object.keys(q.rewards.spawn ?? {})) if (!OBSTACLE_KINDS.has(k)) throw new Error(`${where}: cannot spawn "${k}"`);
   }
   for (const l of c.letters.values()) if (!c.villagers.has(l.from)) throw new Error(`letters.json "${l.id}": unknown sender "${l.from}"`);
+  for (const v of c.villagers.values()) {
+    for (const id of [...(v.loves ?? []), ...(v.likes ?? []), ...(v.dislikes ?? [])]) if (!isItem(id)) throw new Error(`villagers.json "${v.id}": unknown gift item "${id}"`);
+    if (v.lines && v.lines.length !== 4) throw new Error(`villagers.json "${v.id}": lines needs 4 heart bands`);
+  }
 }
 
 export function loadContent(rawCrops: unknown = cropsJson): Content {

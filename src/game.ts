@@ -3,7 +3,9 @@ import { loadContent, type Content } from './core/content';
 import {
   awaySummary,
   clearObstacle,
+  fertilize,
   harvest,
+  upgradeSoil,
   log,
   newFarm,
   plant,
@@ -14,19 +16,25 @@ import {
   type AwaySummary,
   type FarmState,
 } from './core/farm';
+import { giveGift, type FriendshipChange } from './core/friendship';
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
-import { buyExpansion, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
+import { buyBarn, buyExpansion, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
 import { advance, onEvent, readMail, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
 import { dayIndex, gameNow, localOffsetMinutes, systemNow } from './core/time';
 import { loadSave, requestPersistence, writeSave } from './platform/storage';
 
 type Listener = () => void;
 export type FxEvent =
-  | { kind: 'harvest'; key: string; tip: number; fresh: boolean; crop: string }
+  | { kind: 'harvest'; key: string; tip: number; fresh: boolean; crop: string; qty: number }
   | { kind: 'plant'; key: string }
+  | { kind: 'soil'; key: string; tier: number }
+  | { kind: 'fertilize'; key: string }
   | { kind: 'clear'; key: string; obstacle: string; item: string | null; qty: number; gold: boolean }
   | { kind: 'coins'; amount: number }
   | { kind: 'ribbon'; amount: number; why: string }
+  | { kind: 'heart'; villager: string; hearts: number; perk?: string }
+  | { kind: 'gift'; villager: string; taste: string }
+  | { kind: 'shipped'; n: number; coins: number }
   | { kind: 'collect'; building: string; items: Record<string, number> }
   | { kind: 'levelup'; level: number }
   | { kind: 'quest'; title: string; done: boolean }
@@ -45,6 +53,8 @@ export class Game {
   readonly content: Content = loadContent();
   state: FarmState = newFarm(systemNow());
   selectedCrop = 'radish';
+  /** What a tap on an empty or growing plot does: plant the selected seed, fertilize, or upgrade soil. */
+  mode: 'plant' | 'fertilize' | 'soil' = 'plant';
   away: AwaySummary | null = null;
   private listeners = new Set<Listener>();
   private fxListeners = new Set<(e: FxEvent) => void>();
@@ -101,6 +111,24 @@ export class Game {
     const plot = this.state.plots[key];
     if (!plot) return null;
     const now = this.now();
+    if (this.mode === 'soil') {
+      const r = upgradeSoil(this.state, this.content, key);
+      if (r.ok) {
+        this.fx({ kind: 'soil', key, tier: r.tier });
+        log(this.state, now, `soil ${key} ${r.tier}`);
+        this.changed();
+      } else this.fx({ kind: 'denied', key, reason: r.reason });
+      return null;
+    }
+    if (this.mode === 'fertilize' && plot.crop && stageOf(plot, now) !== 'ripe') {
+      const r = fertilize(this.state, key, now);
+      if (r.ok) {
+        this.fx({ kind: 'fertilize', key });
+        if (!(this.state.inventory.fertilizer ?? 0)) this.mode = 'plant';
+        this.changed();
+      } else this.fx({ kind: 'denied', key, reason: r.reason });
+      return null;
+    }
     let r: ActionResult | null = null;
     if (this.state.obstacles[key]) r = clearObstacle(this.state, key);
     else if (stageOf(plot, now) === 'ripe') r = harvest(this.state, this.content, key, now);
@@ -111,8 +139,9 @@ export class Game {
       return r;
     }
     if (r.kind === 'harvested') {
-      this.fx({ kind: 'harvest', key, tip: r.tip, fresh: r.fresh, crop: r.crop.id });
+      this.fx({ kind: 'harvest', key, tip: r.tip, fresh: r.fresh, crop: r.crop.id, qty: r.qty });
       if (r.firstTime) this.fx({ kind: 'ribbon', amount: 1, why: `First ${r.crop.name} harvest!` });
+      if (r.shipped) this.fx({ kind: 'shipped', n: r.shipped, coins: r.tip });
       this.levelUps(r.levelsGained);
       this.event({ type: 'harvest', crop: r.crop.id });
       log(this.state, now, `harvest ${r.crop.id}${r.fresh ? ' fresh' : ''}`);
@@ -155,10 +184,11 @@ export class Game {
   }
 
   fulfilOrder(id: string): boolean {
-    const r = fulfilOrder(this.state, id);
+    const r = fulfilOrder(this.state, this.content, id);
     if (!r.ok) return false;
     this.fx({ kind: 'coins', amount: r.order.coins });
     this.levelUps(r.levelsGained);
+    this.friendFx(r.friendship);
     log(this.state, this.now(), `order ${id}`);
     this.event({ type: 'order_done', id });
     this.changed();
@@ -264,10 +294,56 @@ export class Game {
     return r;
   }
 
-  selectCrop(id: string): void {
-    this.selectedCrop = id;
+  setMode(mode: 'plant' | 'fertilize' | 'soil'): void {
+    this.mode = mode;
     this.fx({ kind: 'ui' });
     this.emit();
+  }
+
+  gift(villager: string, itemId: string): boolean {
+    const r = giveGift(this.state, this.content, villager, itemId, this.day());
+    if (!r.ok) return false;
+    this.fx({ kind: 'gift', villager, taste: r.taste });
+    this.friendFx(r);
+    log(this.state, this.now(), `gift ${villager} ${itemId} ${r.taste}`);
+    this.changed();
+    return true;
+  }
+
+  buyBarn(): BuyResult {
+    const r = buyBarn(this.state, this.content);
+    if (r.ok) {
+      this.fx({ kind: 'quest', title: 'Barn upgraded', done: true });
+      this.changed();
+    }
+    return r;
+  }
+
+  buyMaterial(id: string): BuyResult {
+    const r = buyMaterial(this.state, this.content, id);
+    if (r.ok) {
+      this.fx({ kind: 'ui' });
+      this.changed();
+    }
+    return r;
+  }
+
+  buyFertilizer(n: number): BuyResult {
+    const r = buyTool(this.state, this.content, 'fertilizer', n);
+    if (r.ok) this.changed();
+    return r;
+  }
+
+  selectCrop(id: string): void {
+    this.selectedCrop = id;
+    this.mode = 'plant';
+    this.fx({ kind: 'ui' });
+    this.emit();
+  }
+
+  setMusic(on: boolean): void {
+    this.state.settings.music = on;
+    this.changed();
   }
 
   setMuted(muted: boolean): void {
@@ -304,8 +380,14 @@ export class Game {
     this.applyStory(onEvent(this.state, this.content, e, this.now(), this.tz()));
   }
 
+  private friendFx(f?: FriendshipChange): void {
+    if (!f) return;
+    if (f.heartsAfter > f.heartsBefore) this.fx({ kind: 'heart', villager: f.villager, hearts: f.heartsAfter, perk: f.perk });
+  }
+
   private applyStory(o: StoryOutcome): void {
     this.levelUps(o.levelsGained);
+    this.friendFx(o.friendship);
     if (o.completed) {
       this.fx({ kind: 'quest', title: o.completed.title, done: true });
       log(this.state, this.now(), `quest done ${o.completed.id}`);

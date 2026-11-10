@@ -122,6 +122,38 @@ export function Icon({ name, size = 22 }: { name: string; size?: number }) {
           <path d="M12 15h4" stroke="#fff6b0" stroke-width="2" stroke-linecap="round" />
         </svg>
       );
+    case 'heart':
+      return (
+        <svg {...common}>
+          <path d="M16 27S4 19.5 4 11.5A6 6 0 0 1 16 9a6 6 0 0 1 12 2.5C28 19.5 16 27 16 27z" fill="#e8323c" stroke={INK} stroke-width="2.4" stroke-linejoin="round" />
+          <path d="M9 12a3 3 0 0 1 3-3" fill="none" stroke="#ffb3b8" stroke-width="2" stroke-linecap="round" />
+        </svg>
+      );
+    case 'heart-empty':
+      return (
+        <svg {...common}>
+          <path d="M16 27S4 19.5 4 11.5A6 6 0 0 1 16 9a6 6 0 0 1 12 2.5C28 19.5 16 27 16 27z" fill="#efe3d0" stroke={INK} stroke-width="2.4" stroke-linejoin="round" />
+        </svg>
+      );
+    case 'fertilizer':
+      return (
+        <svg {...common}>
+          <path d="M8 9h16l-2 18H10z" fill="#c9955c" stroke={INK} stroke-width="2.4" stroke-linejoin="round" />
+          <path d="M8 9c2-3 14-3 16 0" fill="#a8743f" stroke={INK} stroke-width="2.2" />
+          <path d="M16 23v-6m0 0c-2 0-3.5-1.4-3.5-3 2 0 3.5 1.4 3.5 3zm0 0c2 0 3.5-1.4 3.5-3-2 0-3.5 1.4-3.5 3z" fill="#7cdc4f" stroke={INK} stroke-width="1.6" />
+        </svg>
+      );
+    case 'soil':
+      return (
+        <svg {...common}>
+          <path d="M3 20 16 13l13 7-13 7z" fill="#6e3f22" stroke={INK} stroke-width="2.4" stroke-linejoin="round" />
+          <circle cx="12" cy="20" r="1.6" fill="#ffd54f" />
+          <circle cx="19" cy="22" r="1.6" fill="#ffd54f" />
+          <circle cx="17" cy="18" r="1.4" fill="#ffd54f" />
+          <path d="M22 4v8m-4-4h8" stroke="#ffc531" stroke-width="3" stroke-linecap="round" />
+          <path d="M22 4v8m-4-4h8" stroke={INK} stroke-width="1" stroke-linecap="round" />
+        </svg>
+      );
     default:
       return null;
   }

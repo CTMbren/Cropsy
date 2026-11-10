@@ -54,6 +54,13 @@ const migrations: ((d: Record<string, unknown>) => Record<string, unknown>)[] = 
     projects: {},
     seen: Object.keys((d.inventory as Record<string, number>) ?? {}),
   }),
+  // v3 → v4: friendship, barn capacity, music setting (soil and fertilizer default on plots).
+  (d) => ({
+    ...d,
+    villagers: {},
+    barnLevel: 0,
+    settings: { ...((d.settings as object) ?? {}), music: true },
+  }),
 ];
 
 export class SaveTooNewError extends Error {}

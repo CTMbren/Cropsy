@@ -2,7 +2,7 @@ import type { Content, CropDef, ObstacleKind, OrderDef } from './content';
 import { addXp } from './progression';
 import type { TimeState } from './time';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export type { ObstacleKind };
 
@@ -11,6 +11,16 @@ export interface PlotState {
   plantedAt: number;
   /** Snapshotted at planting so a later rebalance never changes crops already in the ground. */
   growS: number;
+  /** Soil tier 0–3 (permanent upgrade). */
+  soil?: number;
+  /** Fertilizer doubles this harvest. */
+  fertilized?: boolean;
+}
+
+export interface FriendState {
+  points: number;
+  /** Local day of the last gift (one gift per villager per day). */
+  giftDay: number;
 }
 
 export type QuestStatus = 'offered' | 'active' | 'ready';
@@ -70,7 +80,10 @@ export interface FarmState {
   story: StoryState;
   mail: MailState[];
   board: { day: number; orders: OrderState[] };
-  settings: { muted: boolean };
+  settings: { muted: boolean; music: boolean };
+  villagers: Record<string, FriendState>;
+  /** Barn upgrade tier (index into economy.barn). */
+  barnLevel: number;
   /** Local-only event log for playtests (capped). */
   log: { t: number; e: string }[];
   time: TimeState;
@@ -106,7 +119,7 @@ function patternFor(size: number): ObstacleKind[] {
   return p;
 }
 
-const emptyPlot = (): PlotState => ({ crop: null, plantedAt: 0, growS: 0 });
+const emptyPlot = (soil = 0): PlotState => ({ crop: null, plantedAt: 0, growS: 0, soil });
 
 export function newFarm(now: number): FarmState {
   const width = 4;
@@ -134,7 +147,9 @@ export function newFarm(now: number): FarmState {
     story: { done: [], active: null },
     mail: [],
     board: { day: -1, orders: [] },
-    settings: { muted: false },
+    settings: { muted: false, music: true },
+    villagers: {},
+    barnLevel: 0,
     log: [],
     time: { maxSeenTime: now, debugOffset: 0 },
     lastSeen: now,
@@ -213,7 +228,7 @@ export const cratePrice = (item: { sell: number }) => Math.max(1, Math.round(ite
 export type Fail = { ok: false; reason: 'no-plot' | 'occupied' | 'not-ripe' | 'locked' | 'no-coins' | 'unknown-crop' | 'blocked' | 'none' | 'need-tool' };
 export type ActionResult =
   | { ok: true; kind: 'planted'; crop: CropDef }
-  | { ok: true; kind: 'harvested'; crop: CropDef; tip: number; xp: number; fresh: boolean; levelsGained: number; firstTime: boolean }
+  | { ok: true; kind: 'harvested'; crop: CropDef; qty: number; shipped: number; tip: number; xp: number; fresh: boolean; levelsGained: number; firstTime: boolean }
   | { ok: true; kind: 'cleared'; obstacle: ObstacleKind; item: string | null; qty: number; gold: boolean; cost: number; levelsGained: number }
   | Fail;
 
@@ -271,7 +286,9 @@ export function plant(state: FarmState, content: Content, k: string, cropId: str
   if (crop.unlock_level > state.level) return { ok: false, reason: 'locked' };
   if (state.coins < crop.seed_cost) return { ok: false, reason: 'no-coins' };
   state.coins -= crop.seed_cost;
-  state.plots[k] = { crop: crop.id, plantedAt: now, growS: crop.grow_s };
+  const soil = plot.soil ?? 0;
+  const speed = content.economy.soil[soil]?.speed ?? 1;
+  state.plots[k] = { crop: crop.id, plantedAt: now, growS: Math.max(1, Math.round(crop.grow_s * speed)), soil };
   state.lastCrop[k] = crop.id;
   return { ok: true, kind: 'planted', crop };
 }
@@ -287,15 +304,18 @@ export function harvest(state: FarmState, content: Content, k: string, now: numb
   const tip = fresh ? Math.max(1, Math.round(crop.sell * 0.2)) : 0;
   const xp = Math.round(crop.xp * (fresh ? 1.5 : 1));
   state.coins += tip;
-  addItem(state, crop.id, 1);
+  const soil = plot.soil ?? 0;
+  const bonusChance = content.economy.soil[soil]?.bonus ?? 0;
+  const qty = 1 + (plot.fertilized ? 1 : 0) + (bonusChance > 0 && luck(`${k}:${plot.plantedAt}`) < bonusChance ? 1 : 0);
+  const stored = storeInBarn(state, content, crop.id, qty);
   const firstTime = !state.seen.includes(crop.id);
   if (firstTime) {
     state.seen.push(crop.id);
     state.ribbons += 1;
   }
   const levelsGained = grantXp(state, xp);
-  state.plots[k] = emptyPlot();
-  return { ok: true, kind: 'harvested', crop, tip, xp, fresh, levelsGained, firstTime };
+  state.plots[k] = emptyPlot(soil);
+  return { ok: true, kind: 'harvested', crop, qty, shipped: stored.shipped, tip: tip + stored.coins, xp, fresh, levelsGained, firstTime };
 }
 
 /** Plants each empty plot with the crop it last grew, as far as coins allow. Returns plots planted. */
@@ -375,4 +395,75 @@ export function nextReady(state: FarmState, now: number): number | null {
     if (r > 0 && (best === null || r < best)) best = r;
   }
   return best;
+}
+
+/** Deterministic 0..1 roll from a string, so bonus crops can't be re-rolled by reloading. */
+export function luck(seed: string): number {
+  let h = 2166136261;
+  for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0x5bd1e995);
+  return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
+}
+
+// ── Barn capacity ──────────────────────────────────────────────
+
+/** Crops and goods count against the barn; materials and fertilizer don't. */
+export function barnUsed(state: FarmState, content: Content): number {
+  let n = 0;
+  for (const [id, q] of Object.entries(state.inventory)) if (content.cropById.has(id) || content.goods.has(id)) n += q;
+  return n;
+}
+
+export function barnCapacity(state: FarmState, content: Content): number {
+  return content.economy.barn[state.barnLevel]?.capacity ?? content.economy.barn[content.economy.barn.length - 1].capacity;
+}
+
+/**
+ * Puts crops or goods in the barn. A full barn never blocks a harvest: anything that doesn't fit
+ * goes straight to the shipping crate at the crate price.
+ */
+export function storeInBarn(state: FarmState, content: Content, id: string, n: number): { stored: number; shipped: number; coins: number } {
+  const space = Math.max(0, barnCapacity(state, content) - barnUsed(state, content));
+  const stored = Math.min(space, n);
+  const shipped = n - stored;
+  if (stored) addItem(state, id, stored);
+  const item = content.cropById.get(id) ?? content.goods.get(id);
+  const coins = shipped && item ? cratePrice(item) * shipped : 0;
+  state.coins += coins;
+  return { stored, shipped, coins };
+}
+
+// ── Soil and fertilizer ─────────────────────────────────────────
+
+export type SoilResult = { ok: true; tier: number } | { ok: false; reason: 'max' | 'locked' | 'no-coins' | 'missing' | 'blocked' | 'no-plot' };
+
+export function upgradeSoil(state: FarmState, content: Content, k: string): SoilResult {
+  const plot = state.plots[k];
+  if (!plot) return { ok: false, reason: 'no-plot' };
+  if (state.obstacles[k]) return { ok: false, reason: 'blocked' };
+  const next = content.economy.soil[(plot.soil ?? 0) + 1];
+  if (!next) return { ok: false, reason: 'max' };
+  if ((next.level ?? 1) > state.level) return { ok: false, reason: 'locked' };
+  if (state.coins < (next.coins ?? 0)) return { ok: false, reason: 'no-coins' };
+  if (!hasItems(state, next.items ?? {})) return { ok: false, reason: 'missing' };
+  state.coins -= next.coins ?? 0;
+  takeItems(state, next.items ?? {});
+  plot.soil = next.tier;
+  return { ok: true, tier: next.tier };
+}
+
+export type FertilizeResult = { ok: true } | { ok: false; reason: 'none' | 'empty' | 'ripe' | 'already' | 'no-plot' };
+
+/** Uses one fertilizer on a growing crop: that harvest gives an extra crop. */
+export function fertilize(state: FarmState, k: string, now: number): FertilizeResult {
+  const plot = state.plots[k];
+  if (!plot) return { ok: false, reason: 'no-plot' };
+  if (!plot.crop) return { ok: false, reason: 'empty' };
+  if (plot.fertilized) return { ok: false, reason: 'already' };
+  if (stageOf(plot, now) === 'ripe') return { ok: false, reason: 'ripe' };
+  if ((state.inventory.fertilizer ?? 0) < 1) return { ok: false, reason: 'none' };
+  addItem(state, 'fertilizer', -1);
+  plot.fertilized = true;
+  return { ok: true };
 }

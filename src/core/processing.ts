@@ -1,5 +1,5 @@
 import type { BuildingDef, Content, RecipeDef } from './content';
-import { addItem, grantXp, hasItems, takeItems, type BuildingState, type FarmState, type QueueItem } from './farm';
+import { grantXp, hasItems, storeInBarn, takeItems, type BuildingState, type FarmState, type QueueItem } from './farm';
 
 /**
  * Processing buildings turn crops into goods. Each building works through its queue one item at a
@@ -57,7 +57,7 @@ export function collect(state: FarmState, content: Content, buildingId: string, 
   for (const q of b.queue) {
     const r = recipeOf(def, q.recipe);
     if (r && now >= endOf(q)) {
-      addItem(state, r.output, 1);
+      storeInBarn(state, content, r.output, 1);
       items[r.output] = (items[r.output] ?? 0) + 1;
       xp += r.xp;
     } else keep.push(q);
@@ -88,15 +88,21 @@ export function grantBuilding(state: FarmState, content: Content, id: string): v
   if (def && !state.buildings[id]) state.buildings[id] = { slots: def.slots, queue: [] };
 }
 
+/** Goldie's 5-heart perk takes 10% off buildings. */
+export function buildingPrice(state: FarmState, def: BuildingDef): number {
+  const base = def.cost?.coins ?? 0;
+  return state.flags.includes('perk:goldie') ? Math.round(base * 0.9) : base;
+}
+
 export function canAffordBuilding(state: FarmState, def: BuildingDef): boolean {
-  return state.coins >= (def.cost?.coins ?? 0) && hasItems(state, def.cost?.items ?? {});
+  return state.coins >= buildingPrice(state, def) && hasItems(state, def.cost?.items ?? {});
 }
 
 export function buyBuilding(state: FarmState, content: Content, id: string): boolean {
   const def = content.buildings.get(id);
   if (!def || def.where !== 'farm' || state.buildings[id]) return false;
   if ((def.unlock_level ?? 1) > state.level || !canAffordBuilding(state, def)) return false;
-  state.coins -= def.cost?.coins ?? 0;
+  state.coins -= buildingPrice(state, def);
   takeItems(state, def.cost?.items ?? {});
   grantBuilding(state, content, id);
   return true;

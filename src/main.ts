@@ -2,7 +2,8 @@ import * as Phaser from 'phaser';
 import { h, render } from 'preact';
 import { registerSW } from 'virtual:pwa-register';
 import { Game } from './game';
-import { play, setMuted, unlockAudio } from './platform/sound';
+import { initMusic, setMusic } from './platform/music';
+import { play, setMuted, unlockAudio, whenAudioReady } from './platform/sound';
 import { App } from './ui/App';
 import { FarmScene } from './world/FarmScene';
 import './styles.css';
@@ -24,7 +25,17 @@ async function start() {
   // Sound: iOS only allows audio after a user gesture.
   window.addEventListener('pointerdown', unlockAudio, { capture: true });
   setMuted(game.state.settings.muted);
-  game.subscribe(() => setMuted(game.state.settings.muted));
+  setMusic(game.state.settings.music !== false);
+  game.subscribe(() => {
+    setMuted(game.state.settings.muted);
+    setMusic(game.state.settings.music !== false);
+  });
+  whenAudioReady((ctx) => {
+    // iOS resumes the context asynchronously after the first tap
+    const go = () => initMusic(ctx);
+    if (ctx.state === 'running') go();
+    else void ctx.resume().then(go).catch(() => undefined);
+  });
   game.onFx((e) => {
     if (e.kind === 'harvest') play('harvest');
     else if (e.kind === 'plant') play('plant');

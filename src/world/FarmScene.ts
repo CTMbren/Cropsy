@@ -74,7 +74,7 @@ export class FarmScene extends Phaser.Scene {
       if (e.kind === 'harvest') {
         const crop = this.game_.content.cropById.get(e.crop);
         this.burst(e.key, crop ? hex(crop.color) : 0xffffff);
-        this.popText(e.key, `+1 ${crop?.name ?? ''}`, '#ffffff');
+        this.popText(e.key, `+${e.qty} ${crop?.name ?? ''}`, e.qty > 1 ? '#ffe14d' : '#ffffff');
         if (e.tip) this.coinFly(e.key, e.tip);
       }
       if (e.kind === 'clear') {
@@ -92,8 +92,25 @@ export class FarmScene extends Phaser.Scene {
         this.layout();
         this.cameras.main.shake(250, 0.004);
       }
-      if (e.kind === 'denied' && e.reason === 'no-coins') this.popText(e.key, 'Need coins', '#ffd0d0');
-      if (e.kind === 'denied' && e.reason === 'locked') this.popText(e.key, 'Locked', '#ffd0d0');
+      if (e.kind === 'denied') {
+        const msg: Record<string, string> = {
+          'no-coins': 'Need coins',
+          locked: 'Locked',
+          max: 'Best soil already',
+          missing: 'Need materials',
+          already: 'Already fertilized',
+          ripe: 'Harvest first',
+          empty: 'Plant first',
+          none: 'No fertilizer',
+          blocked: 'Clear it first',
+        };
+        if (msg[e.reason]) this.popText(e.key, msg[e.reason], '#ffd0d0');
+      }
+      if (e.kind === 'soil') {
+        this.burst(e.key, e.tier >= 3 ? 0xffc531 : 0x5b3418, 10);
+        this.popText(e.key, ['', 'Loam!', 'Rich soil!', 'Golden soil!'][e.tier] ?? '', '#ffe14d');
+      }
+      if (e.kind === 'fertilize') this.burst(e.key, 0x7cdc4f, 8);
       if (e.kind === 'denied' && e.reason === 'need-tool') {
         const ob = this.game_.state.obstacles[e.key];
         this.popText(e.key, ob === 'boulder' ? 'Need a pickaxe' : 'Need a saw', '#ffd0d0');
@@ -276,8 +293,14 @@ export class FarmScene extends Phaser.Scene {
         g.fillPoints([w, so, V(so.x, so.y + PLOT_DEPTH), V(w.x, w.y + PLOT_DEPTH)], true);
         g.fillStyle(DIRT_SIDE_R, 1);
         g.fillPoints([so, e, V(e.x, e.y + PLOT_DEPTH), V(so.x, so.y + PLOT_DEPTH)], true);
-        g.fillStyle(DIRT_TOP, 1);
+        const soil = s.plots[k].soil ?? 0;
+        g.fillStyle([DIRT_TOP, 0x8a5430, 0x6e3f22, 0x8a5a24][soil] ?? DIRT_TOP, 1);
         g.fillPoints(top, true);
+        if (soil >= 2) {
+          // rich and golden soil glitter
+          g.fillStyle(soil >= 3 ? 0xffd54f : 0xc9955c, 1);
+          for (let i = 0; i < 6; i++) g.fillCircle(sx + ((i * 37) % 70) - 35, sy + ((i * 23) % 26) - 13, soil >= 3 ? 2.2 : 1.6);
+        }
         g.lineStyle(2, DIRT_TOP_DARK, 1);
         for (let i = 1; i < 4; i++) {
           const t = i / 4;
@@ -412,6 +435,15 @@ export class FarmScene extends Phaser.Scene {
         g.fillStyle(0xffffff, 0.7);
         g.fillCircle(cx - 3, cy - 5, 2.5);
       }
+    }
+    if (plot.fertilized && stage !== 'ripe') {
+      g.lineStyle(2.5, INK, 1);
+      g.fillStyle(0x7cdc4f, 1);
+      g.fillCircle(sx + 30, sy - 4, 7);
+      g.strokeCircle(sx + 30, sy - 4, 7);
+      g.lineStyle(2.5, 0xffffff, 1);
+      g.lineBetween(sx + 26, sy - 4, sx + 34, sy - 4);
+      g.lineBetween(sx + 30, sy - 8, sx + 30, sy);
     }
     if (stage === 'ripe') {
       const bob = Math.sin(this.time.now / 250) * 3;

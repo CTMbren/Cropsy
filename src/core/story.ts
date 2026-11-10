@@ -1,5 +1,6 @@
 import { itemName, type Content, type Objective, type QuestDef, type Rewards } from './content';
 import { pinOrder } from './board';
+import { addFriendship, type FriendshipChange } from './friendship';
 import { grantBuilding } from './processing';
 import { expand, grantXp, hasFlag, hasItems, setFlag, spawnObstacles, takeItems, type FarmState, type ObstacleKind } from './farm';
 import { nextLocalMidnight } from './time';
@@ -43,6 +44,7 @@ export function waitingFor(state: FarmState, content: Content): { level?: number
 
 export interface StoryOutcome {
   levelsGained: number;
+  friendship?: FriendshipChange;
   completed?: QuestDef;
   started?: QuestDef;
   expanded?: boolean;
@@ -189,8 +191,9 @@ function complete(state: FarmState, content: Content, now: number, offsetMin: nu
   state.story.done.push(q.id);
   state.story.active = null;
   const levelsGained = grant(state, q.rewards, now, offsetMin);
+  const friendship = q.giver !== 'mail' ? addFriendship(state, content, q.giver, content.economy.friendship.quest) : undefined;
   const next = advance(state, content, now, offsetMin);
-  return { levelsGained: levelsGained + next.levelsGained, completed: q, started: next.started };
+  return { levelsGained: levelsGained + next.levelsGained, completed: q, started: next.started, friendship };
 }
 
 /** Plain-language objective for the quest tracker. */

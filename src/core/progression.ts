@@ -1,6 +1,9 @@
-/** XP needed to go from `level` to `level + 1` (design doc: 20 + 15 · L^1.8). */
+import economy from '../../content/economy.json';
+
+/** XP needed to go from `level` to `level + 1`: base + mult · L^exp (tuned with `npm run sim`). */
 export function xpToNext(level: number): number {
-  return Math.round(20 + 15 * Math.pow(level, 1.8));
+  const c = (economy as { xp_curve: { base: number; mult: number; exp: number } }).xp_curve;
+  return Math.round(c.base + c.mult * Math.pow(level, c.exp));
 }
 
 /** Applies gained XP, handling several level-ups at once. */

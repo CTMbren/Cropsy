@@ -4,21 +4,122 @@
     "name": "Goldie Fenn",
     "role": "General store",
     "color": "#f2a93b",
-    "hair": "#c0562a"
+    "hair": "#c0562a",
+    "loves": [
+      "strawberry",
+      "jam",
+      "pastry"
+    ],
+    "likes": [
+      "carrot",
+      "flour",
+      "tomato",
+      "blueberry"
+    ],
+    "dislikes": [
+      "stone",
+      "radish"
+    ],
+    "perk": "Goldie gives you 10% off tools and buildings",
+    "lines": [
+      [
+        "Need anything, dear? The store's always open.",
+        "Tobias used to grow strawberries like rubies. Just saying."
+      ],
+      [
+        "You're a natural. Don't let it go to your head.",
+        "I put a little something aside for you. Kidding! Mostly."
+      ],
+      [
+        "Honestly, the valley feels alive again. That's you, you know.",
+        "I told Tobias you're doing wonderfully. He wrote back with three exclamation marks."
+      ],
+      [
+        "You're family now. I don't say that to everyone. I say it to most people, but I mean it with you.",
+        "When the market's full again, the first pie is yours."
+      ]
+    ]
   },
   {
     "id": "bruno",
     "name": "Bruno Okafor",
     "role": "Carpenter",
     "color": "#6b8fd6",
-    "hair": "#2b1d14"
+    "hair": "#2b1d14",
+    "loves": [
+      "corn",
+      "potato",
+      "wood"
+    ],
+    "likes": [
+      "wheat",
+      "tomato",
+      "flour"
+    ],
+    "dislikes": [
+      "lettuce",
+      "strawberry"
+    ],
+    "perk": "Bruno charges 10% less for land",
+    "lines": [
+      [
+        "Measure twice, cut once. My father said that. He was always late.",
+        "Need something built? I'm your man."
+      ],
+      [
+        "That fence of yours is holding up nicely. Good posts.",
+        "Corn makes the best bread. Fight me. Politely."
+      ],
+      [
+        "I carved a little sign for your gate. It's not done. It'll be done.",
+        "Rufus smiled at me yesterday. I think. Hard to tell with the beard."
+      ],
+      [
+        "You know what I like about you? You finish things.",
+        "Whatever this valley needs next, count me in."
+      ]
+    ]
   },
   {
     "id": "rufus",
     "name": "Rufus Hale",
     "role": "Retired miller",
     "color": "#8aa36b",
-    "hair": "#9e9e9e"
+    "hair": "#9e9e9e",
+    "loves": [
+      "wheat",
+      "flour",
+      "pastry"
+    ],
+    "likes": [
+      "potato",
+      "corn",
+      "stone"
+    ],
+    "dislikes": [
+      "radish",
+      "lettuce",
+      "carrot"
+    ],
+    "perk": "Rufus mills faster for you: the mill gets a free extra slot",
+    "lines": [
+      [
+        "Hmph.",
+        "Don't track mud in the mill."
+      ],
+      [
+        "Wheat's looking decent. Decent. Don't make a thing of it.",
+        "Twenty years that wheel sat still. Don't make me wait twenty more for good wheat."
+      ],
+      [
+        "...Thank you. For the mill. There. I said it.",
+        "Tobias and I used to race grain carts down that hill. I won. He says he won. He's wrong."
+      ],
+      [
+        "You can call me Ru. Nobody calls me Ru. Don't call me Ru in front of Bruno.",
+        "Bring me flour sacks and I'll tell you stories. Short ones."
+      ]
+    ]
   },
   {
     "id": "tobias",

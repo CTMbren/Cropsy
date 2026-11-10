@@ -55,9 +55,9 @@ describe('Chapter 1', () => {
     talk(s, content, now, TZ);
     refreshBoard(s, content, now, TZ);
     expect(s.board.orders[0]).toMatchObject({ id: 'story_goldie_carrots', story: 'ch1_order' });
-    expect(fulfilOrder(s, 'story_goldie_carrots')).toMatchObject({ ok: false, reason: 'missing' });
+    expect(fulfilOrder(s, content, 'story_goldie_carrots')).toMatchObject({ ok: false, reason: 'missing' });
     giveItems(s, { carrot: 4 });
-    expect(fulfilOrder(s, 'story_goldie_carrots')).toMatchObject({ ok: true });
+    expect(fulfilOrder(s, content, 'story_goldie_carrots')).toMatchObject({ ok: true });
     ev(s, { type: 'order_done', id: 'story_goldie_carrots' });
     talk(s, content, now, TZ);
     expect(inbox(s, now).some((m) => m.id === 'bruno_quote')).toBe(true);

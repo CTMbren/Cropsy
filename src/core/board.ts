@@ -1,5 +1,6 @@
 import type { Content } from './content';
 import { addItem, grantXp, hasFlag, hasItems, takeItems, unlockedCrops, type FarmState, type OrderState } from './farm';
+import { addFriendship, type FriendshipChange } from './friendship';
 import { fnv1a } from './save';
 import { dayIndex, rng } from './time';
 
@@ -67,9 +68,9 @@ export function pinOrder(state: FarmState, order: OrderState): void {
   state.board.orders.unshift(order);
 }
 
-export type FulfilResult = { ok: true; order: OrderState; levelsGained: number } | { ok: false; reason: 'missing' | 'unknown' };
+export type FulfilResult = { ok: true; order: OrderState; levelsGained: number; friendship: FriendshipChange } | { ok: false; reason: 'missing' | 'unknown' };
 
-export function fulfilOrder(state: FarmState, orderId: string): FulfilResult {
+export function fulfilOrder(state: FarmState, content: Content, orderId: string): FulfilResult {
   const order = state.board.orders.find((o) => o.id === orderId);
   if (!order) return { ok: false, reason: 'unknown' };
   if (!hasItems(state, order.wants)) return { ok: false, reason: 'missing' };
@@ -78,7 +79,8 @@ export function fulfilOrder(state: FarmState, orderId: string): FulfilResult {
   state.ribbons += order.ribbons ?? 0;
   const levelsGained = grantXp(state, order.xp);
   state.board.orders = state.board.orders.filter((o) => o.id !== orderId);
-  return { ok: true, order, levelsGained };
+  const friendship = addFriendship(state, content, order.villager, content.economy.friendship.order);
+  return { ok: true, order, levelsGained, friendship };
 }
 
 /** Test/debug helper. */
