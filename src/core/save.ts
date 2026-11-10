@@ -29,7 +29,23 @@ export function isValid(r: unknown): r is SaveRecord {
 }
 
 /** Ordered migrations: index i upgrades a save from version i+1 to i+2. Never delete one. */
-const migrations: ((d: Record<string, unknown>) => Record<string, unknown>)[] = [];
+const migrations: ((d: Record<string, unknown>) => Record<string, unknown>)[] = [
+  // v1 → v2 (Phase 1): barn inventory, obstacles, story, mail, request board, settings, event log.
+  // Phase 0 farms were already cleared, so they get no obstacles; the story starts from Tobias's letter.
+  (d) => ({
+    ...d,
+    obstacles: {},
+    inventory: (d.inventory as Record<string, number>) ?? {},
+    lastCrop: {},
+    expansions: 0,
+    flags: [],
+    story: { done: [], active: null },
+    mail: [],
+    board: { day: -1, orders: [] },
+    settings: { muted: false },
+    log: [],
+  }),
+];
 
 export class SaveTooNewError extends Error {}
 

@@ -1,0 +1,21 @@
+[
+  {
+    "id": "tobias_1",
+    "from": "tobias",
+    "subject": "The farm is yours",
+    "body": "My dear sprout,\n\nIf you're reading this, you've found the old place. I'm sorry about the weeds. My knees gave out long before the soil did.\n\nThe farm is yours now. Bramblewick could use a farmer again: the mill is quiet, the market's shuttered, and the road is half buried in rocks. Start small. A few radishes never hurt anyone.\n\nGoldie at the store will look in on you. Tell her I said she still owes me a pie.\n\nWith love and dirt under my nails,\nTobias"
+  },
+  {
+    "id": "bruno_quote",
+    "from": "bruno",
+    "subject": "About that gate",
+    "body": "Hello neighbour,\n\nGoldie tells me Tobias's gate finally fell off its hinges. I can rebuild it, and open up the field behind it while I'm at it.\n\nBring me 4 wood, 3 stone and 60 coins. Branches and rocks around your farm will do nicely.\n\nBruno"
+  },
+  {
+    "id": "bruno_gate_done",
+    "from": "bruno",
+    "subject": "Your gate is up!",
+    "body": "Morning!\n\nWorked through the night. The new gate swings like a dream, and the back field is yours to clear. Mind the rocks.\n\nBruno\n\nP.S. Goldie says she'll pay well for anything you grow out there.",
+    "effects": { "expand": true }
+  }
+]

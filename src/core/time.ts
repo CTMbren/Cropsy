@@ -29,3 +29,30 @@ export function formatDuration(seconds: number): string {
   const h = Math.floor(m / 60);
   return `${h}h ${m % 60 ? `${m % 60}m` : ''}`.trim();
 }
+
+/** Minutes behind UTC for the player's time zone right now (same sign as Date#getTimezoneOffset). */
+export function localOffsetMinutes(): number {
+  return new Date().getTimezoneOffset();
+}
+
+/** Local calendar day number: the board refreshes and "next day" letters arrive at local midnight. */
+export function dayIndex(now: number, offsetMin: number): number {
+  return Math.floor((now - offsetMin * 60) / 86400);
+}
+
+/** Unix seconds of the next local midnight after `now`. */
+export function nextLocalMidnight(now: number, offsetMin: number): number {
+  return (dayIndex(now, offsetMin) + 1) * 86400 + offsetMin * 60;
+}
+
+/** Small seeded PRNG (mulberry32) so daily content is the same every time you open the game that day. */
+export function rng(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}

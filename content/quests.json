@@ -1,0 +1,68 @@
+[
+  {
+    "id": "ch1_letter",
+    "chapter": 1,
+    "giver": "mail",
+    "title": "A letter from Tobias",
+    "objectives": [{ "type": "read_mail", "id": "tobias_1" }],
+    "rewards": { "flags": ["met_goldie"] }
+  },
+  {
+    "id": "ch1_weeds",
+    "chapter": 1,
+    "giver": "goldie",
+    "title": "Clear the weeds",
+    "intro": [
+      "Well, look at you! Tobias said you'd come.",
+      "This place is more weed than farm. Pull a few of those weeds and let's see some soil."
+    ],
+    "outro": ["There's the old dirt! Tobias always said it was the best in the valley.", "Here, a little something to buy seeds with."],
+    "objectives": [{ "type": "clear", "obstacle": "weeds", "n": 3 }],
+    "rewards": { "coins": 20, "xp": 10 }
+  },
+  {
+    "id": "ch1_harvest",
+    "chapter": 1,
+    "giver": "goldie",
+    "title": "Your first harvest",
+    "intro": ["Pick a seed from the tray and tap the soil. Radishes are ready before you can say 'pie'.", "Bring in five crops and I'll show you how to sell them."],
+    "outro": ["Look at that haul! They go in your barn until you sell them."],
+    "objectives": [{ "type": "harvest", "crop": "any", "n": 5 }],
+    "rewards": { "xp": 10, "flags": ["crate_open"] }
+  },
+  {
+    "id": "ch1_ship",
+    "chapter": 1,
+    "giver": "goldie",
+    "title": "Fill the shipping crate",
+    "intro": ["See the crate in your barn? Anything you put in there, I'll buy. Not top price, mind, but it's instant.", "Ship five crops."],
+    "outro": ["Pleasure doing business! Now, folks in town have been asking for fresh food.", "I'll pin their orders on your request board. Orders pay much better than the crate."],
+    "objectives": [{ "type": "sell", "n": 5 }],
+    "rewards": { "coins": 15, "xp": 10, "flags": ["board_open"] }
+  },
+  {
+    "id": "ch1_order",
+    "chapter": 1,
+    "giver": "goldie",
+    "title": "Goldie's carrot order",
+    "intro": ["I've pinned an order of my own on the board. Four carrots for my famous carrot cake.", "Bring them and I'll pay you properly."],
+    "outro": ["Perfect carrots! Oh, and Bruno the carpenter wants a word about that sorry gate of yours.", "I think he left you a note."],
+    "objectives": [
+      {
+        "type": "deliver_order",
+        "order": { "id": "story_goldie_carrots", "villager": "goldie", "wants": { "carrot": 4 }, "coins": 60, "xp": 15 }
+      }
+    ],
+    "rewards": { "mail": [{ "id": "bruno_quote", "delay": "now" }], "flags": ["met_bruno"] }
+  },
+  {
+    "id": "ch1_gate",
+    "chapter": 1,
+    "giver": "bruno",
+    "title": "Rebuild the gate",
+    "intro": ["So you're Tobias's kin. Good to meet you.", "Bring me 4 wood, 3 stone and 60 coins, and I'll have that gate rebuilt overnight. Branches give wood; rocks give stone."],
+    "outro": ["That's everything. Leave it with me. Check your mailbox in the morning."],
+    "objectives": [{ "type": "hand_in", "items": { "wood": 4, "stone": 3 }, "coins": 60 }],
+    "rewards": { "xp": 20, "mail": [{ "id": "bruno_gate_done", "delay": "next_day" }] }
+  }
+]
