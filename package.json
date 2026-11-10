@@ -10,7 +10,8 @@
     "preview": "vite preview --host",
     "test": "vitest run",
     "test:watch": "vitest",
-    "validate": "vitest run tests/unit/content.test.ts"
+    "validate": "vitest run tests/unit/content.test.ts",
+    "sim": "vitest run --config vitest.sim.ts --silent=false"
   },
   "dependencies": {
     "idb-keyval": "^6.3.0",

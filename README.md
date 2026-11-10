@@ -7,16 +7,31 @@ sell, and slowly bring the village of Bramblewick back to life. No avatar, no wa
 
 ## Status
 
-**Phase 1, vertical slice.** Chapter 1 of the story is playable:
+**Phase 2 complete: mechanics.** Chapters 1 and 2 of the story are playable:
 
-- Tobias's letter, Goldie's visits, and six quests ending with Bruno rebuilding the gate overnight
-- Weeds, branches and rocks to clear (branches give wood, rocks give stone)
-- Harvests go to the barn; sell at the shipping crate (70%) or fill request-board orders (1.8×)
-- Request board with a pinned story order plus three new orders every local midnight
-- Mailbox with next-day letters, a "while you were away" summary, Replant All, drag to plant
-- Coin flyers, harvest bursts and synthesized sound effects (respects the silent switch)
+- **Chapter 1:** Tobias's letter, Goldie's visits, six quests ending with Bruno rebuilding the gate overnight
+- **Chapter 2 (from level 6):** grumpy Rufus, a saw for the old stumps, a 3-stage project to restore the
+  mill (it turns overnight), then your first flour
+- 15 crops from 30 seconds to 48 hours, levels to 30 with a level-up card showing what unlocked
+- Processing buildings with queues that keep working while the game is closed: the Mill (flour),
+  Jam Maker and Bakery; extra queue slots cost Ribbons
+- Goldie's store (saw, pickaxe, fertilizer, buildings), Bruno's land expansions up to 9×9, his lumber
+  yard and barn upgrades, and a market stall with daily prices and a featured crop
+- Friends: 0–10 hearts with Goldie, Bruno and Rufus from daily gifts, orders and quests; chatter that
+  warms up as you get closer; a perk from each at 5 hearts
+- Soil upgrades (faster growth, bonus crops) and fertilizer (doubles a harvest)
+- A barn that never blocks a harvest: when it's full, extra crops ship automatically
+- Ribbons from level-ups, first harvests, some orders and the story; never sold for money
+- Gentle synthesized background music and sound effects, each with its own toggle
 
 Art is placeholder vector drawing until the art pipeline lands.
+
+## Pacing
+
+`npm run sim` plays a simulated casual player (one 30-minute first session, then four check-ins a day)
+through the real game logic and prints how long each level takes. Current tuning: level 5 in the first
+session, level 10 around day 5, level 20 around day 16, level 30 around day 41. `tests/unit/pacing.test.ts`
+keeps those targets and checks the story never dead-ends.
 
 ## Stack
 
@@ -38,12 +53,13 @@ event log in the settings menu.
 ## Layout
 
 ```
-content/          game data: crops, quests, letters, villagers — story and balance changes need no code
+content/          game data: crops, economy (goods, buildings, tools, land), quests, letters, projects
 src/core/         pure game logic: no Phaser or DOM, fully unit-tested
 src/platform/     browser services: IndexedDB saves
 src/world/        Phaser farm scene and isometric math
 src/ui/           Preact HUD, seed tray, dialogs
-tests/unit/       Vitest tests
+tests/unit/       Vitest tests (incl. pacing guards)
+tools/sim.ts      economy simulator (npm run sim)
 public/           icons, font licences
 ```
 

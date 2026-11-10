@@ -3,5 +3,15 @@
   { "id": "carrot", "name": "Carrot", "grow_s": 120, "seed_cost": 4, "sell": 10, "xp": 1, "unlock_level": 1, "color": "#f28a1e", "leaf": "#3fa34d" },
   { "id": "lettuce", "name": "Lettuce", "grow_s": 300, "seed_cost": 8, "sell": 20, "xp": 2, "unlock_level": 2, "color": "#9ad94f", "leaf": "#5cb83a" },
   { "id": "strawberry", "name": "Strawberry", "grow_s": 900, "seed_cost": 15, "sell": 40, "xp": 2, "unlock_level": 3, "color": "#e8323c", "leaf": "#3fa34d" },
-  { "id": "wheat", "name": "Wheat", "grow_s": 1800, "seed_cost": 10, "sell": 35, "xp": 3, "unlock_level": 4, "color": "#f2c230", "leaf": "#c9a227" }
+  { "id": "wheat", "name": "Wheat", "grow_s": 1800, "seed_cost": 10, "sell": 35, "xp": 3, "unlock_level": 4, "color": "#f2c230", "leaf": "#c9a227" },
+  { "id": "tomato", "name": "Tomato", "grow_s": 3600, "seed_cost": 25, "sell": 75, "xp": 4, "unlock_level": 5, "color": "#e53935", "leaf": "#43a047" },
+  { "id": "corn", "name": "Corn", "grow_s": 7200, "seed_cost": 30, "sell": 100, "xp": 5, "unlock_level": 7, "color": "#ffd54f", "leaf": "#7cb342" },
+  { "id": "potato", "name": "Potato", "grow_s": 14400, "seed_cost": 40, "sell": 150, "xp": 6, "unlock_level": 9, "color": "#c9955c", "leaf": "#558b2f" },
+  { "id": "blueberry", "name": "Blueberry", "grow_s": 21600, "seed_cost": 60, "sell": 220, "xp": 8, "unlock_level": 11, "color": "#4a5fd0", "leaf": "#388e3c" },
+  { "id": "pumpkin", "name": "Pumpkin", "grow_s": 28800, "seed_cost": 80, "sell": 300, "xp": 10, "unlock_level": 13, "color": "#f57c00", "leaf": "#689f38" },
+  { "id": "sunflower", "name": "Sunflower", "grow_s": 36000, "seed_cost": 90, "sell": 340, "xp": 12, "unlock_level": 15, "color": "#fbc02d", "leaf": "#558b2f" },
+  { "id": "cotton", "name": "Cotton", "grow_s": 43200, "seed_cost": 100, "sell": 400, "xp": 14, "unlock_level": 17, "color": "#f5f5f5", "leaf": "#689f38" },
+  { "id": "grapes", "name": "Grapes", "grow_s": 57600, "seed_cost": 140, "sell": 560, "xp": 18, "unlock_level": 20, "color": "#8e44ad", "leaf": "#4caf50" },
+  { "id": "coffee", "name": "Coffee", "grow_s": 86400, "seed_cost": 200, "sell": 850, "xp": 25, "unlock_level": 23, "color": "#8d4a2b", "leaf": "#2e7d32" },
+  { "id": "golden_melon", "name": "Golden Melon", "grow_s": 172800, "seed_cost": 400, "sell": 1800, "xp": 50, "unlock_level": 27, "color": "#ffc531", "leaf": "#7cb342" }
 ]

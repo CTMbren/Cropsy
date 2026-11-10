@@ -130,13 +130,14 @@ describe('obstacles and expansion', () => {
 });
 
 describe('progression', () => {
-  it('follows 20 + 15·L^1.8', () => {
-    expect(xpToNext(1)).toBe(35);
-    expect(xpToNext(10)).toBe(Math.round(20 + 15 * Math.pow(10, 1.8)));
+  it('follows the tuned curve in economy.json and grows every level', () => {
+    const { base, mult, exp } = content.economy.xp_curve;
+    expect(xpToNext(10)).toBe(Math.round(base + mult * Math.pow(10, exp)));
+    for (let l = 1; l < 30; l++) expect(xpToNext(l + 1)).toBeGreaterThan(xpToNext(l));
   });
 
   it('handles several level-ups from one gain', () => {
-    expect(addXp(1, 0, 35 + xpToNext(2) + 5)).toEqual({ level: 3, xp: 5, levelsGained: 2 });
+    expect(addXp(1, 0, xpToNext(1) + xpToNext(2) + 5)).toEqual({ level: 3, xp: 5, levelsGained: 2 });
   });
 });
 

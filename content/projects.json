@@ -1,0 +1,29 @@
+[
+  {
+    "id": "mill",
+    "name": "Bramblewick Mill",
+    "giver": "rufus",
+    "stages": [
+      {
+        "label": "Timber and stone frame",
+        "items": {
+          "wood": 12,
+          "stone": 8
+        }
+      },
+      {
+        "label": "Test the millstones",
+        "items": {
+          "wheat": 15
+        }
+      },
+      {
+        "label": "A new water wheel",
+        "items": {
+          "wood": 6
+        },
+        "coins": 300
+      }
+    ]
+  }
+]

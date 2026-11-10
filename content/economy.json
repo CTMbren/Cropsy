@@ -1,0 +1,299 @@
+{
+  "goods": [
+    {
+      "id": "flour",
+      "name": "Flour",
+      "sell": 160,
+      "color": "#f3ead2"
+    },
+    {
+      "id": "jam",
+      "name": "Strawberry Jam",
+      "sell": 240,
+      "color": "#d6304a"
+    },
+    {
+      "id": "pastry",
+      "name": "Berry Pastry",
+      "sell": 780,
+      "color": "#e8b55c"
+    }
+  ],
+  "materials": [
+    {
+      "id": "wood",
+      "name": "Wood"
+    },
+    {
+      "id": "stone",
+      "name": "Stone"
+    },
+    {
+      "id": "gold",
+      "name": "Gold Nugget"
+    },
+    {
+      "id": "fertilizer",
+      "name": "Fertilizer"
+    }
+  ],
+  "buildings": [
+    {
+      "id": "mill",
+      "name": "Bramblewick Mill",
+      "where": "village",
+      "slots": 2,
+      "recipes": [
+        {
+          "id": "flour",
+          "inputs": {
+            "wheat": 3
+          },
+          "output": "flour",
+          "dur_s": 300,
+          "xp": 4
+        }
+      ]
+    },
+    {
+      "id": "jam_maker",
+      "name": "Jam Maker",
+      "where": "farm",
+      "unlock_level": 6,
+      "cost": {
+        "coins": 600
+      },
+      "slots": 2,
+      "recipes": [
+        {
+          "id": "jam",
+          "inputs": {
+            "strawberry": 4
+          },
+          "output": "jam",
+          "dur_s": 1200,
+          "xp": 6
+        }
+      ]
+    },
+    {
+      "id": "bakery",
+      "name": "Bakery",
+      "where": "farm",
+      "unlock_level": 10,
+      "cost": {
+        "coins": 2000,
+        "items": {
+          "wood": 20,
+          "stone": 10
+        }
+      },
+      "slots": 2,
+      "recipes": [
+        {
+          "id": "pastry",
+          "inputs": {
+            "flour": 2,
+            "jam": 1
+          },
+          "output": "pastry",
+          "dur_s": 2700,
+          "xp": 15
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "id": "saw",
+      "name": "Saw",
+      "unlock_level": 5,
+      "coins": 150,
+      "clears": "stump",
+      "description": "Cuts stumps into wood."
+    },
+    {
+      "id": "pickaxe",
+      "name": "Pickaxe",
+      "unlock_level": 9,
+      "coins": 500,
+      "clears": "boulder",
+      "description": "Breaks boulders into stone, sometimes gold."
+    },
+    {
+      "id": "fertilizer",
+      "name": "Fertilizer",
+      "unlock_level": 8,
+      "coins": 25,
+      "clears": "",
+      "description": "Doubles one harvest. Use it on a growing crop.",
+      "consumable": true
+    }
+  ],
+  "expansions": [
+    {
+      "size": 5,
+      "story": true
+    },
+    {
+      "size": 6,
+      "level": 6,
+      "coins": 400,
+      "items": {
+        "wood": 6,
+        "stone": 4
+      }
+    },
+    {
+      "size": 7,
+      "level": 10,
+      "coins": 1500,
+      "items": {
+        "wood": 12,
+        "stone": 8
+      }
+    },
+    {
+      "size": 8,
+      "level": 15,
+      "coins": 4000,
+      "items": {
+        "wood": 20,
+        "stone": 15
+      }
+    },
+    {
+      "size": 9,
+      "level": 20,
+      "coins": 10000,
+      "items": {
+        "wood": 30,
+        "stone": 25,
+        "gold": 2
+      }
+    }
+  ],
+  "market": {
+    "unlock_level": 5,
+    "min": 0.8,
+    "max": 1.4,
+    "featured_bonus": 1.5
+  },
+  "slot_upgrade_ribbons": [
+    2,
+    4,
+    6
+  ],
+  "soil": [
+    {
+      "tier": 0,
+      "name": "Plain soil",
+      "speed": 1.0,
+      "bonus": 0
+    },
+    {
+      "tier": 1,
+      "name": "Loam",
+      "level": 10,
+      "coins": 300,
+      "speed": 0.9,
+      "bonus": 0
+    },
+    {
+      "tier": 2,
+      "name": "Rich soil",
+      "level": 15,
+      "coins": 1000,
+      "items": {
+        "stone": 2
+      },
+      "speed": 0.9,
+      "bonus": 0.25
+    },
+    {
+      "tier": 3,
+      "name": "Golden soil",
+      "level": 24,
+      "coins": 5000,
+      "items": {
+        "gold": 1
+      },
+      "speed": 0.8,
+      "bonus": 0.5
+    }
+  ],
+  "barn": [
+    {
+      "capacity": 50
+    },
+    {
+      "capacity": 75,
+      "coins": 250,
+      "items": {
+        "wood": 8
+      }
+    },
+    {
+      "capacity": 100,
+      "coins": 800,
+      "items": {
+        "wood": 15,
+        "stone": 5
+      }
+    },
+    {
+      "capacity": 150,
+      "coins": 2500,
+      "items": {
+        "wood": 25,
+        "stone": 15
+      }
+    },
+    {
+      "capacity": 200,
+      "coins": 6000,
+      "items": {
+        "wood": 40,
+        "stone": 30
+      }
+    },
+    {
+      "capacity": 300,
+      "coins": 15000,
+      "items": {
+        "wood": 60,
+        "stone": 50,
+        "gold": 2
+      }
+    }
+  ],
+  "friendship": {
+    "per_heart": 100,
+    "gift": {
+      "loved": 30,
+      "liked": 15,
+      "neutral": 8,
+      "disliked": 2
+    },
+    "order": 20,
+    "quest": 40,
+    "perk_hearts": 5
+  },
+  "xp_curve": {
+    "base": 30,
+    "mult": 15,
+    "exp": 1.9
+  },
+  "lumber_yard": [
+    {
+      "id": "wood",
+      "qty": 5,
+      "coins": 60
+    },
+    {
+      "id": "stone",
+      "qty": 5,
+      "coins": 90
+    }
+  ]
+}

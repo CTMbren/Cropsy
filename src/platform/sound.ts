@@ -19,6 +19,14 @@ export function unlockAudio(): void {
   ctx = new AC();
   const nav = navigator as Navigator & { audioSession?: { type: string } };
   if (nav.audioSession) nav.audioSession.type = 'ambient';
+  onReady?.(ctx);
+}
+
+let onReady: ((c: AudioContext) => void) | undefined;
+/** Lets the music player share the one AudioContext once the first tap has unlocked it. */
+export function whenAudioReady(fn: (c: AudioContext) => void): void {
+  if (ctx) fn(ctx);
+  else onReady = fn;
 }
 
 export function setMuted(m: boolean): void {

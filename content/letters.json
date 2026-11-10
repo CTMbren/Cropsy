@@ -16,6 +16,32 @@
     "from": "bruno",
     "subject": "Your gate is up!",
     "body": "Morning!\n\nWorked through the night. The new gate swings like a dream, and the back field is yours to clear. Mind the rocks.\n\nBruno\n\nP.S. Goldie says she'll pay well for anything you grow out there.",
-    "effects": { "expand": true }
+    "effects": {
+      "expand": true
+    }
+  },
+  {
+    "id": "goldie_rufus",
+    "from": "goldie",
+    "subject": "About old Rufus",
+    "body": "Hello dear,\n\nYou've done wonders with that farm. Now I need a favour.\n\nRufus ran the mill until the wheel jammed. He's been sulking up there ever since. He'll say he doesn't want help. He does.\n\nHe'll be by your gate. Be patient with him.\n\nGoldie"
+  },
+  {
+    "id": "rufus_wheel",
+    "from": "rufus",
+    "subject": "The wheel turns",
+    "body": "Farmer,\n\nI heard it this morning before I even opened my eyes. That creak. That splash. Twenty years I've waited for that sound.\n\nThe mill is yours to use. Bring wheat, take flour. No charge. Don't make it weird.\n\nRufus",
+    "effects": {
+      "coins": 100,
+      "flags": [
+        "mill_built"
+      ]
+    }
+  },
+  {
+    "id": "tobias_2",
+    "from": "tobias",
+    "subject": "I heard about the mill",
+    "body": "My dear sprout,\n\nNews travels up the valley faster than the river. The mill is turning again! Rufus wrote to me himself, and he hasn't written to anyone since 1998.\n\nNext, the market square. Bramblewick used to fill it every Saturday. Someone there still bakes the best bread in the valley, if only she had the flour.\n\nProud of you,\nTobias"
   }
 ]
