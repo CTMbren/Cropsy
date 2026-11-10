@@ -7,10 +7,16 @@ sell, and slowly bring the village of Bramblewick back to life. No avatar, no wa
 
 ## Status
 
-Phase 0 scaffold: a 4×4 isometric farm with five crops growing on real timestamps, tap or drag to
-plant and harvest, Fresh Pick bonus, levels, a "while you were away" summary, IndexedDB saves with
-backup codes, and an installable offline web app. Art is placeholder vector drawing until the art
-pipeline lands.
+**Phase 1, vertical slice.** Chapter 1 of the story is playable:
+
+- Tobias's letter, Goldie's visits, and six quests ending with Bruno rebuilding the gate overnight
+- Weeds, branches and rocks to clear (branches give wood, rocks give stone)
+- Harvests go to the barn; sell at the shipping crate (70%) or fill request-board orders (1.8×)
+- Request board with a pinned story order plus three new orders every local midnight
+- Mailbox with next-day letters, a "while you were away" summary, Replant All, drag to plant
+- Coin flyers, harvest bursts and synthesized sound effects (respects the silent switch)
+
+Art is placeholder vector drawing until the art pipeline lands.
 
 ## Stack
 
@@ -26,12 +32,13 @@ npm test           # unit tests for the game logic
 npm run build      # type-check + production build into dist/
 ```
 
-Add `?debug=1` to the URL to get +1 min / +1 h / +1 day time-skip buttons in the settings menu.
+Add `?debug=1` to the URL to get +1 min / +1 h / +1 day time-skip buttons, quest state and an
+event log in the settings menu.
 
 ## Layout
 
 ```
-content/          game data (crops.json) — balance changes need no code
+content/          game data: crops, quests, letters, villagers — story and balance changes need no code
 src/core/         pure game logic: no Phaser or DOM, fully unit-tested
 src/platform/     browser services: IndexedDB saves
 src/world/        Phaser farm scene and isometric math

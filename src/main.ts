@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import { h, render } from 'preact';
 import { registerSW } from 'virtual:pwa-register';
 import { Game } from './game';
+import { play, setMuted, unlockAudio } from './platform/sound';
 import { App } from './ui/App';
 import { FarmScene } from './world/FarmScene';
 import './styles.css';
@@ -18,6 +19,22 @@ async function start() {
   await document.fonts.load('26px "Lilita One"').catch(() => undefined);
   const game = new Game();
   await game.init();
+  if (debug) (window as unknown as { cropsy: Game }).cropsy = game;
+
+  // Sound: iOS only allows audio after a user gesture.
+  window.addEventListener('pointerdown', unlockAudio, { capture: true });
+  setMuted(game.state.settings.muted);
+  game.subscribe(() => setMuted(game.state.settings.muted));
+  game.onFx((e) => {
+    if (e.kind === 'harvest') play('harvest');
+    else if (e.kind === 'plant') play('plant');
+    else if (e.kind === 'clear') play('clear');
+    else if (e.kind === 'coins') play('coin');
+    else if (e.kind === 'levelup') play('levelup');
+    else if (e.kind === 'quest' || e.kind === 'expand') play('quest');
+    else if (e.kind === 'denied') play('denied');
+    else if (e.kind === 'ui') play('ui');
+  });
 
   // Render at device pixels (capped at 2×) so the farm is crisp on Retina screens; the scene's
   // camera zoom maps logical CSS pixels onto the larger canvas.

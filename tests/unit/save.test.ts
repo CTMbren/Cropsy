@@ -31,3 +31,19 @@ describe('backup codes', () => {
     expect(() => fromSaveCode(code.slice(0, -12) + 'AAAAAAAAAAAA')).toThrow();
   });
 });
+
+describe('migrations', () => {
+  it('upgrades a Phase 0 (v1) save without losing crops or coins', () => {
+    const v1 = {
+      version: 1, coins: 77, xp: 5, level: 2, width: 4, height: 4,
+      plots: { '0,0': { crop: 'radish', plantedAt: T0, growS: 30 } },
+      inventory: {}, time: { maxSeenTime: T0, debugOffset: 0 }, lastSeen: T0,
+    };
+    const s = migrate(v1 as never);
+    expect(s.version).toBe(SAVE_VERSION);
+    expect(s.coins).toBe(77);
+    expect(s.plots['0,0'].crop).toBe('radish');
+    expect(s.obstacles).toEqual({});
+    expect(s.story).toEqual({ done: [], active: null });
+  });
+});
