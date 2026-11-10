@@ -1,0 +1,12 @@
+# Art source files live in Git LFS. Exported game assets (public/, assets/) stay as normal git
+# files because GitHub Pages cannot serve LFS objects.
+art-src/**/*.blend filter=lfs diff=lfs merge=lfs -text
+art-src/**/*.kra filter=lfs diff=lfs merge=lfs -text
+art-src/**/*.psd filter=lfs diff=lfs merge=lfs -text
+art-src/**/*.png filter=lfs diff=lfs merge=lfs -text
+art-src/**/*.wav filter=lfs diff=lfs merge=lfs -text
+
+* text=auto eol=lf
+*.png binary
+*.webp binary
+*.woff2 binary

@@ -1,0 +1,27 @@
+{
+  "name": "cropsy",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Cropsy: a cozy isometric farming game for the web and iPhone.",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate": "vitest run tests/unit/content.test.ts"
+  },
+  "dependencies": {
+    "idb-keyval": "^6.3.0",
+    "phaser": "^4.2.1",
+    "preact": "^11.2.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.0"
+  }
+}

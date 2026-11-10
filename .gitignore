@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dev-dist/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+# raw AI generations stay local; commit only approved masters in art-src/
+art-raw/

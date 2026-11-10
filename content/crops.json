@@ -1,0 +1,7 @@
+[
+  { "id": "radish", "name": "Radish", "grow_s": 30, "seed_cost": 1, "sell": 3, "xp": 1, "unlock_level": 1, "color": "#e8506a", "leaf": "#4caf50" },
+  { "id": "carrot", "name": "Carrot", "grow_s": 120, "seed_cost": 4, "sell": 10, "xp": 1, "unlock_level": 1, "color": "#f28a1e", "leaf": "#3fa34d" },
+  { "id": "lettuce", "name": "Lettuce", "grow_s": 300, "seed_cost": 8, "sell": 20, "xp": 2, "unlock_level": 2, "color": "#9ad94f", "leaf": "#5cb83a" },
+  { "id": "strawberry", "name": "Strawberry", "grow_s": 900, "seed_cost": 15, "sell": 40, "xp": 2, "unlock_level": 3, "color": "#e8323c", "leaf": "#3fa34d" },
+  { "id": "wheat", "name": "Wheat", "grow_s": 1800, "seed_cost": 10, "sell": 35, "xp": 3, "unlock_level": 4, "color": "#f2c230", "leaf": "#c9a227" }
+]
