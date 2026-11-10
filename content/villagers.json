@@ -1,5 +1,30 @@
 [
-  { "id": "goldie", "name": "Goldie Fenn", "role": "General store", "color": "#f2a93b", "hair": "#c0562a" },
-  { "id": "bruno", "name": "Bruno Okafor", "role": "Carpenter", "color": "#6b8fd6", "hair": "#2b1d14" },
-  { "id": "tobias", "name": "Old Tobias", "role": "Your great-uncle", "color": "#9a8a6a", "hair": "#e8e2d4" }
+  {
+    "id": "goldie",
+    "name": "Goldie Fenn",
+    "role": "General store",
+    "color": "#f2a93b",
+    "hair": "#c0562a"
+  },
+  {
+    "id": "bruno",
+    "name": "Bruno Okafor",
+    "role": "Carpenter",
+    "color": "#6b8fd6",
+    "hair": "#2b1d14"
+  },
+  {
+    "id": "rufus",
+    "name": "Rufus Hale",
+    "role": "Retired miller",
+    "color": "#8aa36b",
+    "hair": "#9e9e9e"
+  },
+  {
+    "id": "tobias",
+    "name": "Old Tobias",
+    "role": "Your great-uncle",
+    "color": "#9a8a6a",
+    "hair": "#e8e2d4"
+  }
 ]

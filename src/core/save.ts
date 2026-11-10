@@ -45,6 +45,15 @@ const migrations: ((d: Record<string, unknown>) => Record<string, unknown>)[] = 
     settings: { muted: false },
     log: [],
   }),
+  // v2 → v3 (Phase 2): Ribbons, tools, processing buildings, restoration projects, first-harvest record.
+  (d) => ({
+    ...d,
+    ribbons: 0,
+    tools: [],
+    buildings: {},
+    projects: {},
+    seen: Object.keys((d.inventory as Record<string, number>) ?? {}),
+  }),
 ];
 
 export class SaveTooNewError extends Error {}

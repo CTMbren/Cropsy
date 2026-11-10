@@ -75,6 +75,53 @@ export function Icon({ name, size = 22 }: { name: string; size?: number }) {
           <path d="M11 16c2-2 5-2 7-1" fill="none" stroke="#d0d0d0" stroke-width="2" stroke-linecap="round" />
         </svg>
       );
+    case 'ribbon':
+      return (
+        <svg {...common}>
+          <path d="m11 17-4 11 5-2 3 4 2-12M21 17l4 11-5-2-3 4-2-12" fill="#3a8fd6" stroke={INK} stroke-width="2" stroke-linejoin="round" />
+          <circle cx="16" cy="12" r="8" fill="#ffc531" stroke={INK} stroke-width="2.4" />
+          <circle cx="16" cy="12" r="4" fill="#fff6b0" stroke={INK} stroke-width="1.6" />
+        </svg>
+      );
+    case 'town':
+      return (
+        <svg {...common}>
+          <path d="M3 27V15l6-5 6 5v12z" fill="#fff8e6" stroke={INK} stroke-width="2.2" stroke-linejoin="round" />
+          <path d="M13 27V11l8-6 8 6v16z" fill="#f3d9a4" stroke={INK} stroke-width="2.2" stroke-linejoin="round" />
+          <path d="M19 27v-6h4v6M7 27v-5h4v5" fill="#c98a4b" stroke={INK} stroke-width="1.8" />
+        </svg>
+      );
+    case 'saw':
+      return (
+        <svg {...common}>
+          <path d="M6 22 22 6l4 4-16 16z" fill="#cfd8dc" stroke={INK} stroke-width="2.2" stroke-linejoin="round" />
+          <path d="m9 23-2 2m5-5-2 2m5-5-2 2m5-5-2 2m5-5-2 2" stroke={INK} stroke-width="1.6" />
+          <rect x="21" y="3" width="8" height="6" rx="2" transform="rotate(45 25 6)" fill="#c98a4b" stroke={INK} stroke-width="2" />
+        </svg>
+      );
+    case 'pickaxe':
+      return (
+        <svg {...common}>
+          <path d="M8 26 22 12" stroke={INK} stroke-width="5" stroke-linecap="round" />
+          <path d="M8 26 22 12" stroke="#c98a4b" stroke-width="2.5" stroke-linecap="round" />
+          <path d="M12 7c6-3 12-1 15 4l-3 1c-3-3-7-4-11-3z" fill="#cfd8dc" stroke={INK} stroke-width="2.2" stroke-linejoin="round" />
+        </svg>
+      );
+    case 'building':
+      return (
+        <svg {...common}>
+          <path d="M5 14 16 6l11 8v13H5z" fill="#f3ede0" stroke={INK} stroke-width="2.4" stroke-linejoin="round" />
+          <path d="M3 15 16 5l13 10" fill="none" stroke="#e8323c" stroke-width="3" stroke-linecap="round" />
+          <rect x="13" y="18" width="6" height="9" fill="#c98a4b" stroke={INK} stroke-width="2" />
+        </svg>
+      );
+    case 'gold':
+      return (
+        <svg {...common}>
+          <path d="M6 22 11 12h10l5 10z" fill="#ffc531" stroke={INK} stroke-width="2.4" stroke-linejoin="round" />
+          <path d="M12 15h4" stroke="#fff6b0" stroke-width="2" stroke-linecap="round" />
+        </svg>
+      );
     default:
       return null;
   }

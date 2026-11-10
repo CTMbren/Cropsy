@@ -1,0 +1,52 @@
+{
+  "goods": [
+    { "id": "flour", "name": "Flour", "sell": 160, "color": "#f3ead2" },
+    { "id": "jam", "name": "Strawberry Jam", "sell": 240, "color": "#d6304a" },
+    { "id": "pastry", "name": "Berry Pastry", "sell": 780, "color": "#e8b55c" }
+  ],
+  "materials": [
+    { "id": "wood", "name": "Wood" },
+    { "id": "stone", "name": "Stone" },
+    { "id": "gold", "name": "Gold Nugget" }
+  ],
+  "buildings": [
+    {
+      "id": "mill",
+      "name": "Bramblewick Mill",
+      "where": "village",
+      "slots": 2,
+      "recipes": [{ "id": "flour", "inputs": { "wheat": 3 }, "output": "flour", "dur_s": 300, "xp": 4 }]
+    },
+    {
+      "id": "jam_maker",
+      "name": "Jam Maker",
+      "where": "farm",
+      "unlock_level": 6,
+      "cost": { "coins": 600 },
+      "slots": 2,
+      "recipes": [{ "id": "jam", "inputs": { "strawberry": 4 }, "output": "jam", "dur_s": 1200, "xp": 6 }]
+    },
+    {
+      "id": "bakery",
+      "name": "Bakery",
+      "where": "farm",
+      "unlock_level": 10,
+      "cost": { "coins": 2000, "items": { "wood": 20, "stone": 10 } },
+      "slots": 2,
+      "recipes": [{ "id": "pastry", "inputs": { "flour": 2, "jam": 1 }, "output": "pastry", "dur_s": 2700, "xp": 15 }]
+    }
+  ],
+  "tools": [
+    { "id": "saw", "name": "Saw", "unlock_level": 5, "coins": 150, "clears": "stump", "description": "Cuts stumps into wood." },
+    { "id": "pickaxe", "name": "Pickaxe", "unlock_level": 9, "coins": 500, "clears": "boulder", "description": "Breaks boulders into stone, sometimes gold." }
+  ],
+  "expansions": [
+    { "size": 5, "story": true },
+    { "size": 6, "level": 6, "coins": 400, "items": { "wood": 6, "stone": 4 } },
+    { "size": 7, "level": 10, "coins": 1500, "items": { "wood": 12, "stone": 8 } },
+    { "size": 8, "level": 15, "coins": 4000, "items": { "wood": 20, "stone": 15 } },
+    { "size": 9, "level": 20, "coins": 10000, "items": { "wood": 30, "stone": 25, "gold": 2 } }
+  ],
+  "market": { "unlock_level": 5, "min": 0.8, "max": 1.4, "featured_bonus": 1.5 },
+  "slot_upgrade_ribbons": [2, 4, 6]
+}

@@ -4,8 +4,17 @@
     "chapter": 1,
     "giver": "mail",
     "title": "A letter from Tobias",
-    "objectives": [{ "type": "read_mail", "id": "tobias_1" }],
-    "rewards": { "flags": ["met_goldie"] }
+    "objectives": [
+      {
+        "type": "read_mail",
+        "id": "tobias_1"
+      }
+    ],
+    "rewards": {
+      "flags": [
+        "met_goldie"
+      ]
+    }
   },
   {
     "id": "ch1_weeds",
@@ -16,53 +25,280 @@
       "Well, look at you! Tobias said you'd come.",
       "This place is more weed than farm. Pull a few of those weeds and let's see some soil."
     ],
-    "outro": ["There's the old dirt! Tobias always said it was the best in the valley.", "Here, a little something to buy seeds with."],
-    "objectives": [{ "type": "clear", "obstacle": "weeds", "n": 3 }],
-    "rewards": { "coins": 20, "xp": 10 }
+    "outro": [
+      "There's the old dirt! Tobias always said it was the best in the valley.",
+      "Here, a little something to buy seeds with."
+    ],
+    "objectives": [
+      {
+        "type": "clear",
+        "obstacle": "weeds",
+        "n": 3
+      }
+    ],
+    "rewards": {
+      "coins": 20,
+      "xp": 10
+    }
   },
   {
     "id": "ch1_harvest",
     "chapter": 1,
     "giver": "goldie",
     "title": "Your first harvest",
-    "intro": ["Pick a seed from the tray and tap the soil. Radishes are ready before you can say 'pie'.", "Bring in five crops and I'll show you how to sell them."],
-    "outro": ["Look at that haul! They go in your barn until you sell them."],
-    "objectives": [{ "type": "harvest", "crop": "any", "n": 5 }],
-    "rewards": { "xp": 10, "flags": ["crate_open"] }
+    "intro": [
+      "Pick a seed from the tray and tap the soil. Radishes are ready before you can say 'pie'.",
+      "Bring in five crops and I'll show you how to sell them."
+    ],
+    "outro": [
+      "Look at that haul! They go in your barn until you sell them."
+    ],
+    "objectives": [
+      {
+        "type": "harvest",
+        "crop": "any",
+        "n": 5
+      }
+    ],
+    "rewards": {
+      "xp": 10,
+      "flags": [
+        "crate_open"
+      ]
+    }
   },
   {
     "id": "ch1_ship",
     "chapter": 1,
     "giver": "goldie",
     "title": "Fill the shipping crate",
-    "intro": ["See the crate in your barn? Anything you put in there, I'll buy. Not top price, mind, but it's instant.", "Ship five crops."],
-    "outro": ["Pleasure doing business! Now, folks in town have been asking for fresh food.", "I'll pin their orders on your request board. Orders pay much better than the crate."],
-    "objectives": [{ "type": "sell", "n": 5 }],
-    "rewards": { "coins": 15, "xp": 10, "flags": ["board_open"] }
+    "intro": [
+      "See the crate in your barn? Anything you put in there, I'll buy. Not top price, mind, but it's instant.",
+      "Ship five crops."
+    ],
+    "outro": [
+      "Pleasure doing business! Now, folks in town have been asking for fresh food.",
+      "I'll pin their orders on your request board. Orders pay much better than the crate."
+    ],
+    "objectives": [
+      {
+        "type": "sell",
+        "n": 5
+      }
+    ],
+    "rewards": {
+      "coins": 15,
+      "xp": 10,
+      "flags": [
+        "board_open"
+      ]
+    }
   },
   {
     "id": "ch1_order",
     "chapter": 1,
     "giver": "goldie",
     "title": "Goldie's carrot order",
-    "intro": ["I've pinned an order of my own on the board. Four carrots for my famous carrot cake.", "Bring them and I'll pay you properly."],
-    "outro": ["Perfect carrots! Oh, and Bruno the carpenter wants a word about that sorry gate of yours.", "I think he left you a note."],
+    "intro": [
+      "I've pinned an order of my own on the board. Four carrots for my famous carrot cake.",
+      "Bring them and I'll pay you properly."
+    ],
+    "outro": [
+      "Perfect carrots! Oh, and Bruno the carpenter wants a word about that sorry gate of yours.",
+      "I think he left you a note."
+    ],
     "objectives": [
       {
         "type": "deliver_order",
-        "order": { "id": "story_goldie_carrots", "villager": "goldie", "wants": { "carrot": 4 }, "coins": 60, "xp": 15 }
+        "order": {
+          "id": "story_goldie_carrots",
+          "villager": "goldie",
+          "wants": {
+            "carrot": 4
+          },
+          "coins": 60,
+          "xp": 15
+        }
       }
     ],
-    "rewards": { "mail": [{ "id": "bruno_quote", "delay": "now" }], "flags": ["met_bruno"] }
+    "rewards": {
+      "mail": [
+        {
+          "id": "bruno_quote",
+          "delay": "now"
+        }
+      ],
+      "flags": [
+        "met_bruno"
+      ]
+    }
   },
   {
     "id": "ch1_gate",
     "chapter": 1,
     "giver": "bruno",
     "title": "Rebuild the gate",
-    "intro": ["So you're Tobias's kin. Good to meet you.", "Bring me 4 wood, 3 stone and 60 coins, and I'll have that gate rebuilt overnight. Branches give wood; rocks give stone."],
-    "outro": ["That's everything. Leave it with me. Check your mailbox in the morning."],
-    "objectives": [{ "type": "hand_in", "items": { "wood": 4, "stone": 3 }, "coins": 60 }],
-    "rewards": { "xp": 20, "mail": [{ "id": "bruno_gate_done", "delay": "next_day" }] }
+    "intro": [
+      "So you're Tobias's kin. Good to meet you.",
+      "Bring me 4 wood, 3 stone and 60 coins, and I'll have that gate rebuilt overnight. Branches give wood; rocks give stone."
+    ],
+    "outro": [
+      "That's everything. Leave it with me. Check your mailbox in the morning."
+    ],
+    "objectives": [
+      {
+        "type": "hand_in",
+        "items": {
+          "wood": 4,
+          "stone": 3
+        },
+        "coins": 60
+      }
+    ],
+    "rewards": {
+      "xp": 20,
+      "mail": [
+        {
+          "id": "bruno_gate_done",
+          "delay": "next_day"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ch2_letter",
+    "chapter": 2,
+    "giver": "mail",
+    "min_level": 6,
+    "title": "A favour for Goldie",
+    "objectives": [
+      {
+        "type": "read_mail",
+        "id": "goldie_rufus"
+      }
+    ],
+    "rewards": {
+      "flags": [
+        "met_rufus"
+      ]
+    }
+  },
+  {
+    "id": "ch2_rufus",
+    "chapter": 2,
+    "giver": "rufus",
+    "title": "The grumpy miller",
+    "intro": [
+      "Don't need help. Don't need a farmer. Don't need anything.",
+      "...",
+      "Fine. If you're so keen, bring me 10 wheat. Then we'll talk."
+    ],
+    "outro": [
+      "Hm. Good wheat. Tobias's soil, no doubt.",
+      "The mill's wheel is jammed solid and the path is choked with old stumps. Bruno can tell you about those."
+    ],
+    "objectives": [
+      {
+        "type": "hand_in",
+        "items": {
+          "wheat": 10
+        }
+      }
+    ],
+    "rewards": {
+      "xp": 25,
+      "spawn": {
+        "stump": 2
+      }
+    }
+  },
+  {
+    "id": "ch2_stumps",
+    "chapter": 2,
+    "giver": "bruno",
+    "title": "Old stumps",
+    "intro": [
+      "Rufus sent you? Ha! Those stumps by the mill path have been there since before I was born.",
+      "Buy a saw from Goldie's store in Town, then cut two stumps. We'll need the wood anyway."
+    ],
+    "outro": [
+      "Nice work. That wood will go straight into the mill."
+    ],
+    "objectives": [
+      {
+        "type": "clear",
+        "obstacle": "stump",
+        "n": 2
+      }
+    ],
+    "rewards": {
+      "xp": 20,
+      "flags": [
+        "mill_project"
+      ]
+    }
+  },
+  {
+    "id": "ch2_mill",
+    "chapter": 2,
+    "giver": "rufus",
+    "title": "Restore the mill",
+    "intro": [
+      "So you're serious. All right.",
+      "The mill needs three things: timber and stone for the frame, wheat to test the stones, and coins for a new wheel. Find the project in Town."
+    ],
+    "outro": [
+      "Listen. Hear that? No, you don't. Not yet. Bruno's fitting the wheel tonight.",
+      "Come back tomorrow."
+    ],
+    "objectives": [
+      {
+        "type": "project",
+        "id": "mill",
+        "n": 3
+      }
+    ],
+    "rewards": {
+      "xp": 60,
+      "mail": [
+        {
+          "id": "rufus_wheel",
+          "delay": "next_day"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ch2_flour",
+    "chapter": 2,
+    "giver": "rufus",
+    "title": "First flour",
+    "intro": [
+      "Wheel's turning. Now let's see if you can use it.",
+      "Tap the mill behind your farm, put in wheat, and bring me 3 bags of flour."
+    ],
+    "outro": [
+      "Fine flour. Finest in twenty years. Don't tell anyone I said so.",
+      "Tobias will want to hear about this."
+    ],
+    "objectives": [
+      {
+        "type": "hand_in",
+        "items": {
+          "flour": 3
+        }
+      }
+    ],
+    "rewards": {
+      "xp": 40,
+      "ribbons": 3,
+      "mail": [
+        {
+          "id": "tobias_2",
+          "delay": "now"
+        }
+      ]
+    },
+    "requires_flag": "mill_built"
   }
 ]

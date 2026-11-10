@@ -1,6 +1,7 @@
-import type { Content, Objective, QuestDef, Rewards } from './content';
+import { itemName, type Content, type Objective, type QuestDef, type Rewards } from './content';
 import { pinOrder } from './board';
-import { expand, grantXp, hasFlag, hasItems, setFlag, takeItems, type FarmState } from './farm';
+import { grantBuilding } from './processing';
+import { expand, grantXp, hasFlag, hasItems, setFlag, spawnObstacles, takeItems, type FarmState, type ObstacleKind } from './farm';
 import { nextLocalMidnight } from './time';
 
 /** Gameplay events the quest tracker listens to. */
@@ -9,7 +10,8 @@ export type GameEvent =
   | { type: 'clear'; obstacle: string }
   | { type: 'sell'; n: number }
   | { type: 'read_mail'; id: string }
-  | { type: 'order_done'; id: string };
+  | { type: 'order_done'; id: string }
+  | { type: 'project'; id: string; stage: number };
 
 export const target = (o: Objective): number => ('n' in o ? o.n : 1);
 
@@ -17,9 +19,26 @@ export function activeQuest(state: FarmState, content: Content): QuestDef | null
   return state.story.active ? (content.questById.get(state.story.active.id) ?? null) : null;
 }
 
-/** Chapter 1 is a linear chain: the next quest is the first one not yet done. */
+/**
+ * The story is a linear chain: the next quest is the first one not yet done. It waits until the
+ * player reaches its level or earns its flag, so chapters are paced by progress, not a timer.
+ */
 function nextQuest(state: FarmState, content: Content): QuestDef | null {
-  return content.quests.find((q) => !state.story.done.includes(q.id)) ?? null;
+  const q = content.quests.find((x) => !state.story.done.includes(x.id)) ?? null;
+  if (!q) return null;
+  if ((q.min_level ?? 1) > state.level) return null;
+  if (q.requires_flag && !hasFlag(state, q.requires_flag)) return null;
+  return q;
+}
+
+/** What the story is waiting for when no quest is active (for the tracker). */
+export function waitingFor(state: FarmState, content: Content): { level?: number; flag?: string; title: string } | null {
+  if (state.story.active) return null;
+  const q = content.quests.find((x) => !state.story.done.includes(x.id));
+  if (!q) return null;
+  if ((q.min_level ?? 1) > state.level) return { level: q.min_level, title: q.title };
+  if (q.requires_flag && !hasFlag(state, q.requires_flag)) return { flag: q.requires_flag, title: q.title };
+  return null;
 }
 
 export interface StoryOutcome {
@@ -75,9 +94,16 @@ export function readMail(state: FarmState, content: Content, id: string, now: nu
       out.expanded = true;
     }
     if (letter.effects.coins) state.coins += letter.effects.coins;
+    for (const f of letter.effects.flags ?? []) {
+      setFlag(state, f);
+      // "<building>_built" flags hand the player that building (e.g. the mill)
+      if (f.endsWith('_built')) grantBuilding(state, content, f.slice(0, -'_built'.length));
+    }
   }
   const r = onEvent(state, content, { type: 'read_mail', id }, now, offsetMin);
-  return { ...r, expanded: out.expanded };
+  // a letter's flag can unlock the next quest (e.g. the mill wheel letter)
+  const next = advance(state, content, now, offsetMin);
+  return { ...r, started: r.started ?? next.started, expanded: out.expanded };
 }
 
 function matches(o: Objective, e: GameEvent): number {
@@ -92,6 +118,8 @@ function matches(o: Objective, e: GameEvent): number {
       return e.type === 'read_mail' && e.id === o.id ? 1 : 0;
     case 'deliver_order':
       return e.type === 'order_done' && e.id === o.order.id ? 1 : 0;
+    case 'project':
+      return e.type === 'project' && e.id === o.id ? 1 : 0;
     default:
       return 0;
   }
@@ -149,6 +177,8 @@ export function talk(state: FarmState, content: Content, now: number, offsetMin:
 
 function grant(state: FarmState, r: Rewards, now: number, offsetMin: number): number {
   if (r.coins) state.coins += r.coins;
+  if (r.ribbons) state.ribbons += r.ribbons;
+  for (const [kind, n] of Object.entries(r.spawn ?? {})) spawnObstacles(state, kind as ObstacleKind, n ?? 0);
   for (const f of r.flags ?? []) setFlag(state, f);
   for (const m of r.mail ?? []) sendMail(state, m.id, m.delay, now, offsetMin);
   return r.xp ? grantXp(state, r.xp) : 0;
@@ -169,7 +199,7 @@ export function objectiveText(o: Objective, content: Content): string {
     case 'read_mail':
       return 'Read the letter in your mailbox';
     case 'clear':
-      return `Clear ${o.n} ${o.obstacle === 'any' ? 'obstacles' : o.obstacle === 'weeds' ? 'weeds' : o.obstacle === 'branch' ? 'branches' : 'rocks'}`;
+      return `Clear ${o.n} ${{ any: 'obstacles', weeds: 'weeds', branch: 'branches', rock: 'rocks', stump: 'stumps', boulder: 'boulders' }[o.obstacle]}`;
     case 'harvest':
       return `Harvest ${o.n} ${o.crop === 'any' ? 'crops' : (content.cropById.get(o.crop)?.name ?? o.crop)}`;
     case 'sell':
@@ -179,9 +209,11 @@ export function objectiveText(o: Objective, content: Content): string {
       return `Fill the board order: ${n} ${content.cropById.get(id)?.name ?? id}`;
     }
     case 'hand_in': {
-      const parts = Object.entries(o.items).map(([id, n]) => `${n} ${id}`);
+      const parts = Object.entries(o.items).map(([id, n]) => `${n} ${itemName(content, id).toLowerCase()}`);
       if (o.coins) parts.push(`${o.coins} coins`);
       return `Bring ${parts.join(', ')}`;
     }
+    case 'project':
+      return `Restore the ${content.projects.get(o.id)?.name ?? o.id} (in Town)`;
   }
 }

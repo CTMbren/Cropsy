@@ -1,10 +1,10 @@
-import type { Content, CropDef, OrderDef } from './content';
+import type { Content, CropDef, ObstacleKind, OrderDef } from './content';
 import { addXp } from './progression';
 import type { TimeState } from './time';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
-export type ObstacleKind = 'weeds' | 'branch' | 'rock';
+export type { ObstacleKind };
 
 export interface PlotState {
   crop: string | null;
@@ -31,9 +31,23 @@ export interface OrderState extends OrderDef {
   story?: string;
 }
 
+export interface QueueItem {
+  recipe: string;
+  /** When this item starts processing; items run one after another per building. */
+  startsAt: number;
+  durS: number;
+}
+
+export interface BuildingState {
+  slots: number;
+  queue: QueueItem[];
+}
+
 export interface FarmState {
   version: number;
   coins: number;
+  /** Earned-only special currency (never sold for money). */
+  ribbons: number;
   xp: number;
   level: number;
   width: number;
@@ -46,6 +60,12 @@ export interface FarmState {
   /** Last crop planted per plot, for Replant All. */
   lastCrop: Record<string, string>;
   expansions: number;
+  tools: string[];
+  buildings: Record<string, BuildingState>;
+  /** Stages delivered per restoration project. */
+  projects: Record<string, number>;
+  /** Crops harvested at least once (first harvest of each earns a Ribbon). */
+  seen: string[];
   flags: string[];
   story: StoryState;
   mail: MailState[];
@@ -78,6 +98,13 @@ const START_OBSTACLES: Record<string, ObstacleKind> = {
   '3,3': 'branch',
 };
 const EXPANSION_PATTERN: ObstacleKind[] = ['weeds', 'rock', 'branch', 'weeds', 'rock', 'weeds', 'branch', 'rock', 'weeds', 'weeds', 'branch'];
+/** Bigger fields hide tougher obstacles: stumps from 6×6, boulders from 7×7. */
+function patternFor(size: number): ObstacleKind[] {
+  const p = [...EXPANSION_PATTERN];
+  if (size >= 6) p.splice(2, 0, 'stump', 'stump');
+  if (size >= 7) p.splice(5, 0, 'boulder', 'stump', 'boulder');
+  return p;
+}
 
 const emptyPlot = (): PlotState => ({ crop: null, plantedAt: 0, growS: 0 });
 
@@ -89,6 +116,7 @@ export function newFarm(now: number): FarmState {
   return {
     version: SAVE_VERSION,
     coins: 30,
+    ribbons: 0,
     xp: 0,
     level: 1,
     width,
@@ -98,6 +126,10 @@ export function newFarm(now: number): FarmState {
     inventory: {},
     lastCrop: {},
     expansions: 0,
+    tools: [],
+    buildings: {},
+    projects: {},
+    seen: [],
     flags: [],
     story: { done: [], active: null },
     mail: [],
@@ -137,6 +169,7 @@ export function grantXp(s: FarmState, xp: number): number {
   const r = addXp(s.level, s.xp, xp);
   s.level = r.level;
   s.xp = r.xp;
+  s.ribbons += r.levelsGained; // one Ribbon per level-up
   return r.levelsGained;
 }
 
@@ -174,32 +207,58 @@ export function unlockedCrops(state: FarmState, content: Content): CropDef[] {
   return content.crops.filter((c) => c.unlock_level <= state.level);
 }
 
-/** Shipping crate pays 70% of a crop's value (never less than 1 coin). */
-export const cratePrice = (crop: CropDef) => Math.max(1, Math.round(crop.sell * 0.7));
+/** Shipping crate pays 70% of an item's value (never less than 1 coin). */
+export const cratePrice = (item: { sell: number }) => Math.max(1, Math.round(item.sell * 0.7));
 
-export type Fail = { ok: false; reason: 'no-plot' | 'occupied' | 'not-ripe' | 'locked' | 'no-coins' | 'unknown-crop' | 'blocked' | 'none' };
+export type Fail = { ok: false; reason: 'no-plot' | 'occupied' | 'not-ripe' | 'locked' | 'no-coins' | 'unknown-crop' | 'blocked' | 'none' | 'need-tool' };
 export type ActionResult =
   | { ok: true; kind: 'planted'; crop: CropDef }
-  | { ok: true; kind: 'harvested'; crop: CropDef; tip: number; xp: number; fresh: boolean; levelsGained: number }
-  | { ok: true; kind: 'cleared'; obstacle: ObstacleKind; item: string | null; cost: number; levelsGained: number }
+  | { ok: true; kind: 'harvested'; crop: CropDef; tip: number; xp: number; fresh: boolean; levelsGained: number; firstTime: boolean }
+  | { ok: true; kind: 'cleared'; obstacle: ObstacleKind; item: string | null; qty: number; gold: boolean; cost: number; levelsGained: number }
   | Fail;
 
-export const OBSTACLES: Record<ObstacleKind, { cost: number; item: string | null; xp: number; label: string }> = {
-  weeds: { cost: 0, item: null, xp: 1, label: 'Weeds' },
-  branch: { cost: 0, item: 'wood', xp: 1, label: 'Branches' },
-  rock: { cost: 5, item: 'stone', xp: 2, label: 'Rock' },
+export const OBSTACLES: Record<ObstacleKind, { cost: number; item: string | null; qty: number; xp: number; label: string; tool?: string }> = {
+  weeds: { cost: 0, item: null, qty: 0, xp: 1, label: 'Weeds' },
+  branch: { cost: 0, item: 'wood', qty: 1, xp: 1, label: 'Branches' },
+  rock: { cost: 5, item: 'stone', qty: 1, xp: 2, label: 'Rock' },
+  stump: { cost: 0, item: 'wood', qty: 2, xp: 4, label: 'Stump', tool: 'saw' },
+  boulder: { cost: 25, item: 'stone', qty: 3, xp: 8, label: 'Boulder', tool: 'pickaxe' },
 };
+
+/** Boulders sometimes hide a gold nugget (1 in 10, fixed per cell so reloading can't reroll it). */
+export function boulderHasGold(k: string, expansions: number): boolean {
+  let h = 2166136261;
+  for (const ch of `${k}:${expansions}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return (h >>> 0) % 10 === 0;
+}
 
 export function clearObstacle(state: FarmState, k: string): ActionResult {
   const kind = state.obstacles[k];
   if (!kind) return { ok: false, reason: 'none' };
   const o = OBSTACLES[kind];
+  if (o.tool && !state.tools.includes(o.tool)) return { ok: false, reason: 'need-tool' };
   if (state.coins < o.cost) return { ok: false, reason: 'no-coins' };
   state.coins -= o.cost;
   delete state.obstacles[k];
-  if (o.item) addItem(state, o.item, 1);
+  if (o.item) addItem(state, o.item, o.qty);
+  const gold = kind === 'boulder' && boulderHasGold(k, state.expansions);
+  if (gold) addItem(state, 'gold', 1);
   const levelsGained = grantXp(state, o.xp);
-  return { ok: true, kind: 'cleared', obstacle: kind, item: o.item, cost: o.cost, levelsGained };
+  return { ok: true, kind: 'cleared', obstacle: kind, item: o.item, qty: o.qty, gold, cost: o.cost, levelsGained };
+}
+
+/** Places obstacles on empty, unplanted plots (used by story quests). Returns the cells used. */
+export function spawnObstacles(state: FarmState, kind: ObstacleKind, n: number): string[] {
+  const free = Object.keys(state.plots)
+    .filter((k) => !state.plots[k].crop && !state.obstacles[k])
+    .sort((a, b) => {
+      const [ax, ay] = parseKey(a);
+      const [bx, by] = parseKey(b);
+      return bx + by - (ax + ay); // nearest the front edge first
+    })
+    .slice(0, n);
+  for (const k of free) state.obstacles[k] = kind;
+  return free;
 }
 
 export function plant(state: FarmState, content: Content, k: string, cropId: string, now: number): ActionResult {
@@ -229,9 +288,14 @@ export function harvest(state: FarmState, content: Content, k: string, now: numb
   const xp = Math.round(crop.xp * (fresh ? 1.5 : 1));
   state.coins += tip;
   addItem(state, crop.id, 1);
+  const firstTime = !state.seen.includes(crop.id);
+  if (firstTime) {
+    state.seen.push(crop.id);
+    state.ribbons += 1;
+  }
   const levelsGained = grantXp(state, xp);
   state.plots[k] = emptyPlot();
-  return { ok: true, kind: 'harvested', crop, tip, xp, fresh, levelsGained };
+  return { ok: true, kind: 'harvested', crop, tip, xp, fresh, levelsGained, firstTime };
 }
 
 /** Plants each empty plot with the crop it last grew, as far as coins allow. Returns plots planted. */
@@ -245,13 +309,13 @@ export function replantAll(state: FarmState, content: Content, now: number): str
 }
 
 /** Sells crops at the shipping crate. Returns coins earned (0 if nothing sold). */
-export function sell(state: FarmState, content: Content, cropId: string, n: number): number {
-  const crop = content.cropById.get(cropId);
-  const have = state.inventory[cropId] ?? 0;
+export function sell(state: FarmState, content: Content, itemId: string, n: number): number {
+  const item = content.cropById.get(itemId) ?? content.goods.get(itemId);
+  const have = state.inventory[itemId] ?? 0;
   const qty = Math.min(n, have);
-  if (!crop || qty <= 0) return 0;
-  const coins = cratePrice(crop) * qty;
-  addItem(state, cropId, -qty);
+  if (!item || qty <= 0) return 0;
+  const coins = cratePrice(item) * qty;
+  addItem(state, itemId, -qty);
   state.coins += coins;
   return coins;
 }
@@ -269,8 +333,9 @@ export function expand(state: FarmState): string[] {
       added.push(k);
     }
   }
+  const pattern = patternFor(w);
   added.forEach((k, i) => {
-    if (i % 4 !== 3) state.obstacles[k] = EXPANSION_PATTERN[(i + state.expansions * 3) % EXPANSION_PATTERN.length];
+    if (i % 4 !== 3) state.obstacles[k] = pattern[(i + state.expansions * 3) % pattern.length];
   });
   state.width = w;
   state.height = h;

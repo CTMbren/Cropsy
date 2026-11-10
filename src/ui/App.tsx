@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DAILY_ORDERS } from '../core/board';
-import { itemName, type VillagerDef } from '../core/content';
+import { itemName, itemValue, type Content, type VillagerDef } from '../core/content';
 import { cratePrice, hasFlag, hasItems, nextReady, unlockedCrops } from '../core/farm';
 import { xpToNext } from '../core/progression';
 import { fromSaveCode, toSaveCode } from '../core/save';
-import { activeQuest, canHandIn, inbox, objectiveText, target, unreadCount, type TalkResult } from '../core/story';
+import { canAffordBuilding, queueView, readyCount, slotUpgradeCost } from '../core/processing';
+import { featuredCrop, marketOpen, marketPrice, nextExpansion, priceFactor } from '../core/shop';
+import { activeQuest, canHandIn, inbox, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
 import { formatDuration } from '../core/time';
 import type { Game } from '../game';
 import { lastSavedAt } from '../platform/storage';
@@ -35,7 +37,7 @@ const seenHint = (): boolean => {
 };
 const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-type Sheet = 'barn' | 'board' | 'mail' | 'settings' | null;
+type Sheet = 'barn' | 'board' | 'mail' | 'settings' | 'town' | `building:${string}` | null;
 type Dialogue = { villager: VillagerDef; lines: string[]; index: number; done?: string };
 type Flyer = { id: number; x: number; y: number; go: boolean };
 
@@ -48,6 +50,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
   const [installHint, setInstallHint] = useState(false);
   const [flyers, setFlyers] = useState<Flyer[]>([]);
   const [coinBump, setCoinBump] = useState(0);
+  const [levelCard, setLevelCard] = useState<number | null>(null);
   const coinRef = useRef<HTMLDivElement>(null);
 
   const fly = (x: number, y: number, n: number) => {
@@ -64,7 +67,8 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
 
   useEffect(() => {
     const offFx = game.onFx((e) => {
-      if (e.kind === 'levelup') setToast(`Level ${e.level}! New seeds unlocked`);
+      if (e.kind === 'levelup') setLevelCard(e.level);
+      if (e.kind === 'ribbon') setToast(`+${e.amount} Ribbon · ${e.why}`);
       if (e.kind === 'quest') setToast(e.done ? `Quest complete: ${e.title}` : `New quest: ${e.title}`);
       if (e.kind === 'expand') setToast('The back field is open!');
       if (e.kind === 'coins') fly(window.innerWidth / 2, window.innerHeight - 200, e.amount);
@@ -74,6 +78,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
     });
     const offScreen = game.onScreenFx((e) => {
       if (e.kind === 'coin-fly') fly(e.x, e.y, e.amount);
+      if (e.kind === 'open-building') setSheet(`building:${e.id}`);
     });
     return () => {
       offFx();
@@ -126,6 +131,10 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
           <span class="coin" aria-hidden="true" />
           {s.coins.toLocaleString()}
         </div>
+        <div class="pill ribbons" aria-label={`${s.ribbons} Ribbons`}>
+          <Icon name="ribbon" size={22} />
+          {s.ribbons}
+        </div>
         <button class="round" aria-label="Settings" onClick={() => setSheet('settings')}>
           <Icon name="menu" />
         </button>
@@ -153,6 +162,17 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
           )}
         </button>
       )}
+
+      {!quest && (() => {
+        const w = waitingFor(s, game.content);
+        if (!w) return null;
+        return (
+          <div class="tracker waiting">
+            <span class="tracker-title">Coming up: {w.title}</span>
+            <span class="tracker-obj">{w.level ? `Reach level ${w.level}` : 'Check your mailbox tomorrow'}</span>
+          </div>
+        );
+      })()}
 
       {ready !== null && <div class="next-ready">Next harvest in {formatDuration(ready)}</div>}
       {toast && (
@@ -222,6 +242,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         <NavBtn icon="farm" label="Farm" active={sheet === null} onClick={() => setSheet(null)} />
         <NavBtn icon="barn" label="Barn" badge={barnCount} active={sheet === 'barn'} onClick={() => setSheet('barn')} />
         <NavBtn icon="board" label="Board" badge={boardOpen ? fillable : 0} locked={!boardOpen} active={sheet === 'board'} onClick={() => boardOpen && setSheet('board')} />
+        <NavBtn icon="town" label="Town" active={sheet === 'town'} onClick={() => setSheet('town')} />
         <NavBtn icon="mail" label="Mail" badge={mailUnread} active={sheet === 'mail'} onClick={() => setSheet('mail')} />
       </nav>
 
@@ -229,6 +250,10 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       {sheet === 'board' && <BoardSheet game={game} onClose={() => setSheet(null)} />}
       {sheet === 'mail' && <MailSheet game={game} now={now} onClose={() => setSheet(null)} />}
       {sheet === 'settings' && <Settings game={game} onClose={() => setSheet(null)} debug={debug} />}
+      {sheet === 'town' && <TownSheet game={game} onClose={() => setSheet(null)} />}
+      {sheet?.startsWith('building:') && <BuildingSheet game={game} id={sheet.slice(9)} now={now} onClose={() => setSheet(null)} />}
+
+      {levelCard !== null && <LevelCard content={game.content} level={levelCard} onClose={() => setLevelCard(null)} />}
 
       {dialogue && (
         <div class="dialogue-back" onClick={() => (dialogue.index < dialogue.lines.length - 1 ? setDialogue({ ...dialogue, index: dialogue.index + 1 }) : setDialogue(null))}>
@@ -319,15 +344,15 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
 
 function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
   const s = game.state;
-  const crops = game.content.crops.filter((c) => (s.inventory[c.id] ?? 0) > 0);
-  const materials = ['wood', 'stone'].filter((m) => (s.inventory[m] ?? 0) > 0);
+  const crops = [...game.content.crops, ...game.content.goods.values()].filter((c) => (s.inventory[c.id] ?? 0) > 0);
+  const materials = game.content.economy.materials.map((m) => m.id).filter((m) => (s.inventory[m] ?? 0) > 0);
   const total = crops.reduce((a, c) => a + cratePrice(c) * (s.inventory[c.id] ?? 0), 0);
   return (
     <Sheet title="Barn" onClose={onClose}>
       {!crops.length && !materials.length && <p class="muted">Your barn is empty. Harvested crops land here.</p>}
       {crops.length > 0 && (
         <>
-          <h3>Crops</h3>
+          <h3>Crops and goods</h3>
           <ul class="rows">
             {crops.map((c) => (
               <li key={c.id} class="row-item">
@@ -536,6 +561,317 @@ function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; d
           </details>
         </>
       )}
+    </Sheet>
+  );
+}
+
+function LevelCard({ content, level, onClose }: { content: Content; level: number; onClose: () => void }) {
+  const items: string[] = [];
+  for (const c of content.crops) if (c.unlock_level === level) items.push(`New seed: ${c.name}`);
+  for (const b of content.buildings.values()) if (b.unlock_level === level) items.push(`New building in Town: ${b.name}`);
+  for (const t of content.tools.values()) if (t.unlock_level === level) items.push(`New tool in Town: ${t.name}`);
+  for (const e of content.economy.expansions) if (e.level === level) items.push(`Bruno can expand your farm to ${e.size}×${e.size}`);
+  if (content.economy.market.unlock_level === level) items.push('The market stall is open in Town');
+  for (const q of content.quests) if (q.min_level === level) items.push(`A new chapter of the story begins`);
+  return (
+    <div class="modal-back" onClick={onClose}>
+      <div class="card level-card" role="dialog" aria-labelledby="lvl-title">
+        <div class="big-star" aria-hidden="true">{level}</div>
+        <h2 id="lvl-title">Level {level}!</h2>
+        <p class="muted">+1 Ribbon</p>
+        {items.length > 0 && (
+          <ul class="away-list">
+            {items.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        )}
+        <button class="btn green" onClick={onClose}>
+          Hooray!
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Need({ have, need, label }: { have: number; need: number; label: string }) {
+  return <span class={have >= need ? 'have' : 'need'}>{Math.min(have, need)}/{need} {label}</span>;
+}
+
+function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
+  const s = game.state;
+  const c = game.content;
+  const tabs = ['store', 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(s.flags.includes('mill_project') ? ['projects'] : [])];
+  const [tab, setTab] = useState<string>(tabs.includes('projects') && (s.projects.mill ?? 0) < 3 ? 'projects' : 'store');
+  const day = game.day();
+  const exp = nextExpansion(s, c);
+  return (
+    <Sheet title="Bramblewick" onClose={onClose}>
+      <div class="tabs" role="tablist">
+        {tabs.map((t) => (
+          <button key={t} role="tab" aria-selected={tab === t} class={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
+            {t === 'store' ? "Goldie's store" : t === 'land' ? 'Land' : t === 'market' ? 'Market' : 'Projects'}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'store' && (
+        <>
+          <h3>Tools</h3>
+          <ul class="rows">
+            {[...c.tools.values()].map((t) => {
+              const owned = s.tools.includes(t.id);
+              const locked = t.unlock_level > s.level;
+              return (
+                <li key={t.id} class="row-item">
+                  <Icon name={t.id} size={30} />
+                  <span class="row-name">
+                    {t.name}
+                    <small>{locked ? `Unlocks at level ${t.unlock_level}` : t.description}</small>
+                  </span>
+                  {owned ? (
+                    <span class="chip owned">Owned</span>
+                  ) : (
+                    <button class="btn small" disabled={locked || s.coins < t.coins} onClick={() => game.buyTool(t.id)}>
+                      <span class="coin sm" aria-hidden="true" /> {t.coins}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <h3>Buildings</h3>
+          <ul class="rows">
+            {[...c.buildings.values()]
+              .filter((b) => b.where === 'farm')
+              .map((b) => {
+                const owned = !!s.buildings[b.id];
+                const locked = (b.unlock_level ?? 1) > s.level;
+                const r = b.recipes[0];
+                return (
+                  <li key={b.id} class="row-item">
+                    <Icon name="building" size={30} />
+                    <span class="row-name">
+                      {b.name}
+                      <small>
+                        {locked
+                          ? `Unlocks at level ${b.unlock_level}`
+                          : `${Object.entries(r.inputs)
+                              .map(([id, n]) => `${n} ${itemName(c, id)}`)
+                              .join(' + ')} → ${itemName(c, r.output)}`}
+                      </small>
+                      {!owned && !locked && b.cost?.items && (
+                        <small class="needs">
+                          {Object.entries(b.cost.items).map(([id, n]) => (
+                            <Need key={id} have={s.inventory[id] ?? 0} need={n} label={itemName(c, id)} />
+                          ))}
+                        </small>
+                      )}
+                    </span>
+                    {owned ? (
+                      <span class="chip owned">Built</span>
+                    ) : (
+                      <button class="btn small" disabled={locked || !canAffordBuilding(s, b)} onClick={() => game.buyBuilding(b.id)}>
+                        <span class="coin sm" aria-hidden="true" /> {b.cost?.coins ?? 0}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+          </ul>
+        </>
+      )}
+
+      {tab === 'land' && (
+        <div class="land">
+          <p class="muted">
+            Your field is {s.width}×{s.height}.
+          </p>
+          {!exp && <p class="muted">Bruno says your farm is as big as the valley allows. For now.</p>}
+          {exp?.story && <p class="muted">Bruno will look at your sorry old gate once you've met him in the story.</p>}
+          {exp && !exp.story && (
+            <div class="order">
+              <Portrait v={c.villagers.get('bruno')!} size={44} />
+              <div class="order-body">
+                <div class="order-who">
+                  Expand to {exp.size}×{exp.size}
+                </div>
+                <div class="order-wants">
+                  {(exp.level ?? 1) > s.level && <span class="need">Level {exp.level}</span>}
+                  <Need have={s.coins} need={exp.coins ?? 0} label="coins" />
+                  {Object.entries(exp.items ?? {}).map(([id, n]) => (
+                    <Need key={id} have={s.inventory[id] ?? 0} need={n} label={itemName(c, id)} />
+                  ))}
+                </div>
+              </div>
+              <button class="btn small green" onClick={() => game.buyExpansion()} disabled={(exp.level ?? 1) > s.level || s.coins < (exp.coins ?? 0) || !Object.entries(exp.items ?? {}).every(([id, n]) => (s.inventory[id] ?? 0) >= n)}>
+                Build
+              </button>
+            </div>
+          )}
+          <p class="muted small">New land comes with weeds, stumps and boulders to clear. Stumps need a saw and boulders a pickaxe.</p>
+        </div>
+      )}
+
+      {tab === 'market' && <MarketTab game={game} day={day} />}
+
+      {tab === 'projects' && (
+        <div class="projects">
+          {[...c.projects.values()].map((p) => {
+            const done = s.projects[p.id] ?? 0;
+            const st = p.stages[done];
+            return (
+              <div key={p.id} class="project">
+                <div class="project-head">
+                  <b>{p.name}</b>
+                  <span class="chip story">
+                    {Math.min(done, p.stages.length)}/{p.stages.length}
+                  </span>
+                </div>
+                <div class="stages">
+                  {p.stages.map((x, i) => (
+                    <span key={i} class={`stage${i < done ? ' done' : i === done ? ' current' : ''}`}>
+                      {x.label}
+                    </span>
+                  ))}
+                </div>
+                {st ? (
+                  <div class="order">
+                    <div class="order-body">
+                      <div class="order-who">Next: {st.label}</div>
+                      <div class="order-wants">
+                        {Object.entries(st.items ?? {}).map(([id, n]) => (
+                          <Need key={id} have={s.inventory[id] ?? 0} need={n} label={itemName(c, id)} />
+                        ))}
+                        {st.coins ? <Need have={s.coins} need={st.coins} label="coins" /> : null}
+                      </div>
+                    </div>
+                    <button
+                      class="btn small green"
+                      disabled={!Object.entries(st.items ?? {}).every(([id, n]) => (s.inventory[id] ?? 0) >= n) || s.coins < (st.coins ?? 0)}
+                      onClick={() => game.deliverProject(p.id)}
+                    >
+                      Deliver
+                    </button>
+                  </div>
+                ) : (
+                  <p class="muted">Restored!</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
+function MarketTab({ game, day }: { game: Game; day: number }) {
+  const s = game.state;
+  const c = game.content;
+  const featured = featuredCrop(s, c, day);
+  const sellable = Object.keys(s.inventory).filter((id) => itemValue(c, id) !== null);
+  return (
+    <>
+      <p class="muted small">Prices change every morning. The featured crop pays extra today.</p>
+      {featured && (
+        <div class="featured">
+          <span class="seed-icon sm" style={{ background: c.cropById.get(featured)?.color }} aria-hidden="true" />
+          Today's featured crop: <b>{itemName(c, featured)}</b> · {marketPrice(s, c, featured, day)} each
+        </div>
+      )}
+      {!sellable.length && <p class="muted">Nothing to sell yet. Harvested crops and goods from your barn can be sold here.</p>}
+      <ul class="rows">
+        {sellable.map((id) => {
+          const f = priceFactor(s, c, id, day);
+          const price = marketPrice(s, c, id, day);
+          return (
+            <li key={id} class="row-item">
+              <span class="seed-icon sm" style={{ background: c.cropById.get(id)?.color ?? c.goods.get(id)?.color }} aria-hidden="true" />
+              <span class="row-name">
+                {itemName(c, id)} <b>×{s.inventory[id]}</b>
+                <small class={f >= 1 ? 'up' : 'down'}>
+                  {f >= 1 ? '▲' : '▼'} {price} each ({Math.round(f * 100)}%)
+                </small>
+              </span>
+              <button class="btn small" onClick={() => game.marketSell(id, 1)}>
+                Sell 1
+              </button>
+              <button class="btn small green" onClick={() => game.marketSell(id, s.inventory[id] ?? 0)}>
+                All
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
+function BuildingSheet({ game, id, now, onClose }: { game: Game; id: string; now: number; onClose: () => void }) {
+  const s = game.state;
+  const c = game.content;
+  const def = c.buildings.get(id);
+  const b = s.buildings[id];
+  if (!def) return null;
+  if (!b) {
+    const done = s.projects[id] ?? 0;
+    return (
+      <Sheet title={def.name} onClose={onClose}>
+        <p class="muted">{done >= 3 ? 'Bruno is fitting the new wheel. Check your mailbox in the morning.' : 'The old mill is falling apart. Restore it through the project in Town.'}</p>
+      </Sheet>
+    );
+  }
+  const view = queueView(b, now);
+  const ready = readyCount(b, now);
+  const upCost = slotUpgradeCost(c, b, def);
+  return (
+    <Sheet title={def.name} onClose={onClose}>
+      <div class="queue">
+        {Array.from({ length: b.slots }, (_, i) => {
+          const q = view[i];
+          const r = q ? def.recipes.find((x) => x.id === q.item.recipe) : null;
+          const out = r ? c.goods.get(r.output) : null;
+          return (
+            <div key={i} class={`slot ${q?.status ?? 'empty'}`}>
+              {out ? <span class="seed-icon sm" style={{ background: out.color }} aria-hidden="true" /> : <span class="slot-empty">+</span>}
+              <span class="slot-label">{q ? (q.status === 'done' ? 'Ready' : q.status === 'working' ? formatDuration(q.remaining) : 'Waiting') : 'Empty'}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div class="row">
+        <button class="btn green" disabled={!ready} onClick={() => game.collect(id)}>
+          Collect {ready ? ready : ''}
+        </button>
+        {upCost !== null && (
+          <button class="btn" disabled={s.ribbons < upCost} onClick={() => game.upgradeSlots(id)}>
+            +1 slot · <Icon name="ribbon" size={16} /> {upCost}
+          </button>
+        )}
+      </div>
+      <h3>Make</h3>
+      <ul class="rows">
+        {def.recipes.map((r) => {
+          const ok = Object.entries(r.inputs).every(([k, n]) => (s.inventory[k] ?? 0) >= n);
+          return (
+            <li key={r.id} class="row-item">
+              <span class="seed-icon sm" style={{ background: c.goods.get(r.output)?.color }} aria-hidden="true" />
+              <span class="row-name">
+                {itemName(c, r.output)} <small>{formatDuration(r.dur_s)}</small>
+                <small class="needs">
+                  {Object.entries(r.inputs).map(([k, n]) => (
+                    <Need key={k} have={s.inventory[k] ?? 0} need={n} label={itemName(c, k)} />
+                  ))}
+                </small>
+              </span>
+              <button class="btn small green" disabled={!ok || b.queue.length >= b.slots} onClick={() => game.startRecipe(id, r.id)}>
+                Start
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </Sheet>
   );
 }

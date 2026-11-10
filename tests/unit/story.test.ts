@@ -109,3 +109,65 @@ describe('request board', () => {
     }
   });
 });
+
+describe('Chapter 2', () => {
+  it('waits for level 6, then plays from Goldie\'s letter to the first flour', async () => {
+    const { deliverStage } = await import('../../src/core/shop');
+    const { startRecipe, collect } = await import('../../src/core/processing');
+    const s = newFarm(T0);
+    now = T0;
+    s.story.done = content.quests.filter((q) => q.chapter === 1).map((q) => q.id);
+    expect(advance(s, content, now, TZ).started).toBeUndefined(); // level 1: Chapter 2 waits
+    s.level = 6;
+    advance(s, content, now, TZ);
+    expect(s.story.active?.id).toBe('ch2_letter');
+    readMail(s, content, 'goldie_rufus', now, TZ);
+
+    // Rufus wants wheat, then stumps appear on the farm
+    expect(s.story.active).toMatchObject({ id: 'ch2_rufus', status: 'offered' });
+    talk(s, content, now, TZ);
+    giveItems(s, { wheat: 10 });
+    expect(talk(s, content, now, TZ)).toMatchObject({ kind: 'outro' });
+    const stumps = Object.entries(s.obstacles).filter(([, k]) => k === 'stump').map(([k]) => k);
+    expect(stumps.length).toBe(2);
+
+    // Bruno: buy a saw, cut the stumps
+    talk(s, content, now, TZ);
+    s.tools.push('saw');
+    for (const k of stumps) {
+      clearObstacle(s, k);
+      ev(s, { type: 'clear', obstacle: 'stump' });
+    }
+    talk(s, content, now, TZ);
+    expect(s.flags).toContain('mill_project');
+
+    // Restore the mill in three stages
+    talk(s, content, now, TZ);
+    giveItems(s, { wood: 18, stone: 8, wheat: 15 });
+    s.coins = 300;
+    for (let i = 1; i <= 3; i++) {
+      deliverStage(s, content, 'mill');
+      ev(s, { type: 'project', id: 'mill', stage: i });
+    }
+    expect(talk(s, content, now, TZ)).toMatchObject({ kind: 'outro' });
+    expect(s.buildings.mill).toBeUndefined();
+    expect(s.story.active).toBeNull(); // waiting for the wheel
+
+    // Next morning: the wheel turns, the mill is ours, and the flour quest starts
+    now += 86400;
+    readMail(s, content, 'rufus_wheel', now, TZ);
+    expect(s.buildings.mill).toBeDefined();
+    expect(s.story.active).toMatchObject({ id: 'ch2_flour', status: 'offered' });
+    talk(s, content, now, TZ);
+    giveItems(s, { wheat: 9 });
+    startRecipe(s, content, 'mill', 'flour', now);
+    startRecipe(s, content, 'mill', 'flour', now);
+    collect(s, content, 'mill', now + 600);
+    startRecipe(s, content, 'mill', 'flour', now + 600);
+    collect(s, content, 'mill', now + 900);
+    const ribbons = s.ribbons;
+    expect(talk(s, content, now + 900, TZ)).toMatchObject({ kind: 'outro' });
+    expect(s.ribbons).toBe(ribbons + 3);
+    expect(inbox(s, now + 900).some((m) => m.id === 'tobias_2')).toBe(true);
+  });
+});

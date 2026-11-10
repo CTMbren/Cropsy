@@ -14,16 +14,20 @@ import {
   type AwaySummary,
   type FarmState,
 } from './core/farm';
+import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
+import { buyExpansion, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
 import { advance, onEvent, readMail, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
-import { gameNow, localOffsetMinutes, systemNow } from './core/time';
+import { dayIndex, gameNow, localOffsetMinutes, systemNow } from './core/time';
 import { loadSave, requestPersistence, writeSave } from './platform/storage';
 
 type Listener = () => void;
 export type FxEvent =
   | { kind: 'harvest'; key: string; tip: number; fresh: boolean; crop: string }
   | { kind: 'plant'; key: string }
-  | { kind: 'clear'; key: string; obstacle: string; item: string | null }
+  | { kind: 'clear'; key: string; obstacle: string; item: string | null; qty: number; gold: boolean }
   | { kind: 'coins'; amount: number }
+  | { kind: 'ribbon'; amount: number; why: string }
+  | { kind: 'collect'; building: string; items: Record<string, number> }
   | { kind: 'levelup'; level: number }
   | { kind: 'quest'; title: string; done: boolean }
   | { kind: 'expand' }
@@ -31,7 +35,7 @@ export type FxEvent =
   | { kind: 'ui' };
 
 /** Screen-space effects the farm scene asks the HUD to draw (e.g. coins flying to the coin pill). */
-export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number };
+export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number } | { kind: 'open-building'; id: string };
 
 /**
  * The single owner of game state. Phaser (the farm) and Preact (the HUD) both read from it and
@@ -108,6 +112,7 @@ export class Game {
     }
     if (r.kind === 'harvested') {
       this.fx({ kind: 'harvest', key, tip: r.tip, fresh: r.fresh, crop: r.crop.id });
+      if (r.firstTime) this.fx({ kind: 'ribbon', amount: 1, why: `First ${r.crop.name} harvest!` });
       this.levelUps(r.levelsGained);
       this.event({ type: 'harvest', crop: r.crop.id });
       log(this.state, now, `harvest ${r.crop.id}${r.fresh ? ' fresh' : ''}`);
@@ -115,7 +120,7 @@ export class Game {
     } else if (r.kind === 'planted') {
       this.fx({ kind: 'plant', key });
     } else if (r.kind === 'cleared') {
-      this.fx({ kind: 'clear', key, obstacle: r.obstacle, item: r.item });
+      this.fx({ kind: 'clear', key, obstacle: r.obstacle, item: r.item, qty: r.qty, gold: r.gold });
       this.levelUps(r.levelsGained);
       this.event({ type: 'clear', obstacle: r.obstacle });
       log(this.state, now, `clear ${r.obstacle}`);
@@ -145,7 +150,7 @@ export class Game {
 
   sellAll(): number {
     let total = 0;
-    for (const id of Object.keys(this.state.inventory)) if (this.content.cropById.has(id)) total += this.sell(id, Infinity);
+    for (const id of Object.keys(this.state.inventory)) if (this.content.cropById.has(id) || this.content.goods.has(id)) total += this.sell(id, Infinity);
     return total;
   }
 
@@ -156,6 +161,87 @@ export class Game {
     this.levelUps(r.levelsGained);
     log(this.state, this.now(), `order ${id}`);
     this.event({ type: 'order_done', id });
+    this.changed();
+    return true;
+  }
+
+  day(): number {
+    return dayIndex(this.now(), this.tz());
+  }
+
+  marketSell(itemId: string, n: number): number {
+    const coins = marketSell(this.state, this.content, itemId, n, this.day());
+    if (!coins) return 0;
+    this.fx({ kind: 'coins', amount: coins });
+    log(this.state, this.now(), `market ${itemId} ${coins}`);
+    this.event({ type: 'sell', n: Math.min(n, 999) });
+    this.changed();
+    return coins;
+  }
+
+  buyTool(id: string): BuyResult {
+    const r = buyTool(this.state, this.content, id);
+    if (r.ok) {
+      this.fx({ kind: 'ui' });
+      log(this.state, this.now(), `buy ${id}`);
+      this.changed();
+    }
+    return r;
+  }
+
+  buyExpansion(): BuyResult {
+    const r = buyExpansion(this.state, this.content);
+    if (r.ok) {
+      this.fx({ kind: 'expand' });
+      log(this.state, this.now(), `expand ${this.state.width}`);
+      this.changed();
+    }
+    return r;
+  }
+
+  buyBuilding(id: string): boolean {
+    const ok = buyBuilding(this.state, this.content, id);
+    if (ok) {
+      this.fx({ kind: 'quest', title: `${this.content.buildings.get(id)?.name} built`, done: true });
+      log(this.state, this.now(), `build ${id}`);
+      this.changed();
+    }
+    return ok;
+  }
+
+  startRecipe(buildingId: string, recipeId: string): boolean {
+    const r = startRecipe(this.state, this.content, buildingId, recipeId, this.now());
+    if (r.ok) {
+      this.fx({ kind: 'ui' });
+      this.changed();
+    }
+    return r.ok;
+  }
+
+  collect(buildingId: string): number {
+    const r = collect(this.state, this.content, buildingId, this.now());
+    const n = Object.values(r.items).reduce((a, b) => a + b, 0);
+    if (n) {
+      this.fx({ kind: 'collect', building: buildingId, items: r.items });
+      this.levelUps(r.levelsGained);
+      log(this.state, this.now(), `collect ${buildingId} ${n}`);
+      this.changed();
+    }
+    return n;
+  }
+
+  upgradeSlots(buildingId: string): boolean {
+    const ok = upgradeSlots(this.state, this.content, buildingId);
+    if (ok) this.changed();
+    return ok;
+  }
+
+  deliverProject(id: string): boolean {
+    const r = deliverStage(this.state, this.content, id);
+    if (!r.ok) return false;
+    this.fx({ kind: 'quest', title: `${this.content.projects.get(id)?.name}: stage ${r.stage} done`, done: true });
+    log(this.state, this.now(), `project ${id} ${r.stage}`);
+    this.event({ type: 'project', id, stage: r.stage });
     this.changed();
     return true;
   }
@@ -204,6 +290,7 @@ export class Game {
 
   replaceState(s: FarmState): void {
     this.state = s;
+    this.applyStory(advance(this.state, this.content, this.now(), this.tz()));
     this.changed();
   }
 
@@ -230,6 +317,8 @@ export class Game {
     if (n > 0) {
       this.fx({ kind: 'levelup', level: this.state.level });
       log(this.state, this.now(), `level ${this.state.level}`);
+      // a new level can unlock the next chapter
+      this.applyStory(advance(this.state, this.content, this.now(), this.tz()));
     }
   }
 

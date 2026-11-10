@@ -7,16 +7,21 @@ sell, and slowly bring the village of Bramblewick back to life. No avatar, no wa
 
 ## Status
 
-**Phase 1, vertical slice.** Chapter 1 of the story is playable:
+**Phase 2 (part 1), mechanics.** Chapters 1 and 2 of the story are playable:
 
-- Tobias's letter, Goldie's visits, and six quests ending with Bruno rebuilding the gate overnight
-- Weeds, branches and rocks to clear (branches give wood, rocks give stone)
-- Harvests go to the barn; sell at the shipping crate (70%) or fill request-board orders (1.8×)
-- Request board with a pinned story order plus three new orders every local midnight
-- Mailbox with next-day letters, a "while you were away" summary, Replant All, drag to plant
-- Coin flyers, harvest bursts and synthesized sound effects (respects the silent switch)
+- **Chapter 1:** Tobias's letter, Goldie's visits, six quests ending with Bruno rebuilding the gate overnight
+- **Chapter 2 (from level 6):** grumpy Rufus, a saw for the old stumps, a 3-stage project to restore the
+  mill (it turns overnight), then your first flour
+- 15 crops from 30 seconds to 48 hours, levels to 30 with a level-up card showing what unlocked
+- Processing buildings with queues that keep working while the game is closed: the Mill (flour),
+  Jam Maker and Bakery; extra queue slots cost Ribbons
+- Goldie's store (saw, pickaxe, buildings), Bruno's land expansions up to 9×9 with stumps,
+  boulders and the odd gold nugget, and a market stall with daily prices and a featured crop
+- Ribbons: earned from level-ups, first harvests, some orders and the story; never sold for money
+- Request board orders for crops and, once you can make them, goods
 
-Art is placeholder vector drawing until the art pipeline lands.
+Coming in part 2: villager hearts and gifts, soil tiers and fertilizer, barn capacity, an economy
+simulator to tune pacing, and music. Art is placeholder vector drawing until the art pipeline lands.
 
 ## Stack
 
@@ -38,7 +43,7 @@ event log in the settings menu.
 ## Layout
 
 ```
-content/          game data: crops, quests, letters, villagers — story and balance changes need no code
+content/          game data: crops, economy (goods, buildings, tools, land), quests, letters, projects
 src/core/         pure game logic: no Phaser or DOM, fully unit-tested
 src/platform/     browser services: IndexedDB saves
 src/world/        Phaser farm scene and isometric math

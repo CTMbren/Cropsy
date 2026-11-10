@@ -1,5 +1,7 @@
 import cropsJson from '../../content/crops.json';
+import economyJson from '../../content/economy.json';
 import lettersJson from '../../content/letters.json';
+import projectsJson from '../../content/projects.json';
 import questsJson from '../../content/quests.json';
 import villagersJson from '../../content/villagers.json';
 
@@ -17,6 +19,66 @@ export interface CropDef {
   leaf: string;
 }
 
+export interface GoodDef {
+  id: string;
+  name: string;
+  sell: number;
+  color: string;
+}
+
+export interface RecipeDef {
+  id: string;
+  inputs: Record<string, number>;
+  output: string;
+  dur_s: number;
+  xp: number;
+}
+
+export interface BuildingDef {
+  id: string;
+  name: string;
+  /** "village" buildings come from the story (the mill); "farm" buildings are bought and stand beside the field. */
+  where: 'village' | 'farm';
+  unlock_level?: number;
+  cost?: { coins?: number; items?: Record<string, number> };
+  slots: number;
+  recipes: RecipeDef[];
+}
+
+export interface ToolDef {
+  id: string;
+  name: string;
+  unlock_level: number;
+  coins: number;
+  clears: string;
+  description: string;
+}
+
+export interface ExpansionDef {
+  size: number;
+  story?: boolean;
+  level?: number;
+  coins?: number;
+  items?: Record<string, number>;
+}
+
+export interface Economy {
+  goods: GoodDef[];
+  materials: { id: string; name: string }[];
+  buildings: BuildingDef[];
+  tools: ToolDef[];
+  expansions: ExpansionDef[];
+  market: { unlock_level: number; min: number; max: number; featured_bonus: number };
+  slot_upgrade_ribbons: number[];
+}
+
+export interface ProjectDef {
+  id: string;
+  name: string;
+  giver: string;
+  stages: { label: string; items?: Record<string, number>; coins?: number }[];
+}
+
 export interface VillagerDef {
   id: string;
   name: string;
@@ -30,7 +92,7 @@ export interface LetterDef {
   from: string;
   subject: string;
   body: string;
-  effects?: { expand?: boolean; coins?: number };
+  effects?: { expand?: boolean; coins?: number; flags?: string[] };
 }
 
 export interface OrderDef {
@@ -39,21 +101,28 @@ export interface OrderDef {
   wants: Record<string, number>;
   coins: number;
   xp: number;
+  ribbons?: number;
 }
+
+export type ObstacleKind = 'weeds' | 'branch' | 'rock' | 'stump' | 'boulder';
 
 export type Objective =
   | { type: 'read_mail'; id: string }
-  | { type: 'clear'; obstacle: 'weeds' | 'branch' | 'rock' | 'any'; n: number }
+  | { type: 'clear'; obstacle: ObstacleKind | 'any'; n: number }
   | { type: 'harvest'; crop: string; n: number }
   | { type: 'sell'; n: number }
   | { type: 'deliver_order'; order: OrderDef }
-  | { type: 'hand_in'; items: Record<string, number>; coins?: number };
+  | { type: 'hand_in'; items: Record<string, number>; coins?: number }
+  | { type: 'project'; id: string; n: number };
 
 export interface Rewards {
   coins?: number;
   xp?: number;
+  ribbons?: number;
   flags?: string[];
   mail?: { id: string; delay: 'now' | 'next_day' }[];
+  /** Places new obstacles on empty plots (e.g. the stumps Rufus mentions). */
+  spawn?: Partial<Record<ObstacleKind, number>>;
 }
 
 export interface QuestDef {
@@ -62,6 +131,8 @@ export interface QuestDef {
   /** A villager id, or "mail" for quests that start straight from a letter. */
   giver: string;
   title: string;
+  min_level?: number;
+  requires_flag?: string;
   intro?: string[];
   outro?: string[];
   objectives: Objective[];
@@ -71,6 +142,11 @@ export interface QuestDef {
 export interface Content {
   crops: CropDef[];
   cropById: Map<string, CropDef>;
+  goods: Map<string, GoodDef>;
+  economy: Economy;
+  buildings: Map<string, BuildingDef>;
+  tools: Map<string, ToolDef>;
+  projects: Map<string, ProjectDef>;
   villagers: Map<string, VillagerDef>;
   letters: Map<string, LetterDef>;
   quests: QuestDef[];
@@ -100,41 +176,69 @@ export function validateCrops(raw: unknown): CropDef[] {
   });
 }
 
-const ITEM_IDS = new Set(['wood', 'stone']);
+const OBSTACLE_KINDS = new Set(['weeds', 'branch', 'rock', 'stump', 'boulder', 'any']);
 
-/** Cross-checks quests against crops, villagers and letters so a typo fails the build, not the game. */
-export function validateStory(quests: QuestDef[], crops: Map<string, CropDef>, villagers: Map<string, VillagerDef>, letters: Map<string, LetterDef>): void {
+/** Cross-checks story and economy data so a typo fails the build, not the game. */
+export function validateStory(c: Omit<Content, 'questById'>): void {
+  const isItem = (id: string) => c.cropById.has(id) || c.goods.has(id) || c.economy.materials.some((m) => m.id === id);
   const ids = new Set<string>();
-  const isItem = (id: string) => crops.has(id) || ITEM_IDS.has(id);
-  for (const q of quests) {
+  for (const b of c.buildings.values()) {
+    for (const r of b.recipes) {
+      if (!c.goods.has(r.output)) throw new Error(`economy.json building "${b.id}": unknown output "${r.output}"`);
+      for (const k of Object.keys(r.inputs)) if (!isItem(k)) throw new Error(`economy.json building "${b.id}": unknown input "${k}"`);
+    }
+  }
+  for (const p of c.projects.values()) {
+    for (const st of p.stages) for (const k of Object.keys(st.items ?? {})) if (!isItem(k)) throw new Error(`projects.json "${p.id}": unknown item "${k}"`);
+  }
+  for (const q of c.quests) {
     const where = `quests.json "${q.id}"`;
     if (ids.has(q.id)) throw new Error(`${where} is duplicated`);
     ids.add(q.id);
-    if (q.giver !== 'mail' && !villagers.has(q.giver)) throw new Error(`${where}: unknown giver "${q.giver}"`);
+    if (q.giver !== 'mail' && !c.villagers.has(q.giver)) throw new Error(`${where}: unknown giver "${q.giver}"`);
     if (!q.objectives?.length) throw new Error(`${where}: needs at least one objective`);
     for (const o of q.objectives) {
-      if (o.type === 'read_mail' && !letters.has(o.id)) throw new Error(`${where}: unknown letter "${o.id}"`);
-      if (o.type === 'harvest' && o.crop !== 'any' && !crops.has(o.crop)) throw new Error(`${where}: unknown crop "${o.crop}"`);
+      if (o.type === 'read_mail' && !c.letters.has(o.id)) throw new Error(`${where}: unknown letter "${o.id}"`);
+      if (o.type === 'harvest' && o.crop !== 'any' && !c.cropById.has(o.crop)) throw new Error(`${where}: unknown crop "${o.crop}"`);
+      if (o.type === 'clear' && !OBSTACLE_KINDS.has(o.obstacle)) throw new Error(`${where}: unknown obstacle "${o.obstacle}"`);
+      if (o.type === 'project' && !c.projects.has(o.id)) throw new Error(`${where}: unknown project "${o.id}"`);
       if (o.type === 'deliver_order') {
-        if (!villagers.has(o.order.villager)) throw new Error(`${where}: unknown villager "${o.order.villager}"`);
-        for (const k of Object.keys(o.order.wants)) if (!crops.has(k)) throw new Error(`${where}: unknown crop "${k}"`);
+        if (!c.villagers.has(o.order.villager)) throw new Error(`${where}: unknown villager "${o.order.villager}"`);
+        for (const k of Object.keys(o.order.wants)) if (!isItem(k)) throw new Error(`${where}: unknown item "${k}"`);
       }
       if (o.type === 'hand_in') for (const k of Object.keys(o.items)) if (!isItem(k)) throw new Error(`${where}: unknown item "${k}"`);
     }
-    for (const m of q.rewards.mail ?? []) if (!letters.has(m.id)) throw new Error(`${where}: reward letter "${m.id}" does not exist`);
+    for (const m of q.rewards.mail ?? []) if (!c.letters.has(m.id)) throw new Error(`${where}: reward letter "${m.id}" does not exist`);
+    for (const k of Object.keys(q.rewards.spawn ?? {})) if (!OBSTACLE_KINDS.has(k)) throw new Error(`${where}: cannot spawn "${k}"`);
   }
-  for (const l of letters.values()) if (!villagers.has(l.from)) throw new Error(`letters.json "${l.id}": unknown sender "${l.from}"`);
+  for (const l of c.letters.values()) if (!c.villagers.has(l.from)) throw new Error(`letters.json "${l.id}": unknown sender "${l.from}"`);
 }
 
 export function loadContent(rawCrops: unknown = cropsJson): Content {
   const crops = validateCrops(rawCrops);
-  const cropById = new Map(crops.map((c) => [c.id, c]));
-  const villagers = new Map((villagersJson as VillagerDef[]).map((v) => [v.id, v]));
-  const letters = new Map((lettersJson as LetterDef[]).map((l) => [l.id, l]));
-  const quests = questsJson as QuestDef[];
-  validateStory(quests, cropById, villagers, letters);
-  return { crops, cropById, villagers, letters, quests, questById: new Map(quests.map((q) => [q.id, q])) };
+  const economy = economyJson as unknown as Economy;
+  const quests = questsJson as unknown as QuestDef[];
+  const c = {
+    crops,
+    cropById: new Map(crops.map((x) => [x.id, x])),
+    goods: new Map(economy.goods.map((g) => [g.id, g])),
+    economy,
+    buildings: new Map(economy.buildings.map((b) => [b.id, b as BuildingDef])),
+    tools: new Map(economy.tools.map((t) => [t.id, t])),
+    projects: new Map((projectsJson as unknown as ProjectDef[]).map((p) => [p.id, p])),
+    villagers: new Map((villagersJson as VillagerDef[]).map((v) => [v.id, v])),
+    letters: new Map((lettersJson as LetterDef[]).map((l) => [l.id, l])),
+    quests,
+  };
+  validateStory(c);
+  return { ...c, questById: new Map(quests.map((q) => [q.id, q])) };
 }
 
-export const itemName = (content: Content, id: string): string =>
-  content.cropById.get(id)?.name ?? (id === 'wood' ? 'Wood' : id === 'stone' ? 'Stone' : id);
+export function itemName(content: Content, id: string): string {
+  return content.cropById.get(id)?.name ?? content.goods.get(id)?.name ?? content.economy.materials.find((m) => m.id === id)?.name ?? id;
+}
+
+/** Base value of any sellable item (crops and goods); materials are not sellable. */
+export function itemValue(content: Content, id: string): number | null {
+  return content.cropById.get(id)?.sell ?? content.goods.get(id)?.sell ?? null;
+}
