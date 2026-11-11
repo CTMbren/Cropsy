@@ -12,8 +12,32 @@
     <link rel="icon" type="image/png" href="./favicon.png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <title>Cropsy</title>
+    <style>
+      /* Splash: shown while the game downloads; inline so it paints before any script or font. */
+      #splash { position: fixed; inset: 0; z-index: 10; display: grid; place-content: center; justify-items: center; gap: 18px;
+        background: radial-gradient(circle at 50% 40%, #a8de7e, #8fd16a 60%, #6fbf4a); transition: opacity 0.35s; font-family: system-ui, sans-serif; }
+      #splash.gone { opacity: 0; pointer-events: none; }
+      #splash .logo { font: 900 54px/1 'Arial Rounded MT Bold', ui-rounded, system-ui, sans-serif; color: #fff; letter-spacing: 1px;
+        -webkit-text-stroke: 3px #4a2e1a; paint-order: stroke fill; text-shadow: 0 5px 0 #4a2e1a; }
+      #splash .sprout { width: 84px; height: 84px; animation: grow 1.4s ease-in-out infinite alternate; transform-origin: 50% 90%; }
+      @keyframes grow { from { transform: scale(0.85) rotate(-4deg); } to { transform: scale(1.05) rotate(4deg); } }
+      #splash .bar { width: 160px; height: 14px; border: 3px solid #4a2e1a; border-radius: 10px; background: #fff8e6; overflow: hidden; }
+      #splash .bar i { display: block; height: 100%; width: 40%; border-radius: 6px; background: #5cb83a; animation: load 1.1s ease-in-out infinite; }
+      @keyframes load { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+      #splash .tip { max-width: 260px; text-align: center; font-weight: 600; font-size: 14px; color: #3d5a24; }
+      @media (prefers-reduced-motion: reduce) { #splash * { animation: none !important; } }
+    </style>
   </head>
   <body>
+    <div id="splash" role="status" aria-label="Loading Cropsy">
+      <svg class="sprout" viewBox="0 0 64 64" aria-hidden="true">
+        <path d="M8 50 32 38l24 12-24 12z" fill="#a86a3c" stroke="#4a2e1a" stroke-width="3" stroke-linejoin="round" />
+        <path d="M32 46V26m0 0c-8 0-14-5-14-12 8 0 14 5 14 12zm0 0c8 0 14-5 14-12-8 0-14 5-14 12z" fill="#5cb83a" stroke="#4a2e1a" stroke-width="3" stroke-linejoin="round" />
+      </svg>
+      <div class="logo">Cropsy</div>
+      <div class="bar"><i></i></div>
+      <div class="tip">Watering is optional. Forever.</div>
+    </div>
     <div id="farm" aria-label="Your farm"></div>
     <div id="ui"></div>
     <noscript>Cropsy needs JavaScript to grow crops.</noscript>

@@ -90,6 +90,8 @@ export interface FarmState {
   decorStore?: Record<string, number>;
   /** Daily gift calendar: gifts claimed so far and the local day of the last one. */
   calendar?: { claimed: number; lastDay: number };
+  /** When the player last copied a backup code, and when we last reminded them. */
+  backup?: { lastAt?: number; nudgedAt?: number };
   /** Moss's digs today. */
   moss?: { day: number; digs: number };
   /** Harvests per crop, for Crop Mastery. */

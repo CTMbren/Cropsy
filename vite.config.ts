@@ -3,10 +3,16 @@ import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+declare const process: { env: Record<string, string | undefined> };
+
+/** Build label shown in Settings and problem reports: date plus commit (GitHub Actions sets GITHUB_SHA). */
+const version = `${new Date().toISOString().slice(0, 10)}${process.env.GITHUB_SHA ? ` ${process.env.GITHUB_SHA.slice(0, 7)}` : ' dev'}`;
+
 // Relative base so the build works at https://<user>.github.io/<Repo>/ whatever the repo's casing,
 // and on a custom domain later.
 export default defineConfig({
   base: './',
+  define: { __APP_VERSION__: JSON.stringify(version) },
   plugins: [
     preact(),
     VitePWA({

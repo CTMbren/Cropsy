@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import { h, render } from 'preact';
 import { registerSW } from 'virtual:pwa-register';
 import { Game } from './game';
+import { installErrorLog } from './platform/errors';
 import { initMusic, setMusic } from './platform/music';
 import { play, setMuted, unlockAudio, whenAudioReady } from './platform/sound';
 import { App } from './ui/App';
@@ -16,7 +17,28 @@ for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) {
 }
 document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
 
+installErrorLog();
+
+const TIPS = [
+  'Watering is optional. Forever.',
+  'Crops keep growing while you sleep.',
+  'Harvest soon after ripening for a Fresh Pick bonus.',
+  'Moss accepts belly rubs and carrots.',
+  'Ziggy swears everything on his cart is genuine.',
+  'Rufus is smiling on the inside. Probably.',
+];
+
+/** Fades out the loading screen once the farm has drawn its first frame. */
+function hideSplash(): void {
+  const el = document.getElementById('splash');
+  if (!el) return;
+  el.classList.add('gone');
+  window.setTimeout(() => el.remove(), 400);
+}
+
 async function start() {
+  const tip = document.querySelector('#splash .tip');
+  if (tip) tip.textContent = TIPS[Math.floor(Math.random() * TIPS.length)];
   await document.fonts.load('26px "Lilita One"').catch(() => undefined);
   const game = new Game();
   await game.init();
@@ -69,6 +91,7 @@ async function start() {
       postBoot: (g) => {
         g.registry.set('dpr', dpr);
         g.scene.add('farm', FarmScene, true, { game });
+        requestAnimationFrame(() => requestAnimationFrame(hideSplash));
       },
     },
   });
@@ -120,4 +143,8 @@ async function start() {
   draw();
 }
 
-void start();
+start().catch((e: Error) => {
+  // never leave the player staring at the loading screen
+  hideSplash();
+  document.getElementById('ui')!.innerHTML = `<div class="modal-back" style="pointer-events:auto"><div class="card"><h2>Cropsy couldn't start</h2><p class="muted">${String(e?.message ?? e).replace(/[<>&]/g, '')}</p><p class="muted">Try closing and reopening the app. Your farm is saved.</p></div></div>`;
+});
