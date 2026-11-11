@@ -29,7 +29,16 @@ html, body {
   font-family: 'Fredoka', system-ui, sans-serif; font-weight: 600;
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
-#farm { position: fixed; inset: 0; touch-action: none; background: linear-gradient(var(--sky) 0 22%, var(--grass) 22%); }
+#farm {
+  position: fixed; inset: 0; touch-action: none;
+  /* soft sky with a few clouds fading into a meadow, behind the floating farm */
+  background:
+    radial-gradient(ellipse 70px 22px at 18% 24%, rgba(255, 255, 255, 0.9) 60%, transparent 62%),
+    radial-gradient(ellipse 46px 18px at 26% 22%, rgba(255, 255, 255, 0.9) 60%, transparent 62%),
+    radial-gradient(ellipse 80px 24px at 82% 30%, rgba(255, 255, 255, 0.85) 60%, transparent 62%),
+    radial-gradient(ellipse 50px 18px at 74% 28%, rgba(255, 255, 255, 0.85) 60%, transparent 62%),
+    linear-gradient(#7fd0f2 0%, #bfe8f6 34%, #d8f0c8 52%, #a6dc7c 64%, var(--grass) 100%);
+}
 #farm canvas { display: block; touch-action: none; }
 #ui { position: fixed; inset: 0; pointer-events: none; }
 /* Home-screen app: iOS reports the layout height minus the status bar, which left a strip of
@@ -116,6 +125,8 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .seed-icon { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid var(--ink); box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.15), inset 4px 4px 0 rgba(255, 255, 255, 0.35); flex: none; }
 .seed-icon.sm { width: 24px; height: 24px; }
 .seed.locked .seed-icon { filter: grayscale(1); opacity: 0.6; }
+.item-icon { flex: none; overflow: visible; filter: drop-shadow(0 1.5px 0 rgba(74, 46, 26, 0.18)); }
+.seed.locked .item-icon { filter: grayscale(1); opacity: 0.55; }
 .seed-name { font-size: 11.5px; line-height: 1.1; text-align: center; }
 .seed-meta { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .chip { font-size: 11px; padding: 1px 7px; border-radius: 9px; border: 1.5px solid var(--ink); color: #fff; background: #2f7fc4; }
@@ -383,3 +394,20 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
   100% { opacity: 0; translate: 0 260px; rotate: 540deg; }
 }
 .town-level { display: grid; place-items: center; flex: none; width: 44px; height: 44px; font-family: 'Lilita One', system-ui; font-size: 22px; color: #fff; -webkit-text-stroke: 1px var(--ink); paint-order: stroke fill; background: linear-gradient(#7cc4f5, #2a6fb0); border: 3px solid var(--ink); border-radius: 50%; }
+
+/* ── Art pass: a little depth on panels, cards and rows to match the shaded farm art ── */
+.portrait { flex: none; }
+.row-item .portrait, .sheet .portrait { filter: drop-shadow(0 2px 0 rgba(74, 46, 26, 0.25)); }
+.sheet { box-shadow: 0 5px 0 var(--ink), inset 0 3px 0 #fff; }
+.sheet-head { border-bottom: 2px dashed rgba(74, 46, 26, 0.16); margin: 0 10px 6px; padding-left: 6px; }
+.sheet-head h2 { -webkit-text-stroke: 0; text-shadow: 0 2px 0 rgba(63, 143, 39, 0.18); }
+.row-item {
+  background: linear-gradient(#ffffff, #fffaf0);
+  box-shadow: 0 3px 0 rgba(74, 46, 26, 0.22), inset 0 -3px 0 rgba(74, 46, 26, 0.05);
+}
+.tray { box-shadow: var(--shadow), inset 0 3px 0 #fff; }
+.seed { background: linear-gradient(#ffffff, #fdf6e6); }
+.seed.selected { background: linear-gradient(#f4fde6, #def5c4); }
+.seed .item-icon { width: 36px; height: 36px; }
+.nav { box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.35); }
+.dialogue { box-shadow: 0 5px 0 var(--ink), inset 0 3px 0 #fff; }

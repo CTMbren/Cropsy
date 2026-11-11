@@ -16,6 +16,8 @@ import { formatDuration } from '../core/time';
 import { clearErrors, recentErrors } from '../platform/errors';
 import type { Game } from '../game';
 import { lastSavedAt } from '../platform/storage';
+import { ItemIcon } from './itemArt';
+import { Portrait, type Mood } from './portraits';
 import { Icon } from './icons';
 
 function useGame(game: Game): number {
@@ -246,7 +248,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
               const sel = game.selectedDecor === id;
               return (
                 <button key={id} class={`seed${sel ? ' selected' : ''}`} aria-pressed={sel} onClick={() => game.selectDecor(id)}>
-                  <span class="seed-icon" style={{ background: d?.color }} aria-hidden="true" />
+                  <ItemIcon id={d?.id} color={d?.color} />
                   <span class="seed-name">{d?.name}</span>
                   <span class="chip time">×{n}</span>
                 </button>
@@ -267,7 +269,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
             const selected = game.mode === 'plant' && game.selectedCrop === c.id;
             return (
               <button key={c.id} class={`seed${selected ? ' selected' : ''}${locked ? ' locked' : ''}${coach?.target === 'seed' && coach.seed === c.id ? ' coach-pulse' : ''}`} disabled={locked} aria-pressed={selected} aria-label={`${c.name}${locked ? `, unlocks at level ${c.unlock_level}` : ''}`} onClick={() => game.selectCrop(c.id)}>
-                <span class="seed-icon" style={{ background: c.color }} aria-hidden="true" />
+                <ItemIcon id={c.id} color={c.color} />
                 <span class="seed-name">{c.name}</span>
                 {locked ? (
                   <span class="chip lock">Lv {c.unlock_level}</span>
@@ -447,7 +449,7 @@ function NavBtn({ icon, label, badge, active, locked, pulse, onClick }: { icon: 
   );
 }
 
-export type Mood = 'neutral' | 'happy' | 'surprised' | 'sad';
+export type { Mood };
 
 /** Reads a mood from a line of dialogue: excited lines smile, questions look surprised, trailing-off lines look wistful. */
 export function moodOf(line: string): Mood {
@@ -456,45 +458,6 @@ export function moodOf(line: string): Mood {
   if (l.endsWith('?')) return 'surprised';
   if (l.includes('!')) return 'happy';
   return 'neutral';
-}
-
-export function Portrait({ v, size, mood = 'neutral' }: { v: VillagerDef; size: number; mood?: Mood }) {
-  return (
-    <svg class="portrait" width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={v.name}>
-      <circle cx="32" cy="32" r="30" fill={v.color} stroke="#4a2e1a" stroke-width="3" />
-      <path d="M12 60c2-12 10-18 20-18s18 6 20 18" fill="#fff8e6" stroke="#4a2e1a" stroke-width="3" />
-      <circle cx="32" cy="28" r="13" fill="#f6c9a0" stroke="#4a2e1a" stroke-width="3" />
-      <path d="M19 26c0-9 6-14 13-14s13 5 13 14c-4-4-9-6-13-6s-9 2-13 6z" fill={v.hair} stroke="#4a2e1a" stroke-width="2.5" />
-      {mood === 'happy' ? (
-        <>
-          <path d="M25 29.5q2-2.5 4 0M35 29.5q2-2.5 4 0" fill="none" stroke="#4a2e1a" stroke-width="2" stroke-linecap="round" />
-          <path d="M27 33.5c2 3.5 8 3.5 10 0z" fill="#c0392b" stroke="#4a2e1a" stroke-width="1.8" stroke-linejoin="round" />
-          <circle cx="23.5" cy="32.5" r="2" fill="#f29b9b" opacity="0.8" />
-          <circle cx="40.5" cy="32.5" r="2" fill="#f29b9b" opacity="0.8" />
-        </>
-      ) : mood === 'surprised' ? (
-        <>
-          <path d="M24.5 24.5l4-1M35.5 23.5l4 1" stroke="#4a2e1a" stroke-width="1.8" stroke-linecap="round" />
-          <circle cx="27" cy="29" r="2.2" fill="#4a2e1a" />
-          <circle cx="37" cy="29" r="2.2" fill="#4a2e1a" />
-          <ellipse cx="32" cy="35" rx="2.2" ry="2.6" fill="#7a2e22" stroke="#4a2e1a" stroke-width="1.6" />
-        </>
-      ) : mood === 'sad' ? (
-        <>
-          <path d="M24.5 25.5l4 1.2M35.5 26.7l4-1.2" stroke="#4a2e1a" stroke-width="1.8" stroke-linecap="round" />
-          <circle cx="27" cy="29.5" r="1.8" fill="#4a2e1a" />
-          <circle cx="37" cy="29.5" r="1.8" fill="#4a2e1a" />
-          <path d="M28.5 35.5c2-1.5 5-1.5 7 0" fill="none" stroke="#4a2e1a" stroke-width="2" stroke-linecap="round" />
-        </>
-      ) : (
-        <>
-          <circle cx="27" cy="29" r="1.8" fill="#4a2e1a" />
-          <circle cx="37" cy="29" r="1.8" fill="#4a2e1a" />
-          <path d="M28 34c2 2 6 2 8 0" fill="none" stroke="#4a2e1a" stroke-width="2" stroke-linecap="round" />
-        </>
-      )}
-    </svg>
-  );
 }
 
 function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: preact.ComponentChildren }) {
@@ -536,7 +499,7 @@ function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
           <ul class="rows">
             {crops.map((c) => (
               <li key={c.id} class="row-item">
-                <span class="seed-icon sm" style={{ background: c.color }} aria-hidden="true" />
+                <ItemIcon id={c.id} color={c.color} small />
                 <span class="row-name">
                   {c.name} <b>×{s.inventory[c.id]}</b>
                 </span>
@@ -1155,7 +1118,7 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
                 const own = (stored(s)[d.id] ?? 0) + Object.values(placed(s)).filter((x) => x === d.id).length;
                 return (
                   <li key={d.id} class="row-item">
-                    <span class="seed-icon" style={{ background: d.color }} aria-hidden="true" />
+                    <ItemIcon id={d.id} color={d.color} />
                     <span class="row-name">
                       {d.name} {own > 0 && <b>×{own}</b>}
                       <small>{locked ? `Unlocks at level ${d.level}` : `Beauty +${d.beauty}`}</small>
@@ -1444,7 +1407,7 @@ function CartTab({ game, day }: { game: Game; day: number }) {
           const crop = slot.kind === 'seed' ? c.cropById.get(slot.crop) : undefined;
           return (
             <li key={i} class={`row-item${isSold ? ' sold' : ''}`}>
-              {crop ? <span class="seed-icon" style={{ background: crop.color }} aria-hidden="true" /> : <Icon name={slot.kind === 'item' ? slot.id : 'ribbon'} size={30} />}
+              {crop ? <ItemIcon id={crop.id} color={crop.color} /> : <Icon name={slot.kind === 'item' ? slot.id : 'ribbon'} size={30} />}
               <span class="row-name">
                 {slot.label}
                 <small>{slot.detail}</small>
@@ -1488,7 +1451,7 @@ function AlmanacTab({ game }: { game: Game }) {
           const next = MASTERY[stars];
           return (
             <li key={x.id} class={`almanac-card${seen ? '' : ' unknown'}`}>
-              <span class="seed-icon" style={{ background: seen ? x.color : '#cfc4b0' }} aria-hidden="true" />
+              {seen ? <ItemIcon id={x.id} color={x.color} /> : <span class="seed-icon" style={{ background: '#cfc4b0' }} aria-hidden="true" />}
               <span class="almanac-name">{seen ? x.name : '???'}</span>
               <span class="stars" aria-label={`${stars} of 3 mastery stars`}>
                 {[0, 1, 2].map((i) => (
@@ -1524,7 +1487,7 @@ function MarketTab({ game, day }: { game: Game; day: number }) {
       <p class="muted small">Prices change every morning. The featured crop pays extra today.</p>
       {featured && (
         <div class="featured">
-          <span class="seed-icon sm" style={{ background: c.cropById.get(featured)?.color }} aria-hidden="true" />
+          <ItemIcon id={featured} color={c.cropById.get(featured)?.color} small />
           Today's featured crop: <b>{itemName(c, featured)}</b> · {marketPrice(s, c, featured, day)} each
         </div>
       )}
@@ -1535,7 +1498,7 @@ function MarketTab({ game, day }: { game: Game; day: number }) {
           const price = marketPrice(s, c, id, day);
           return (
             <li key={id} class="row-item">
-              <span class="seed-icon sm" style={{ background: c.cropById.get(id)?.color ?? c.goods.get(id)?.color }} aria-hidden="true" />
+              <ItemIcon id={id} color={c.cropById.get(id)?.color ?? c.goods.get(id)?.color} small />
               <span class="row-name">
                 {itemName(c, id)} <b>×{s.inventory[id]}</b>
                 <small class={f >= 1 ? 'up' : 'down'}>
@@ -1582,7 +1545,7 @@ function BuildingSheet({ game, id, now, onClose }: { game: Game; id: string; now
           const out = r ? c.goods.get(r.output) : null;
           return (
             <div key={i} class={`slot ${q?.status ?? 'empty'}`}>
-              {out ? <span class="seed-icon sm" style={{ background: out.color }} aria-hidden="true" /> : <span class="slot-empty">+</span>}
+              {out ? <ItemIcon id={out.id} color={out.color} small /> : <span class="slot-empty">+</span>}
               <span class="slot-label">{q ? (q.status === 'done' ? 'Ready' : q.status === 'working' ? formatDuration(q.remaining) : 'Waiting') : 'Empty'}</span>
             </div>
           );
@@ -1604,7 +1567,7 @@ function BuildingSheet({ game, id, now, onClose }: { game: Game; id: string; now
           const ok = Object.entries(r.inputs).every(([k, n]) => (s.inventory[k] ?? 0) >= n);
           return (
             <li key={r.id} class="row-item">
-              <span class="seed-icon sm" style={{ background: c.goods.get(r.output)?.color }} aria-hidden="true" />
+              <ItemIcon id={r.output} color={c.goods.get(r.output)?.color} small />
               <span class="row-name">
                 {itemName(c, r.output)} <small>{formatDuration(r.dur_s)}</small>
                 <small class="needs">
@@ -1737,7 +1700,7 @@ function FriendsTab({ game, day, onScene }: { game: Game; day: number; onScene: 
                           setGiving(null);
                         }}
                       >
-                        <span class="seed-icon sm" style={{ background: c.cropById.get(item)?.color ?? c.goods.get(item)?.color }} aria-hidden="true" />
+                        <ItemIcon id={item} color={c.cropById.get(item)?.color ?? c.goods.get(item)?.color} small />
                         {itemName(c, item)}
                         {t === 'loved' && <Icon name="heart" size={14} />}
                       </button>

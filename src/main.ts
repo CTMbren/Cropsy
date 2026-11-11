@@ -81,7 +81,8 @@ async function start() {
   const phaser = new Phaser.Game({
     type: Phaser.AUTO,
     parent,
-    backgroundColor: '#8fd16a',
+    // transparent so the CSS sky and meadow behind the island show through
+    transparent: true,
     width: w,
     height: hgt,
     scale: { mode: Phaser.Scale.NONE, zoom: 1 / dpr },
