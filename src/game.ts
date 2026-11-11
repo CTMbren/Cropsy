@@ -12,6 +12,9 @@ import {
   newFarm,
   setFlag,
   plant,
+  unplant,
+  chooseMastery,
+  type MasteryPick,
   replantAll,
   sell,
   stageOf,
@@ -50,10 +53,11 @@ export type FxEvent =
   | { kind: 'quest'; title: string; done: boolean }
   | { kind: 'expand' }
   | { kind: 'chapter'; n: number }
-  | { kind: 'star'; crop: string; stars: number }
+  | { kind: 'star'; crop: string; id: string; stars: number }
   | { kind: 'moss'; find: MossFind }
   | { kind: 'decor'; spot: string; placed: boolean }
   | { kind: 'dug'; key: string }
+  | { kind: 'unplant'; key: string; refund: number }
   | { kind: 'land'; cell: string; item: string; qty: number; gold: boolean }
   | { kind: 'clearing'; cell: string }
   | { kind: 'critter'; key: string; result: Extract<TapResult, { ok: true }> }
@@ -61,7 +65,7 @@ export type FxEvent =
   | { kind: 'ui' };
 
 /** Screen-space effects the farm scene asks the HUD to draw (e.g. coins flying to the coin pill). */
-export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number } | { kind: 'open-building'; id: string } | { kind: 'open-crop'; key: string } | { kind: 'open-land'; cell: string };
+export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number } | { kind: 'open-building'; id: string } | { kind: 'open-crop'; key: string } | { kind: 'open-land'; cell: string } | { kind: 'pick-seed'; key: string };
 
 /**
  * The single owner of game state. Phaser (the farm) and Preact (the HUD) both read from it and
@@ -70,7 +74,8 @@ export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number 
 export class Game {
   readonly content: Content = loadContent();
   state: FarmState = newFarm(systemNow());
-  selectedCrop = 'radish';
+  /** The armed seed. Null until the player picks one, so a stray tap never plants. */
+  selectedCrop: string | null = null;
   /** What a tap on an empty or growing plot does: plant the selected seed, fertilize, or upgrade soil. */
   mode: 'plant' | 'fertilize' | 'soil' | 'decorate' = 'plant';
   /** In decorate mode: the decoration a tap on an empty spot places. */
@@ -100,7 +105,10 @@ export class Game {
     refreshQuest(this.state, this.content);
     this.checkAway();
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') this.saveNow();
+      if (document.visibilityState === 'hidden') {
+        this.saveNow();
+        this.selectedCrop = null;
+      }
       else this.checkAway();
     });
     window.addEventListener('pagehide', () => this.saveNow());
@@ -144,8 +152,11 @@ export class Game {
     this.screenListeners.forEach((l) => l(e));
   }
 
-  /** Tap on a plot: clear an obstacle, harvest if ripe, or plant the selected seed. */
-  tapPlot(key: string): ActionResult | null {
+  /**
+   * Tap on a plot: clear an obstacle, harvest if ripe, or plant the selected seed. `drag` is true when
+   * the finger is sweeping across plots; only a plain tap opens the seed picker or undoes a planting.
+   */
+  tapPlot(key: string, drag = false): ActionResult | null {
     const plot = this.state.plots[key];
     if (!plot || this.mode === 'decorate') return null;
     const now = this.now();
@@ -170,7 +181,21 @@ export class Game {
     let r: ActionResult | null = null;
     if (this.state.obstacles[key]) r = clearObstacle(this.state, key);
     else if (stageOf(plot, now) === 'ripe') r = harvest(this.state, this.content, key, now);
-    else if (!plot.crop) r = plant(this.state, this.content, key, this.selectedCrop, now);
+    else if (!plot.crop) {
+      if (!this.selectedCrop) {
+        if (!drag && this.mode === 'plant') this.screenFx({ kind: 'pick-seed', key });
+        return null;
+      }
+      r = plant(this.state, this.content, key, this.selectedCrop, now);
+    } else if (!drag && this.mode === 'plant') {
+      const u = unplant(this.state, this.content, key, now);
+      if (u.ok) {
+        this.fx({ kind: 'unplant', key, refund: u.refund });
+        log(this.state, now, `unplant ${u.crop}`);
+        this.changed();
+        return null;
+      }
+    }
     if (!r) return null;
     if (!r.ok) {
       this.fx({ kind: 'denied', key, reason: r.reason });
@@ -179,7 +204,7 @@ export class Game {
     if (r.kind === 'harvested') {
       this.fx({ kind: 'harvest', key, tip: r.tip, fresh: r.fresh, crop: r.crop.id, qty: r.qty });
       if (r.firstTime) this.fx({ kind: 'ribbon', amount: 1, why: `First ${r.crop.name} harvest!` });
-      if (r.star) this.fx({ kind: 'star', crop: r.crop.name, stars: r.star });
+      if (r.star) this.fx({ kind: 'star', crop: r.crop.name, id: r.crop.id, stars: r.star });
       if (r.shipped) this.fx({ kind: 'shipped', n: r.shipped, coins: r.tip });
       this.levelUps(r.levelsGained);
       this.event({ type: 'harvest', crop: r.crop.id });
@@ -382,7 +407,7 @@ export class Game {
   /** The guided first minutes: what to do next, or null once Chapter 1's tutorial part is over. */
   coach(): CoachHint | null {
     if (this.mode !== 'plant') return null;
-    return coachHint(this.state, this.content, this.now(), this.selectedCrop);
+    return coachHint(this.state, this.content, this.now());
   }
 
   backedUp(): void {
@@ -486,6 +511,21 @@ export class Game {
     return r;
   }
 
+  /** From the seed picker: arm the seed and plant the plot that was tapped. */
+  plantPicked(key: string, cropId: string): void {
+    this.selectedCrop = cropId;
+    this.mode = 'plant';
+    this.tapPlot(key);
+    this.emit();
+  }
+
+  /** Spend a mastery level on +5% coins or +5% XP for that crop. */
+  chooseMastery(cropId: string, pick: MasteryPick): void {
+    if (!chooseMastery(this.state, cropId, pick)) return;
+    log(this.state, this.now(), `mastery ${cropId} ${pick}`);
+    this.changed();
+  }
+
   setMode(mode: 'plant' | 'fertilize' | 'soil' | 'decorate'): void {
     this.mode = mode;
     this.fx({ kind: 'ui' });
@@ -526,8 +566,9 @@ export class Game {
     return r;
   }
 
-  selectCrop(id: string): void {
-    this.selectedCrop = id;
+  /** Arms a seed from the tray. Tapping the armed seed again disarms it. */
+  selectCrop(id: string | null): void {
+    this.selectedCrop = this.mode === 'plant' && this.selectedCrop === id ? null : id;
     this.mode = 'plant';
     this.fx({ kind: 'ui' });
     this.emit();

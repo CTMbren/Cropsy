@@ -15,43 +15,42 @@ describe('first-minutes coach', () => {
     const s = newFarm(T0);
     let now = T0;
     advance(s, content, now, TZ);
-    expect(coachHint(s, content, now, 'radish')?.target).toBe('mail');
+    expect(coachHint(s, content, now)?.target).toBe('mail');
     readMail(s, content, 'tobias_1', now, TZ);
-    expect(coachHint(s, content, now, 'radish')?.target).toBe('visitor');
+    expect(coachHint(s, content, now)?.target).toBe('visitor');
     talk(s, content, now, TZ);
-    expect(coachHint(s, content, now, 'radish')).toMatchObject({ target: 'farm', farm: 'weeds' });
+    expect(coachHint(s, content, now)).toMatchObject({ target: 'farm', farm: 'weeds' });
     for (const k of ['0,0', '3,0', '2,1']) {
       clearObstacle(s, k);
       onEvent(s, content, { type: 'clear', obstacle: 'weeds' }, now, TZ);
     }
-    expect(coachHint(s, content, now, 'radish')?.target).toBe('visitor');
+    expect(coachHint(s, content, now)?.target).toBe('visitor');
     talk(s, content, now, TZ);
     talk(s, content, now, TZ);
-    // harvest quest: pick radish, plant, wait, harvest
-    expect(coachHint(s, content, now, 'carrot')).toMatchObject({ target: 'seed', seed: 'radish' });
-    expect(coachHint(s, content, now, 'radish')).toMatchObject({ target: 'farm', farm: 'empty' });
+    // harvest quest: tap soil, pick radish, plant, wait, harvest
+    expect(coachHint(s, content, now)).toMatchObject({ target: 'farm', farm: 'empty', text: expect.stringMatching(/pick Radish/) });
     for (let i = 0; i < 5; i++) plant(s, content, key(i % 2, 1 + Math.floor(i / 2)), 'radish', now);
     s.obstacles = {};
     for (const [k, p] of Object.entries(s.plots)) if (!p.crop) s.plots[k] = { ...p, crop: 'radish', plantedAt: now, growS: 30 };
-    expect(coachHint(s, content, now, 'radish')?.text).toMatch(/Growing/);
+    expect(coachHint(s, content, now)?.text).toMatch(/Growing/);
     now += 30;
-    expect(coachHint(s, content, now, 'radish')).toMatchObject({ farm: 'ripe' });
+    expect(coachHint(s, content, now)).toMatchObject({ farm: 'ripe' });
     for (const k of Object.keys(s.plots).slice(0, 5)) {
       harvest(s, content, k, now);
       onEvent(s, content, { type: 'harvest', crop: 'radish' }, now, TZ);
     }
     talk(s, content, now, TZ);
     talk(s, content, now, TZ);
-    expect(coachHint(s, content, now, 'radish')?.target).toBe('barn');
+    expect(coachHint(s, content, now)?.target).toBe('barn');
     sell(s, content, 'radish', 5);
     onEvent(s, content, { type: 'sell', n: 5 }, now, TZ);
     talk(s, content, now, TZ);
     talk(s, content, now, TZ);
-    expect(coachHint(s, content, now, 'radish')?.target).toBe('board');
+    expect(coachHint(s, content, now)?.target).toBe('board');
     // after the carrot order, no more hints
     s.story.done.push('ch1_order');
     s.story.active = { id: 'ch1_gate', status: 'active', progress: [0] };
-    expect(coachHint(s, content, now, 'radish')).toBeNull();
+    expect(coachHint(s, content, now)).toBeNull();
   });
 });
 

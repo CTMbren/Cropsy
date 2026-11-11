@@ -21,7 +21,7 @@ export interface CoachHint {
 
 const TUTORIAL = ['ch1_letter', 'ch1_weeds', 'ch1_harvest', 'ch1_ship', 'ch1_order'];
 
-export function coachHint(state: FarmState, content: Content, now: number, selectedCrop: string): CoachHint | null {
+export function coachHint(state: FarmState, content: Content, now: number): CoachHint | null {
   const a = state.story.active;
   const q = activeQuest(state, content);
   if (!a || !q || !TUTORIAL.includes(q.id)) return null;
@@ -40,8 +40,8 @@ export function coachHint(state: FarmState, content: Content, now: number, selec
       return { text: 'Tap the weeds to pull them. You can drag across several at once.', target: 'farm', farm: 'weeds' };
     case 'ch1_harvest':
       if (ripe) return { text: 'Your crops are ripe! Tap them, or drag across them, to harvest.', target: 'farm', farm: 'ripe' };
-      if (empty && selectedCrop !== 'radish' && !growing) return { text: 'Pick Radish in the seed tray. It grows in 30 seconds.', target: 'seed', seed: 'radish' };
-      if (empty) return { text: 'Tap empty soil to plant. Fill a few plots!', target: 'farm', farm: 'empty' };
+      if (empty && !growing) return { text: 'Tap empty soil and pick Radish. It grows in 30 seconds.', target: 'farm', farm: 'empty' };
+      if (empty) return { text: 'Tap empty soil to plant, or drag across plots once a seed is picked.', target: 'farm', farm: 'empty' };
       return { text: 'Growing… Radishes are ready in 30 seconds. Watch them sparkle.', target: 'farm' };
     case 'ch1_ship':
       return { text: 'Open the Barn and ship 5 crops in the shipping crate.', target: 'barn' };
