@@ -19,6 +19,9 @@ const UI_TOP = 116;
 const UI_BOTTOM = 196;
 /** Grass around the field, in tiles: room for the mill and farm buildings. */
 const PAD = 2.7;
+/** Zoom limits. Max is 2.0 so the planned 2× art atlases stay sharp (see graphics-update-plan). */
+const MIN_ZOOM = 0.4;
+const MAX_ZOOM = 2.0;
 
 const hex = (c: string) => Phaser.Display.Color.HexStringToColor(c).color;
 const V = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
@@ -50,6 +53,9 @@ export class FarmScene extends Phaser.Scene {
   private drawnSize = '';
   /** Canvas is rendered at device pixels; the camera zoom maps logical (CSS) pixels onto it. */
   private dpr = 1;
+  /** `?debug` performance overlay: FPS, frame time and the cost of the periodic vector redraw. */
+  private perfText?: Phaser.GameObjects.Text;
+  private perf = { frames: 0, frameMs: 0, redraws: 0, redrawMs: 0, redrawMax: 0, at: 0 };
 
   constructor() {
     super('farm');
@@ -72,6 +78,12 @@ export class FarmScene extends Phaser.Scene {
     this.coachG = this.add.graphics();
     this.highlight = this.add.graphics();
     this.world.add([this.ground, this.buildG, this.plotsG, this.coachG, this.cropsG, this.decoG, this.highlight]);
+
+    if (this.registry.get('debug')) {
+      this.perfText = this.add
+        .text(8, UI_TOP + 4, '', { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff', backgroundColor: '#000000aa', padding: { x: 4, y: 3 } })
+        .setDepth(1000);
+    }
 
     this.layout();
     this.scale.on('resize', () => this.layout());
@@ -144,15 +156,42 @@ export class FarmScene extends Phaser.Scene {
     this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => this.zoomBy(dy > 0 ? 0.9 : 1.1));
   }
 
-  update(_t: number, dt: number): void {
+  update(t: number, dt: number): void {
     this.sparkleT += dt;
     if (this.sparkleT > 120) {
       this.sparkleT = 0;
+      const t0 = performance.now();
       this.drawCrops();
       this.drawBuildings();
       this.drawDecor();
       this.drawCoach();
+      if (this.perfText) {
+        const ms = performance.now() - t0;
+        this.perf.redraws++;
+        this.perf.redrawMs += ms;
+        this.perf.redrawMax = Math.max(this.perf.redrawMax, ms);
+      }
     }
+    if (this.perfText) this.updatePerf(t, dt);
+  }
+
+  /** Refreshes the debug overlay twice a second with averages over that window. */
+  private updatePerf(t: number, dt: number): void {
+    const p = this.perf;
+    p.frames++;
+    p.frameMs += dt;
+    if (t - p.at < 500) return;
+    const s = this.game_.state;
+    const plots = Object.keys(s.plots).length;
+    const avgRedraw = p.redraws ? p.redrawMs / p.redraws : 0;
+    this.perfText!.setText(
+      [
+        `fps ${this.game.loop.actualFps.toFixed(0)}  frame ${(p.frameMs / p.frames).toFixed(1)}ms`,
+        `redraw ${avgRedraw.toFixed(2)}ms avg  ${p.redrawMax.toFixed(2)}ms max`,
+        `plots ${plots}  zoom ${this.world.scale.toFixed(2)}  dpr ${this.dpr}`,
+      ].join('\n'),
+    );
+    Object.assign(p, { frames: 0, frameMs: 0, redraws: 0, redrawMs: 0, redrawMax: 0, at: t });
   }
 
   /** Pulsing outlines on the plots the first-minutes hint is talking about. */
@@ -203,7 +242,7 @@ export class FarmScene extends Phaser.Scene {
     const farmH = (s.width + s.height + 2 * PAD) * (TILE_H / 2) + 60;
     const availH = Math.max(160, height - UI_TOP - UI_BOTTOM);
     const fit = Math.min((width * 0.94) / farmW, availH / farmH, 1.6);
-    this.world.setScale(Math.max(0.4, fit));
+    this.world.setScale(Phaser.Math.Clamp(fit, MIN_ZOOM, MAX_ZOOM));
     this.world.setPosition(width / 2 - mid.sx * this.world.scale, UI_TOP + availH / 2 - mid.sy * this.world.scale + 10);
     this.drawGround();
     this.drawPlots();
@@ -1118,7 +1157,7 @@ export class FarmScene extends Phaser.Scene {
   }
 
   private zoomBy(f: number): void {
-    const s = Phaser.Math.Clamp(this.world.scale * f, 0.4, 2.5);
+    const s = Phaser.Math.Clamp(this.world.scale * f, MIN_ZOOM, MAX_ZOOM);
     const { width, height } = this.view();
     const cx = width / 2;
     const cy = height / 2;
