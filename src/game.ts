@@ -23,11 +23,12 @@ import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, 
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
 import { markBackedUp, snoozeBackup } from './core/backup';
 import { syncCritters, tapCritter, type TapResult } from './core/critters';
+import { startClearing, syncLand, type ClearResult } from './core/land';
 import { coachHint, type CoachHint } from './core/coach';
 import { buildImprovement, deliverTownProject, raiseTownLevel, syncTownProject, townLevel } from './core/town';
 import { buyDecor, claimGift, pickUpDecor, placeDecor, type CalendarReward } from './core/decor';
 import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merchant';
-import { buyBarn, buyExpansion, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
+import { buyBarn, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
 import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
 import { dayIndex, gameNow, localOffsetMinutes, systemNow } from './core/time';
 import { loadSave, requestPersistence, writeSave } from './platform/storage';
@@ -53,12 +54,14 @@ export type FxEvent =
   | { kind: 'moss'; find: MossFind }
   | { kind: 'decor'; spot: string; placed: boolean }
   | { kind: 'dug'; key: string }
+  | { kind: 'land'; cell: string; item: string; qty: number; gold: boolean }
+  | { kind: 'clearing'; cell: string }
   | { kind: 'critter'; key: string; result: Extract<TapResult, { ok: true }> }
   | { kind: 'denied'; key: string; reason: string }
   | { kind: 'ui' };
 
 /** Screen-space effects the farm scene asks the HUD to draw (e.g. coins flying to the coin pill). */
-export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number } | { kind: 'open-building'; id: string } | { kind: 'open-crop'; key: string };
+export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number } | { kind: 'open-building'; id: string } | { kind: 'open-crop'; key: string } | { kind: 'open-land'; cell: string };
 
 /**
  * The single owner of game state. Phaser (the farm) and Preact (the HUD) both read from it and
@@ -101,13 +104,15 @@ export class Game {
       else this.checkAway();
     });
     window.addEventListener('pagehide', () => this.saveNow());
+    this.finishClearing();
     syncCritters(this.state, this.content, this.now());
     // visitors arrive while the app is open, too
     window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       const before = JSON.stringify(this.state.critters?.out ?? []);
       syncCritters(this.state, this.content, this.now());
-      if (JSON.stringify(this.state.critters?.out ?? []) !== before) this.changed();
+      const cleared = this.state.clearing && this.now() >= this.state.clearing.endsAt;
+      if (cleared || JSON.stringify(this.state.critters?.out ?? []) !== before) this.changed();
     }, 5000);
     this.emit();
   }
@@ -253,15 +258,17 @@ export class Game {
     return r;
   }
 
-  buyExpansion(): BuyResult {
-    const r = buyExpansion(this.state, this.content);
+  /** Hire Bruno's crew to clear one wild cell next to the field. */
+  startClearing(cell: string): ClearResult {
+    const r = startClearing(this.state, this.content, cell, this.now());
     if (r.ok) {
-      this.fx({ kind: 'expand' });
-      log(this.state, this.now(), `expand ${this.state.width}`);
+      this.fx({ kind: 'clearing', cell });
+      log(this.state, this.now(), `clearing ${cell}`);
       this.changed();
     }
     return r;
   }
+
 
   buyBuilding(id: string): boolean {
     const ok = buyBuilding(this.state, this.content, id);
@@ -387,6 +394,14 @@ export class Game {
   snoozeBackup(): void {
     snoozeBackup(this.state, this.now());
     this.changed();
+  }
+
+  /** Turns a finished clearing job into a plot (called on every change and by the 5 s ticker). */
+  private finishClearing(): void {
+    const r = syncLand(this.state, this.content, this.now());
+    if (!r) return;
+    this.fx({ kind: 'land', ...r });
+    log(this.state, this.now(), `cleared ${r.cell}`);
   }
 
   /** Tap a visiting critter: pollen (toward honey), and a sketch the first time. */
@@ -606,6 +621,7 @@ export class Game {
     // fix Ziggy's stock for the day when his cart is in town
     syncMerchant(this.state, this.content, this.day());
     syncTownProject(this.state, this.content, this.day());
+    this.finishClearing();
     syncCritters(this.state, this.content, this.now());
     // keep the active quest possible (places missing weeds, branches or rocks on free plots)
     ensureQuestMaterials(this.state, this.content);

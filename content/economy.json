@@ -156,43 +156,6 @@
     {
       "size": 5,
       "story": true
-    },
-    {
-      "size": 6,
-      "level": 6,
-      "coins": 400,
-      "items": {
-        "wood": 6,
-        "stone": 4
-      }
-    },
-    {
-      "size": 7,
-      "level": 10,
-      "coins": 1500,
-      "items": {
-        "wood": 12,
-        "stone": 8
-      }
-    },
-    {
-      "size": 8,
-      "level": 15,
-      "coins": 4000,
-      "items": {
-        "wood": 20,
-        "stone": 15
-      }
-    },
-    {
-      "size": 9,
-      "level": 20,
-      "coins": 10000,
-      "items": {
-        "wood": 30,
-        "stone": 25,
-        "gold": 2
-      }
     }
   ],
   "market": {
@@ -531,5 +494,38 @@
     "pollen_per_honey": 5,
     "unlock_level": 3,
     "hazel_points": 10
+  },
+  "land": {
+    "max_size": 9,
+    "caps": [
+      {
+        "level": 1,
+        "plots": 25
+      },
+      {
+        "level": 6,
+        "plots": 36
+      },
+      {
+        "level": 10,
+        "plots": 49
+      },
+      {
+        "level": 15,
+        "plots": 64
+      },
+      {
+        "level": 20,
+        "plots": 81
+      }
+    ],
+    "base_coins": 60,
+    "coin_growth": 1.06,
+    "stump_s": 1800,
+    "boulder_s": 3600,
+    "time_growth": 0.04,
+    "stump_wood": 3,
+    "boulder_stone": 3,
+    "gold_chance": 0.1
   }
 }

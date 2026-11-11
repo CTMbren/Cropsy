@@ -4,6 +4,7 @@ import { decorDefs, decorSpots, placed, spotCell } from '../core/decor';
 import type { Game } from '../game';
 import { ArtRegistry } from './art';
 import { critterById } from '../core/critters';
+import { blockerAt, touchesField, wildCells } from '../core/land';
 import { CRITTER_BOUNDS, drawCritter } from './critterArt';
 import { light, shade } from './paint';
 import { cropBounds, drawCropArt } from './cropArt';
@@ -75,6 +76,10 @@ interface PlotView {
   sparkle: Phaser.GameObjects.Image;
   /** What the view currently shows, so syncPlots only touches views that changed. */
   shown: string;
+  /** Overgrown land outside the field (a stump or boulder Bruno's crew can clear). */
+  wild: boolean;
+  /** Countdown shown while the crew clears this cell. */
+  timer?: Phaser.GameObjects.Text;
   ripe: boolean;
   fresh: boolean;
 }
@@ -205,6 +210,11 @@ export class FarmScene extends Phaser.Scene {
         this.pops.set(e.key, this.time.now);
       }
       if (e.kind === 'dug') this.burst(e.key, 0x7a4626, 9);
+      if (e.kind === 'clearing') this.burst(e.cell, WOOD, 8);
+      if (e.kind === 'land') {
+        this.burst(e.cell, 0xffe14d, 14);
+        this.popText(e.cell, `New plot! +${e.qty} ${e.item === 'wood' ? 'Wood' : 'Stone'}${e.gold ? ' +Gold!' : ''}`, '#ffe14d');
+      }
       if (e.kind === 'critter') {
         this.burst(e.key, 0xffe14d, e.result.firstTime ? 12 : 6);
         if (e.result.firstTime) this.popText(e.key, `New: ${e.result.species.name}!`, '#ffe14d');
@@ -503,6 +513,7 @@ export class FarmScene extends Phaser.Scene {
       this.drawnSize = size;
       this.layout();
     }
+    this.buildViews();
     this.syncPlots();
     this.syncStructures();
     this.drawDecor();
@@ -586,17 +597,20 @@ export class FarmScene extends Phaser.Scene {
   /** One pooled view per cell, created back to front so later cells draw over earlier ones. */
   private buildViews(): void {
     const s = this.game_.state;
-    const size = `${s.width}x${s.height}`;
+    const wild = wildCells(s, this.game_.content);
+    const size = `${Object.keys(s.plots).length}:${s.width}x${s.height}:${wild.length}`;
     if (size === this.viewsSize) return;
     this.viewsSize = size;
     this.plotLayer.removeAll(true);
     this.soilLayer.removeAll(true);
     this.views = [];
-    const cells: [number, number][] = [];
-    for (let y = 0; y < s.height; y++) for (let x = 0; x < s.width; x++) cells.push([x, y]);
+    const cells: [number, number, boolean][] = [
+      ...Object.keys(s.plots).map((k) => [...parseKey(k), false] as [number, number, boolean]),
+      ...wild.map((k) => [...parseKey(k), true] as [number, number, boolean]),
+    ];
     cells.sort((a, b) => a[0] + a[1] - (b[0] + b[1])); // back to front
     const img = (x: number, y: number) => this.add.image(x, y, '__DEFAULT').setVisible(false);
-    for (const [x, y] of cells) {
+    for (const [x, y, isWild] of cells) {
       const { sx, sy } = cellToScreen(x, y);
       const v: PlotView = {
         k: key(x, y),
@@ -610,9 +624,17 @@ export class FarmScene extends Phaser.Scene {
         shown: '',
         ripe: false,
         fresh: false,
+        wild: isWild,
       };
       this.soilLayer.add(v.soil);
       this.plotLayer.add([v.crop, v.fert, v.bubble, v.sparkle]);
+      if (isWild) {
+        v.timer = this.add
+          .text(sx, sy - 46, '', { fontFamily: 'Lilita One, Fredoka, system-ui', fontSize: '17px', color: '#ffffff', stroke: '#4a2e1a', strokeThickness: 5, resolution: this.dpr * 2 })
+          .setOrigin(0.5)
+          .setVisible(false);
+        this.plotLayer.add(v.timer);
+      }
       this.views.push(v);
     }
     this.syncPlots();
@@ -623,6 +645,10 @@ export class FarmScene extends Phaser.Scene {
     const s = this.game_.state;
     const now = this.game_.now();
     for (const v of this.views) {
+      if (v.wild) {
+        this.syncWild(v, now);
+        continue;
+      }
       const plot = s.plots[v.k];
       const ob = s.obstacles[v.k];
       const stage = !ob && plot?.crop ? stageOf(plot, now) : 'empty';
@@ -676,6 +702,26 @@ export class FarmScene extends Phaser.Scene {
       if (def) this.art.placeholder(k, cropBounds(id), (g, cx, cy) => drawCropArt(g, id, stage, hex(def.leaf), hex(def.color), cx, cy), CROP_SCALE);
     }
     return k;
+  }
+
+  /** Overgrown land: a stump or boulder, dimmed when it doesn't touch the field yet, with the crew's countdown. */
+  private syncWild(v: PlotView, now: number): void {
+    const s = this.game_.state;
+    const job = s.clearing?.cell === v.k ? s.clearing : undefined;
+    const reachable = touchesField(s, v.k);
+    const shown = `wild|${reachable}|${job ? 'job' : ''}`;
+    if (job) {
+      const left = Math.max(0, job.endsAt - now);
+      const m = Math.ceil(left / 60);
+      v.timer!.setText(m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`).setVisible(true);
+    } else v.timer?.setVisible(false);
+    if (shown === v.shown) return;
+    v.shown = shown;
+    this.show(v.soil, this.tileArt('overgrown'));
+    this.show(v.crop, this.obstacleArt(blockerAt(v.k), v.k));
+    const a = reachable ? 1 : 0.55;
+    v.soil.setAlpha(a);
+    v.crop.setAlpha(job ? 0.75 : a);
   }
 
   private tileArt(kind: 'soil' | 'overgrown', tier = 0): string {
@@ -1067,9 +1113,15 @@ export class FarmScene extends Phaser.Scene {
     const c = screenToCell(lx, ly);
     const x = Math.round(c.x);
     const y = Math.round(c.y);
-    const s = this.game_.state;
-    if (x < 0 || y < 0 || x >= s.width || y >= s.height) return null;
-    return key(x, y);
+    return this.game_.state.plots[key(x, y)] ? key(x, y) : null;
+  }
+
+  /** The overgrown cell under a touch, if any. */
+  private wildAt(p: Phaser.Input.Pointer): string | null {
+    const q = this.pt(p);
+    const c = screenToCell((q.x - this.world.x) / this.world.scale, (q.y - this.world.y) / this.world.scale);
+    const k = key(Math.round(c.x), Math.round(c.y));
+    return this.views.some((v) => v.wild && v.k === k) ? k : null;
   }
 
   private pointersDown(): Phaser.Input.Pointer[] {
@@ -1121,6 +1173,14 @@ export class FarmScene extends Phaser.Scene {
       return;
     }
     const k = this.plotAt(p);
+    if (!k && this.game_.mode === 'plant') {
+      const w = this.wildAt(p);
+      if (w) {
+        this.dragMode = 'none';
+        this.game_.screenFx({ kind: 'open-land', cell: w });
+        return;
+      }
+    }
     this.dragMode = k ? 'act' : 'pan';
     const s = this.game_.state;
     const plot = k ? s.plots[k] : undefined;

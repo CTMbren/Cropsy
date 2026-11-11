@@ -11,7 +11,8 @@ import { fulfilOrder, refreshBoard } from '../src/core/board';
 import { loadContent, type Content } from '../src/core/content';
 import { barnCapacity, barnUsed, upgradeSoil, clearObstacle, harvest, newFarm, OBSTACLES, plant, sell, stageOf, unlockedCrops, type FarmState } from '../src/core/farm';
 import { buyBuilding, collect, startRecipe } from '../src/core/processing';
-import { buyBarn, buyExpansion, buyMaterial, buyTool, deliverStage, nextBarn, nextExpansion } from '../src/core/shop';
+import { buyBarn, buyMaterial, buyTool, deliverStage, nextBarn } from '../src/core/shop';
+import { clearCost, landOpen, plotCap, plotCount, startClearing, syncLand, touchesField, wildCells } from '../src/core/land';
 import { buyFromMerchant, merchantStock } from '../src/core/merchant';
 import { buildImprovement, deliverTownProject, hasImprovement, improvements, nextTownLevel, raiseTownLevel, syncTownProject, townProjectOpen } from '../src/core/town';
 import { buyDecor, decorDefs } from '../src/core/decor';
@@ -86,10 +87,8 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
     if (r.kind === 'outro') log(`quest done: ${r.quest.id}`);
     if (r.kind === 'none' || r.kind === 'reminder') break;
   }
-  // buy wood and stone the story, projects and next expansion still need
+  // buy wood and stone the story and projects still need
   const mats = reserve(s, c);
-  const exp = nextExpansion(s, c);
-  if (exp && !exp.story && (exp.level ?? 1) <= s.level) for (const [id, n] of Object.entries(exp.items ?? {})) mats[id] = Math.max(mats[id] ?? 0, n);
   // materials for the next farm building we can unlock
   for (const bd of c.buildings.values()) if (bd.where === 'farm' && !s.buildings[bd.id] && (bd.unlock_level ?? 1) <= s.level) for (const [id, n] of Object.entries(bd.cost?.items ?? {})) mats[id] = Math.max(mats[id] ?? 0, n);
   for (const id of ['wood', 'stone']) while ((s.inventory[id] ?? 0) < (mats[id] ?? 0) && s.coins > 400 && buyMaterial(s, c, id).ok);
@@ -151,8 +150,13 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
   // tools, buildings, land, barn (keep a cushion for seeds)
   for (const t of c.tools.values()) if (!t.consumable && !s.tools.includes(t.id) && s.coins > t.coins + 100 && buyTool(s, c, t.id).ok) log(`bought ${t.id}`);
   for (const b of c.buildings.values()) if (b.where === 'farm' && s.coins > (b.cost?.coins ?? 0) + 150 && buyBuilding(s, c, b.id)) log(`built ${b.id}`);
-  const e = nextExpansion(s, c);
-  if (e && !e.story && s.coins > (e.coins ?? 0) + 150 && buyExpansion(s, c).ok) log(`expanded to ${s.width}x${s.height}`);
+  // land: finish the crew's job, then hire them for the next plot touching the field
+  const cleared = syncLand(s, c, now);
+  if (cleared) log(`cleared ${cleared.cell} (${plotCount(s)} plots)`);
+  if (landOpen(s) && !s.clearing && plotCount(s) < plotCap(s, c) && s.coins > clearCost(s, c) + 150) {
+    const next = wildCells(s, c).filter((k) => touchesField(s, k)).sort((a, b) => a.split(',').reduce((m, v) => m + +v, 0) - b.split(',').reduce((m, v) => m + +v, 0))[0];
+    if (next && startClearing(s, c, next, now).ok) log(`clearing ${next}`);
+  }
   const b = nextBarn(s, c);
   if (b && barnUsed(s, c) > barnCapacity(s, c) * 0.7 && s.coins > (b.coins ?? 0) + 300 && buyBarn(s, c).ok) log(`barn ${barnCapacity(s, c)}`);
   // clear obstacles we can afford

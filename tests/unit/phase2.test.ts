@@ -3,7 +3,7 @@ import { generateOrders, giveItems } from '../../src/core/board';
 import { loadContent } from '../../src/core/content';
 import { clearObstacle, expand, key, newFarm, setFlag, spawnObstacles } from '../../src/core/farm';
 import { buyBuilding, collect, grantBuilding, queueView, startRecipe, upgradeSlots } from '../../src/core/processing';
-import { buyExpansion, buyTool, deliverStage, featuredCrop, marketPrice, marketSell, nextExpansion, priceFactor } from '../../src/core/shop';
+import { buyTool, deliverStage, featuredCrop, marketPrice, marketSell, priceFactor } from '../../src/core/shop';
 
 const content = loadContent();
 const T0 = 1_800_000_000;
@@ -84,21 +84,6 @@ describe('tools, obstacles and land', () => {
     expect(Object.values(s.obstacles)).toContain('stump');
     expand(s);
     expect(Object.values(s.obstacles)).toContain('boulder');
-  });
-
-  it('Bruno sells expansions after the story one, gated by level, coins and materials', () => {
-    const s = newFarm(T0);
-    expect(nextExpansion(s, content)?.story).toBe(true);
-    expect(buyExpansion(s, content)).toMatchObject({ ok: false });
-    expand(s); // the gate (story)
-    expect(nextExpansion(s, content)?.size).toBe(6);
-    s.level = 6;
-    s.coins = 400;
-    expect(buyExpansion(s, content)).toMatchObject({ ok: false, reason: 'missing' });
-    giveItems(s, { wood: 6, stone: 4 });
-    expect(buyExpansion(s, content)).toMatchObject({ ok: true });
-    expect(s.width).toBe(6);
-    expect(s.coins).toBe(0);
   });
 
   it('spawned obstacles never land on growing crops', () => {
