@@ -92,6 +92,7 @@ async function start() {
     callbacks: {
       postBoot: (g) => {
         g.registry.set('dpr', dpr);
+        g.registry.set('debug', debug);
         g.scene.add('farm', FarmScene, true, { game });
         requestAnimationFrame(() => requestAnimationFrame(hideSplash));
       },
