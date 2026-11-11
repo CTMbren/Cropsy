@@ -8,13 +8,15 @@
     "loves": [
       "strawberry",
       "jam",
-      "pastry"
+      "pastry",
+      "honey_jam"
     ],
     "likes": [
       "carrot",
       "flour",
       "tomato",
-      "blueberry"
+      "blueberry",
+      "honey"
     ],
     "dislikes": [
       "stone",
@@ -141,7 +143,8 @@
     "likes": [
       "potato",
       "corn",
-      "stone"
+      "stone",
+      "honey"
     ],
     "dislikes": [
       "radish",
@@ -207,7 +210,8 @@
       "flour",
       "strawberry",
       "jam",
-      "pumpkin"
+      "pumpkin",
+      "honey"
     ],
     "dislikes": [
       "potato",
@@ -395,13 +399,15 @@
     "loves": [
       "carrot",
       "pumpkin",
-      "golden_melon"
+      "golden_melon",
+      "honey_jam"
     ],
     "likes": [
       "strawberry",
       "corn",
       "pastry",
-      "wood"
+      "wood",
+      "honey"
     ],
     "dislikes": [
       "lettuce",

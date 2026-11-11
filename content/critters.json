@@ -1,0 +1,256 @@
+[
+  {
+    "id": "ladybug",
+    "name": "Seven-spot Ladybug",
+    "shape": "ladybug",
+    "color": "#e23b2e",
+    "page": 1,
+    "crops": "any",
+    "min": 0,
+    "weight": 10,
+    "note": "Seven spots. I counted twice. Bruno counted nine and refuses to discuss it."
+  },
+  {
+    "id": "honeybee",
+    "name": "Honeybee",
+    "shape": "bee",
+    "color": "#f5b32a",
+    "page": 1,
+    "crops": [
+      "strawberry",
+      "blueberry",
+      "sunflower",
+      "pumpkin",
+      "tomato"
+    ],
+    "min": 0.25,
+    "weight": 10,
+    "note": "Works harder than anyone in Bramblewick. Present company included. Especially present company."
+  },
+  {
+    "id": "garden_snail",
+    "name": "Garden Snail",
+    "shape": "snail",
+    "color": "#c98a4b",
+    "page": 1,
+    "crops": [
+      "lettuce",
+      "carrot",
+      "radish",
+      "potato"
+    ],
+    "min": 0,
+    "weight": 8,
+    "note": "Moves slower than Rufus on a Monday. An admirable commitment to the bit."
+  },
+  {
+    "id": "green_caterpillar",
+    "name": "Leaf Caterpillar",
+    "shape": "caterpillar",
+    "color": "#7cc94f",
+    "page": 1,
+    "crops": [
+      "lettuce",
+      "cotton",
+      "carrot",
+      "radish"
+    ],
+    "min": 0.25,
+    "weight": 8,
+    "note": "Eats its own body weight in lettuce daily. Juniper is taking notes, which worries me."
+  },
+  {
+    "id": "cabbage_white",
+    "name": "Cabbage White",
+    "shape": "butterfly",
+    "color": "#f4f1e6",
+    "page": 2,
+    "crops": [
+      "lettuce",
+      "carrot",
+      "potato",
+      "wheat"
+    ],
+    "min": 0.25,
+    "weight": 7,
+    "note": "Elegant, plain, and entirely too fond of lettuce. Like Goldie."
+  },
+  {
+    "id": "bumblebee",
+    "name": "Bumblebee",
+    "shape": "bee",
+    "color": "#f08a24",
+    "page": 2,
+    "crops": [
+      "pumpkin",
+      "sunflower",
+      "tomato",
+      "blueberry"
+    ],
+    "min": 0.5,
+    "weight": 6,
+    "note": "Aerodynamically impossible. Flies anyway. Pip says this is her whole personality."
+  },
+  {
+    "id": "shield_beetle",
+    "name": "Shield Beetle",
+    "shape": "beetle",
+    "color": "#4f9a3a",
+    "page": 2,
+    "crops": [
+      "corn",
+      "wheat",
+      "potato",
+      "tomato"
+    ],
+    "min": 0.25,
+    "weight": 6,
+    "note": "Built like a tiny knight. Smells like a tiny knight who has been to war."
+  },
+  {
+    "id": "blue_dragonfly",
+    "name": "Blue Dragonfly",
+    "shape": "dragonfly",
+    "color": "#3a8fd6",
+    "page": 2,
+    "crops": [
+      "tomato",
+      "corn",
+      "grapes",
+      "wheat"
+    ],
+    "min": 0.5,
+    "weight": 5,
+    "note": "Hovers like it owns the place. Ziggy has tried to sell me one. Twice."
+  },
+  {
+    "id": "golden_ladybug",
+    "name": "Golden Ladybug",
+    "shape": "ladybug",
+    "color": "#ffc531",
+    "page": 3,
+    "crops": "any",
+    "min": 0.5,
+    "weight": 2,
+    "note": "Rare. Lucky, according to Goldie. Unremarkable, according to science. I am keeping it anyway."
+  },
+  {
+    "id": "monarch",
+    "name": "Monarch Butterfly",
+    "shape": "butterfly",
+    "color": "#f2862a",
+    "page": 3,
+    "crops": [
+      "sunflower",
+      "pumpkin",
+      "cotton"
+    ],
+    "min": 0.5,
+    "weight": 5,
+    "note": "Travels thousands of miles every year. Tobias managed one trip in forty. Just saying."
+  },
+  {
+    "id": "tiger_caterpillar",
+    "name": "Tiger Caterpillar",
+    "shape": "caterpillar",
+    "color": "#f5c542",
+    "page": 3,
+    "crops": [
+      "grapes",
+      "cotton",
+      "sunflower",
+      "corn"
+    ],
+    "min": 0.5,
+    "weight": 5,
+    "note": "Striped as a warning. The warning is: I am adorable. It works on Moss every time."
+  },
+  {
+    "id": "ruby_dragonfly",
+    "name": "Ruby Dragonfly",
+    "shape": "dragonfly",
+    "color": "#d9483a",
+    "page": 3,
+    "crops": [
+      "grapes",
+      "coffee",
+      "blueberry"
+    ],
+    "min": 0.5,
+    "weight": 4,
+    "note": "Faster than the eye can follow. I sketched it from memory and a strong suspicion."
+  },
+  {
+    "id": "stag_beetle",
+    "name": "Stag Beetle",
+    "shape": "beetle",
+    "color": "#7a4a2a",
+    "page": 4,
+    "crops": [
+      "coffee",
+      "grapes",
+      "pumpkin"
+    ],
+    "min": 0.5,
+    "weight": 3,
+    "note": "Enormous jaws, gentle nature. Bruno says it reminds him of himself. Nobody has argued."
+  },
+  {
+    "id": "luna_moth",
+    "name": "Luna Moth",
+    "shape": "moth",
+    "color": "#bfe8b0",
+    "page": 4,
+    "crops": [
+      "coffee",
+      "cotton",
+      "grapes"
+    ],
+    "min": 0.6,
+    "weight": 3,
+    "note": "Lives one week and never eats. Rufus asked if it was a miller. I laughed. He did not."
+  },
+  {
+    "id": "purple_emperor",
+    "name": "Purple Emperor",
+    "shape": "butterfly",
+    "color": "#8a4fd0",
+    "page": 4,
+    "crops": [
+      "blueberry",
+      "grapes"
+    ],
+    "min": 0.6,
+    "weight": 3,
+    "note": "Iridescent, imperious, and very hard to impress. We understand each other."
+  },
+  {
+    "id": "violet_snail",
+    "name": "Violet Snail",
+    "shape": "snail",
+    "color": "#a77ad6",
+    "page": 4,
+    "crops": [
+      "pumpkin",
+      "potato",
+      "cotton"
+    ],
+    "min": 0.5,
+    "weight": 3,
+    "note": "Purple shell. No idea why. I have written four papers on it and still have no idea why."
+  },
+  {
+    "id": "golden_moth",
+    "name": "Golden Moth",
+    "shape": "moth",
+    "color": "#ffd54f",
+    "page": 4,
+    "crops": [
+      "golden_melon"
+    ],
+    "min": 0.5,
+    "weight": 10,
+    "secret": true,
+    "note": "Tobias drew this moth in the margin of his almanac in 1979. I told him he'd imagined it. I owe him an apology. And a pie."
+  }
+]

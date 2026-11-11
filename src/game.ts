@@ -22,6 +22,7 @@ import {
 import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, type MossFind } from './core/friendship';
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
 import { markBackedUp, snoozeBackup } from './core/backup';
+import { syncCritters, tapCritter, type TapResult } from './core/critters';
 import { coachHint, type CoachHint } from './core/coach';
 import { buildImprovement, deliverTownProject, raiseTownLevel, syncTownProject, townLevel } from './core/town';
 import { buyDecor, claimGift, pickUpDecor, placeDecor, type CalendarReward } from './core/decor';
@@ -52,6 +53,7 @@ export type FxEvent =
   | { kind: 'moss'; find: MossFind }
   | { kind: 'decor'; spot: string; placed: boolean }
   | { kind: 'dug'; key: string }
+  | { kind: 'critter'; key: string; result: Extract<TapResult, { ok: true }> }
   | { kind: 'denied'; key: string; reason: string }
   | { kind: 'ui' };
 
@@ -99,6 +101,14 @@ export class Game {
       else this.checkAway();
     });
     window.addEventListener('pagehide', () => this.saveNow());
+    syncCritters(this.state, this.content, this.now());
+    // visitors arrive while the app is open, too
+    window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      const before = JSON.stringify(this.state.critters?.out ?? []);
+      syncCritters(this.state, this.content, this.now());
+      if (JSON.stringify(this.state.critters?.out ?? []) !== before) this.changed();
+    }, 5000);
     this.emit();
   }
 
@@ -379,6 +389,16 @@ export class Game {
     this.changed();
   }
 
+  /** Tap a visiting critter: pollen (toward honey), and a sketch the first time. */
+  tapCritter(id: number): void {
+    const plot = this.state.critters?.out.find((v) => v.id === id)?.plot;
+    const r = tapCritter(this.state, this.content, id);
+    if (!r.ok || !plot) return;
+    this.fx({ kind: 'critter', key: plot, result: r });
+    if (r.firstTime) log(this.state, this.now(), `sketched ${r.species.id}`);
+    this.changed();
+  }
+
   /** Dig up a growing crop early (it's destroyed, no refund). */
   digUp(key: string): boolean {
     const r = digUp(this.state, key, this.now());
@@ -586,6 +606,7 @@ export class Game {
     // fix Ziggy's stock for the day when his cart is in town
     syncMerchant(this.state, this.content, this.day());
     syncTownProject(this.state, this.content, this.day());
+    syncCritters(this.state, this.content, this.now());
     // keep the active quest possible (places missing weeds, branches or rocks on free plots)
     ensureQuestMaterials(this.state, this.content);
     // quests measured from the farm (crops discovered, mastery) can finish without an event

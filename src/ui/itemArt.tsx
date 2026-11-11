@@ -276,6 +276,32 @@ const ICONS: Record<string, () => JSX.Element> = {
       <path d="M3.5 21c2-8 7-12 12.5-12s10.5 4 12.5 12c-1.5 2.5-4 3-6 2-3 2-10 2-13 0-2 1-4.5.5-6-2z" fill="none" stroke={INK} stroke-width="2" stroke-linejoin="round" />
     </>
   ),
+  honey: () => (
+    <>
+      <path d="M8 13c0-3 2-4 8-4s8 1 8 4v11c0 3-3 4-8 4s-8-1-8-4z" fill={shade('#f5b32a', 0.2)} />
+      <path d="M8.6 13c0-2.6 2-3.6 7.4-3.6s7 1 7 3.6v10.5c0 2.6-2.6 3.5-7.2 3.5S8.6 26.1 8.6 23.5z" fill="#f5b32a" />
+      <ellipse cx="11.5" cy="16" rx="1.3" ry="3" fill="#fff" opacity="0.55" />
+      <path d="M8 13c0-3 2-4 8-4s8 1 8 4v11c0 3-3 4-8 4s-8-1-8-4z" fill="none" stroke={INK} stroke-width="2" />
+      <path d="M8 13q4 3 8 0t8 0" fill="none" stroke={INK} stroke-width="1.6" />
+      <path d="M10 7.5h12l-1 2.5H11z" fill="#c98a4b" stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+      <path d="M22 5l5 5" stroke={INK} stroke-width="3.2" stroke-linecap="round" />
+      <path d="M22 5l5 5" stroke="#c98a4b" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M13 19.5h6" stroke="#fff8d0" stroke-width="1.6" stroke-linecap="round" />
+    </>
+  ),
+  honey_jam: () => (
+    <>
+      <rect x="8" y="11" width="16" height="17" rx="4" fill={shade('#e89a2a')} />
+      <rect x="8.5" y="11" width="13.5" height="15.5" rx="3.6" fill="#e89a2a" />
+      <rect x="10" y="17" width="12" height="7" rx="1.5" fill="#fff8e6" stroke={INK} stroke-width="1.3" />
+      <circle cx="14" cy="20.5" r="1.6" fill="#3a5fb0" />
+      <circle cx="18" cy="20.5" r="1.6" fill="#3a5fb0" />
+      <ellipse cx="11" cy="14" rx="1.2" ry="2.2" fill="#fff" opacity="0.55" />
+      <rect x="8" y="11" width="16" height="17" rx="4" fill="none" stroke={INK} stroke-width="2" />
+      <path d="M7 8.5q9-3 18 0l-1 3.5H8z" fill="#f5b32a" stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+      <path d="M7.5 12.2h17" stroke={INK} stroke-width="2.4" stroke-linecap="round" />
+    </>
+  ),
   // decorations
   flowerbed: () => (
     <>
