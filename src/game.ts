@@ -20,6 +20,8 @@ import {
 } from './core/farm';
 import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, type MossFind } from './core/friendship';
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
+import { markBackedUp, snoozeBackup } from './core/backup';
+import { coachHint, type CoachHint } from './core/coach';
 import { buyDecor, claimGift, pickUpDecor, placeDecor, type CalendarReward } from './core/decor';
 import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merchant';
 import { buyBarn, buyExpansion, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
@@ -324,6 +326,23 @@ export class Game {
       this.fx({ kind: 'decor', spot, placed: true });
       if (!this.state.decorStore?.[this.selectedDecor]) this.selectedDecor = Object.keys(this.state.decorStore ?? {})[0] ?? null;
     } else return;
+    this.changed();
+  }
+
+  /** The guided first minutes: what to do next, or null once Chapter 1's tutorial part is over. */
+  coach(): CoachHint | null {
+    if (this.mode !== 'plant') return null;
+    return coachHint(this.state, this.content, this.now(), this.selectedCrop);
+  }
+
+  backedUp(): void {
+    markBackedUp(this.state, this.now());
+    log(this.state, this.now(), 'backup');
+    this.changed();
+  }
+
+  snoozeBackup(): void {
+    snoozeBackup(this.state, this.now());
     this.changed();
   }
 

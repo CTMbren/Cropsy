@@ -10,7 +10,9 @@ import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, nextExpans
 import { activeQuest, canHandIn, inbox, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
 import { beauty, calendarRewards, canClaim, decorDef, decorDefs, nextGift, placed, stored, tipBonus, type CalendarReward } from '../core/decor';
 import { boughtToday, daysUntilMerchant, merchantHere, merchantStock, merchantUnlocked } from '../core/merchant';
+import { needsBackupNudge } from '../core/backup';
 import { formatDuration } from '../core/time';
+import { clearErrors, recentErrors } from '../platform/errors';
 import type { Game } from '../game';
 import { lastSavedAt } from '../platform/storage';
 import { Icon } from './icons';
@@ -122,6 +124,8 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
     .reduce((a, [, n]) => a + n, 0);
   const boardOpen = hasFlag(s, 'board_open');
   const fillable = s.board.orders.filter((o) => hasItems(s, o.wants)).length;
+  const coach = sheet === null && !dialogue ? game.coach() : null;
+  const [backupLater, setBackupLater] = useState(false);
   const canReplant = Object.keys(s.lastCrop).some((k) => s.plots[k] && !s.plots[k].crop && !s.obstacles[k]);
 
   const openTalk = () => {
@@ -205,7 +209,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       )}
 
       {giver && active && (
-        <button class="visitor" onClick={openTalk} aria-label={`Talk to ${giver.name}`}>
+        <button class={`visitor${coach?.target === 'visitor' ? ' coach-pulse' : ''}`} onClick={openTalk} aria-label={`Talk to ${giver.name}`}>
           <Portrait v={giver} size={58} />
           <span class={`bubble ${active.status}`}>{active.status === 'offered' ? '!' : active.status === 'ready' || (quest && canHandIn(s, quest) && quest.objectives.some((o) => o.type === 'hand_in')) ? '✓' : '…'}</span>
           <span class="visitor-name">{shortName(giver)}</span>
@@ -223,6 +227,12 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
               Got it
             </button>
           </div>
+        </div>
+      )}
+
+      {coach && (
+        <div class={`coach coach-${coach.target}`} role="status">
+          {coach.text}
         </div>
       )}
 
@@ -255,7 +265,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
             const locked = !unlocked.has(c.id);
             const selected = game.mode === 'plant' && game.selectedCrop === c.id;
             return (
-              <button key={c.id} class={`seed${selected ? ' selected' : ''}${locked ? ' locked' : ''}`} disabled={locked} aria-pressed={selected} aria-label={`${c.name}${locked ? `, unlocks at level ${c.unlock_level}` : ''}`} onClick={() => game.selectCrop(c.id)}>
+              <button key={c.id} class={`seed${selected ? ' selected' : ''}${locked ? ' locked' : ''}${coach?.target === 'seed' && coach.seed === c.id ? ' coach-pulse' : ''}`} disabled={locked} aria-pressed={selected} aria-label={`${c.name}${locked ? `, unlocks at level ${c.unlock_level}` : ''}`} onClick={() => game.selectCrop(c.id)}>
                 <span class="seed-icon" style={{ background: c.color }} aria-hidden="true" />
                 <span class="seed-name">{c.name}</span>
                 {locked ? (
@@ -303,10 +313,10 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
 
       <nav class="nav" aria-label="Farm menu">
         <NavBtn icon="farm" label="Farm" active={sheet === null} onClick={() => setSheet(null)} />
-        <NavBtn icon="barn" label="Barn" badge={barnCount} active={sheet === 'barn'} onClick={() => setSheet('barn')} />
-        <NavBtn icon="board" label="Board" badge={boardOpen ? fillable : 0} locked={!boardOpen} active={sheet === 'board'} onClick={() => boardOpen && setSheet('board')} />
+        <NavBtn icon="barn" label="Barn" badge={barnCount} pulse={coach?.target === 'barn'} active={sheet === 'barn'} onClick={() => setSheet('barn')} />
+        <NavBtn icon="board" label="Board" pulse={coach?.target === 'board'} badge={boardOpen ? fillable : 0} locked={!boardOpen} active={sheet === 'board'} onClick={() => boardOpen && setSheet('board')} />
         <NavBtn icon="town" label="Town" badge={merchantUnlocked(s) && merchantHere(game.content, game.day()) && !boughtToday(s, game.day()).length ? 1 : 0} active={sheet === 'town'} onClick={() => setSheet('town')} />
-        <NavBtn icon="mail" label="Mail" badge={mailUnread} active={sheet === 'mail'} onClick={() => setSheet('mail')} />
+        <NavBtn icon="mail" label="Mail" pulse={coach?.target === 'mail'} badge={mailUnread} active={sheet === 'mail'} onClick={() => setSheet('mail')} />
       </nav>
 
       {sheet === 'barn' && <BarnSheet game={game} onClose={() => setSheet(null)} />}
@@ -357,6 +367,15 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         />
       )}
 
+      {!backupLater && needsBackupNudge(s, now) && !game.away && !canClaim(s, game.day()) && levelCard === null && chapterCard === null && !dialogue && sheet === null && (
+        <BackupCard
+          game={game}
+          onClose={() => {
+            setBackupLater(true);
+          }}
+        />
+      )}
+
       {game.away && (
         <div class="modal-back">
           <div class="card" role="dialog" aria-labelledby="away-title">
@@ -393,9 +412,9 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
 /** 1440 → 1.4k, so the XP numbers fit beside the level at high levels. */
 const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
 
-function NavBtn({ icon, label, badge, active, locked, onClick }: { icon: string; label: string; badge?: number; active?: boolean; locked?: boolean; onClick: () => void }) {
+function NavBtn({ icon, label, badge, active, locked, pulse, onClick }: { icon: string; label: string; badge?: number; active?: boolean; locked?: boolean; pulse?: boolean; onClick: () => void }) {
   return (
-    <button class={`nav-btn${active ? ' active' : ''}${locked ? ' locked' : ''}`} onClick={onClick} aria-label={`${label}${badge ? `, ${badge}` : ''}${locked ? ', locked' : ''}`}>
+    <button class={`nav-btn${active ? ' active' : ''}${locked ? ' locked' : ''}${pulse ? ' coach-pulse' : ''}`} onClick={onClick} aria-label={`${label}${badge ? `, ${badge}` : ''}${locked ? ', locked' : ''}`}>
       <Icon name={locked ? 'lock' : icon} size={26} />
       <span>{label}</span>
       {!!badge && <span class="badge">{badge > 9 ? '9+' : badge}</span>}
@@ -677,6 +696,22 @@ function StoryLog({ game }: { game: Game }) {
   );
 }
 
+function problemReport(game: Game): string {
+  const s = game.state;
+  const lines = [
+    `Cropsy ${__APP_VERSION__}`,
+    `Device: ${navigator.userAgent}`,
+    `Home screen app: ${isStandalone() ? 'yes' : 'no'}`,
+    `Level ${s.level} · ${s.coins} coins · farm ${s.width}x${s.height}`,
+    `Quest: ${s.story.active?.id ?? 'none'} (${s.story.active?.status ?? '-'}) progress ${JSON.stringify(s.story.active?.progress ?? [])} · done ${s.story.done.length}`,
+    `Errors:`,
+    ...recentErrors().map((e) => `  ${new Date(e.t).toISOString()} ${e.msg}${e.where ? ` @ ${e.where}` : ''}`),
+    `Recent events:`,
+    ...s.log.slice(-15).map((l) => `  ${new Date(l.t * 1000).toISOString()} ${l.e}`),
+  ];
+  return lines.join('\n');
+}
+
 function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; debug: boolean }) {
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState('');
@@ -705,6 +740,7 @@ function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; d
             setCode(c);
             try {
               await navigator.clipboard.writeText(c);
+              game.backedUp();
               setMsg('Copied! Keep it somewhere safe.');
             } catch {
               setMsg('Select the code above and copy it.');
@@ -732,6 +768,40 @@ function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; d
           {msg}
         </p>
       )}
+      <h3>Something not right?</h3>
+      <p class="muted small">
+        Copy a problem report and send it to the developer. It includes your level, quest and any recent errors, but not your backup code.
+        {recentErrors().length > 0 && ` ${recentErrors().length} recent error${recentErrors().length > 1 ? 's' : ''} logged.`}
+      </p>
+      <div class="row">
+        <button
+          class="btn"
+          onClick={async () => {
+            const report = problemReport(game);
+            try {
+              await navigator.clipboard.writeText(report);
+              setMsg('Problem report copied.');
+            } catch {
+              setCode(report);
+              setMsg('Select the report above and copy it.');
+            }
+          }}
+        >
+          Copy problem report
+        </button>
+        {recentErrors().length > 0 && (
+          <button
+            class="btn"
+            onClick={() => {
+              clearErrors();
+              setMsg('Error log cleared.');
+            }}
+          >
+            Clear errors
+          </button>
+        )}
+      </div>
+      <p class="muted small version">Cropsy {__APP_VERSION__}</p>
       {debug && (
         <>
           <h3>Debug</h3>
@@ -789,6 +859,68 @@ function LevelCard({ content, level, onClose }: { content: Content; level: numbe
         <button class="btn green" onClick={onClose}>
           Hooray!
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** Copies the backup code, falling back to the share sheet (which can save it to Notes or Files). */
+async function copyBackup(game: Game): Promise<'copied' | 'shared' | 'failed'> {
+  const c = toSaveCode(game.state);
+  try {
+    await navigator.clipboard.writeText(c);
+    game.backedUp();
+    return 'copied';
+  } catch {
+    try {
+      await navigator.share?.({ title: 'Cropsy backup', text: c });
+      game.backedUp();
+      return 'shared';
+    } catch {
+      return 'failed';
+    }
+  }
+}
+
+function BackupCard({ game, onClose }: { game: Game; onClose: () => void }) {
+  const [msg, setMsg] = useState<string | null>(null);
+  const first = game.state.backup?.lastAt === undefined;
+  return (
+    <div class="modal-back">
+      <div class="card" role="dialog" aria-labelledby="backup-title">
+        <h2 id="backup-title">{first ? 'Keep your farm safe' : 'Time for a fresh backup'}</h2>
+        <p class="muted">
+          {first
+            ? "Your farm lives on this phone. If Safari clears its data or you get a new phone, a backup code brings everything back. It's one tap, and you can paste it into Notes."
+            : "It's been a while since your last backup code. Your farm has grown since then!"}
+        </p>
+        {msg && (
+          <p class="muted" role="status">
+            {msg}
+          </p>
+        )}
+        <div class="row">
+          <button
+            class="btn"
+            onClick={() => {
+              game.snoozeBackup();
+              onClose();
+            }}
+          >
+            Later
+          </button>
+          <button
+            class="btn green"
+            onClick={async () => {
+              const r = await copyBackup(game);
+              if (r === 'failed') setMsg('Open Settings to see and copy your code.');
+              else onClose();
+            }}
+          >
+            Copy backup code
+          </button>
+        </div>
+        <p class="muted small">Restore it any time from Settings.</p>
       </div>
     </div>
   );

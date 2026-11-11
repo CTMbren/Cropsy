@@ -36,6 +36,7 @@ export class FarmScene extends Phaser.Scene {
   private buildG!: Phaser.GameObjects.Graphics;
   private cropsG!: Phaser.GameObjects.Graphics;
   private decoG!: Phaser.GameObjects.Graphics;
+  private coachG!: Phaser.GameObjects.Graphics;
   private highlight!: Phaser.GameObjects.Graphics;
   private dragMode: 'none' | 'act' | 'pan' = 'none';
   private downAt = { x: 0, y: 0 };
@@ -65,8 +66,9 @@ export class FarmScene extends Phaser.Scene {
     this.buildG = this.add.graphics();
     this.cropsG = this.add.graphics();
     this.decoG = this.add.graphics();
+    this.coachG = this.add.graphics();
     this.highlight = this.add.graphics();
-    this.world.add([this.ground, this.buildG, this.plotsG, this.cropsG, this.decoG, this.highlight]);
+    this.world.add([this.ground, this.buildG, this.plotsG, this.coachG, this.cropsG, this.decoG, this.highlight]);
 
     this.layout();
     this.scale.on('resize', () => this.layout());
@@ -138,6 +140,29 @@ export class FarmScene extends Phaser.Scene {
       this.drawCrops();
       this.drawBuildings();
       this.drawDecor();
+      this.drawCoach();
+    }
+  }
+
+  /** Pulsing outlines on the plots the first-minutes hint is talking about. */
+  private drawCoach(): void {
+    const g = this.coachG;
+    g.clear();
+    const hint = this.game_.coach();
+    if (!hint?.farm) return;
+    const s = this.game_.state;
+    const now = this.game_.now();
+    const pulse = 0.55 + Math.sin(this.time.now / 220) * 0.35;
+    g.lineStyle(4, 0xffffff, pulse);
+    for (const k of Object.keys(s.plots)) {
+      const p = s.plots[k];
+      const ob = s.obstacles[k];
+      const want = hint.farm === 'weeds' ? ob === 'weeds' : hint.farm === 'empty' ? !ob && !p.crop : !ob && !!p.crop && stageOf(p, now) === 'ripe';
+      if (!want) continue;
+      const [x, y] = parseKey(k);
+      const { sx, sy } = cellToScreen(x, y);
+      const grow = 1 + (1 - pulse) * 0.08;
+      g.strokePoints(this.diamond(sx, sy, TILE_W * 0.92 * grow, TILE_H * 0.92 * grow), true);
     }
   }
 
