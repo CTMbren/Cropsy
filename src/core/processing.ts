@@ -41,9 +41,14 @@ export function startRecipe(state: FarmState, content: Content, buildingId: stri
   if (!hasItems(state, r.inputs)) return { ok: false, reason: 'missing' };
   takeItems(state, r.inputs);
   const last = b.queue[b.queue.length - 1];
-  const item: QueueItem = { recipe: r.id, startsAt: Math.max(now, last ? endOf(last) : now), durS: r.dur_s };
+  const item: QueueItem = { recipe: r.id, startsAt: Math.max(now, last ? endOf(last) : now), durS: recipeTime(state, buildingId, r) };
   b.queue.push(item);
   return { ok: true, item };
+}
+
+/** Pip's 5-heart perk: the bakery works 25% faster. */
+export function recipeTime(state: FarmState, buildingId: string, r: RecipeDef): number {
+  return buildingId === 'bakery' && state.flags.includes('perk:pip') ? Math.round(r.dur_s * 0.75) : r.dur_s;
 }
 
 /** Moves finished goods to the barn. Returns what was collected and levels gained. */

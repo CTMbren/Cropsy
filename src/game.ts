@@ -7,7 +7,9 @@ import {
   harvest,
   upgradeSoil,
   log,
+  hasFlag,
   newFarm,
+  setFlag,
   plant,
   replantAll,
   sell,
@@ -18,6 +20,7 @@ import {
 } from './core/farm';
 import { giveGift, type FriendshipChange } from './core/friendship';
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
+import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merchant';
 import { buyBarn, buyExpansion, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
 import { advance, ensureQuestMaterials, onEvent, readMail, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
 import { dayIndex, gameNow, localOffsetMinutes, systemNow } from './core/time';
@@ -39,6 +42,7 @@ export type FxEvent =
   | { kind: 'levelup'; level: number }
   | { kind: 'quest'; title: string; done: boolean }
   | { kind: 'expand' }
+  | { kind: 'chapter'; n: number }
   | { kind: 'denied'; key: string; reason: string }
   | { kind: 'ui' };
 
@@ -69,6 +73,13 @@ export class Game {
       console.error('Could not load save', e);
     }
     const now = this.now();
+    // saves from before title cards: don't replay cards for chapters already under way
+    if (this.state.story.done.length && !this.state.flags.some((f) => f.startsWith('chapter:'))) {
+      for (const id of [...this.state.story.done, this.state.story.active?.id]) {
+        const q = id ? this.content.questById.get(id) : undefined;
+        if (q) setFlag(this.state, `chapter:${q.chapter}`);
+      }
+    }
     this.applyStory(advance(this.state, this.content, now, this.tz()));
     this.checkAway();
     document.addEventListener('visibilitychange', () => {
@@ -276,6 +287,17 @@ export class Game {
     return true;
   }
 
+  buyMerchant(index: number): MerchantResult {
+    const r = buyFromMerchant(this.state, this.content, index, this.day());
+    if (r.ok) {
+      this.fx({ kind: 'ui' });
+      log(this.state, this.now(), `merchant ${r.slot.kind === 'seed' ? r.slot.crop : r.slot.id}`);
+      this.event({ type: 'merchant_buy' });
+      this.changed();
+    }
+    return r;
+  }
+
   readMail(id: string): void {
     const out = readMail(this.state, this.content, id, this.now(), this.tz());
     this.applyStory(out);
@@ -393,6 +415,12 @@ export class Game {
       log(this.state, this.now(), `quest done ${o.completed.id}`);
     }
     if (o.started && o.started.giver !== 'mail') this.fx({ kind: 'quest', title: o.started.title, done: false });
+    // a title card the first time a chapter begins
+    const q = this.state.story.active ? this.content.questById.get(this.state.story.active.id) : undefined;
+    if (q && !hasFlag(this.state, `chapter:${q.chapter}`)) {
+      setFlag(this.state, `chapter:${q.chapter}`);
+      this.fx({ kind: 'chapter', n: q.chapter });
+    }
   }
 
   private levelUps(n: number): void {
@@ -415,6 +443,8 @@ export class Game {
   }
 
   private changed(): void {
+    // fix Ziggy's stock for the day when his cart is in town
+    syncMerchant(this.state, this.content, this.day());
     // keep the active quest possible (places missing weeds, branches or rocks on free plots)
     ensureQuestMaterials(this.state, this.content);
     // board opens mid-session when the story sets its flag

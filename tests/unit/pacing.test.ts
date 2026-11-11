@@ -15,9 +15,14 @@ describe('pacing (simulated casual player)', () => {
     expect(r.levelAt[5]).toBeLessThan(1);
   });
 
-  it('reaches level 10 within the first week', () => {
-    expect(day(r.levelAt[10])).toBeGreaterThan(1);
-    expect(day(r.levelAt[10])).toBeLessThan(7);
+  it('reaches level 10 in about 2 to 4 days', () => {
+    expect(day(r.levelAt[10])).toBeGreaterThan(1.5);
+    expect(day(r.levelAt[10])).toBeLessThan(4);
+  });
+
+  it('finishes Chapter 3 within 3 weeks', () => {
+    const done = r.events.find((e) => e.e === 'quest ch3_ziggy');
+    expect(done && day(done.h)).toBeLessThan(21);
   });
 
   it('reaches level 30 in roughly 4 to 8 weeks', () => {

@@ -280,9 +280,9 @@
     "perk_hearts": 5
   },
   "xp_curve": {
-    "base": 30,
-    "mult": 15,
-    "exp": 1.9
+    "base": 20,
+    "mult": 6,
+    "exp": 2.2
   },
   "lumber_yard": [
     {
@@ -295,5 +295,37 @@
       "qty": 5,
       "coins": 90
     }
-  ]
+  ],
+  "merchant": {
+    "every_days": 3,
+    "first_day_offset": 0,
+    "seeds": {
+      "levels_ahead": [
+        2,
+        6
+      ],
+      "price_mult": 30
+    },
+    "materials": [
+      {
+        "id": "wood",
+        "qty": 10,
+        "coins": 90
+      },
+      {
+        "id": "stone",
+        "qty": 10,
+        "coins": 130
+      },
+      {
+        "id": "gold",
+        "qty": 1,
+        "coins": 2500
+      }
+    ],
+    "fertilizer": {
+      "qty": 10,
+      "coins": 180
+    }
+  }
 }

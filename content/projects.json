@@ -25,5 +25,34 @@
         "coins": 300
       }
     ]
+  },
+  {
+    "id": "market",
+    "name": "Market Square",
+    "giver": "bruno",
+    "stages": [
+      {
+        "label": "Mend the stalls",
+        "items": {
+          "wood": 20,
+          "stone": 12
+        }
+      },
+      {
+        "label": "Fill them for opening day",
+        "items": {
+          "strawberry": 10,
+          "tomato": 10,
+          "corn": 8
+        }
+      },
+      {
+        "label": "Bunting and signs",
+        "items": {
+          "wood": 10
+        },
+        "coins": 1200
+      }
+    ]
   }
 ]

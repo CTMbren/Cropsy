@@ -4,6 +4,7 @@ import lettersJson from '../../content/letters.json';
 import projectsJson from '../../content/projects.json';
 import questsJson from '../../content/quests.json';
 import villagersJson from '../../content/villagers.json';
+import chaptersJson from '../../content/chapters.json';
 
 export interface CropDef {
   id: string;
@@ -95,6 +96,14 @@ export interface Economy {
   /** Bruno sells wood and stone in bundles, so building never dead-ends on materials. */
   lumber_yard: { id: string; qty: number; coins: number }[];
   xp_curve: { base: number; mult: number; exp: number };
+  /** Ziggy's traveling cart: visits every few days with rare seeds, materials and fertilizer. */
+  merchant: {
+    every_days: number;
+    first_day_offset: number;
+    seeds: { levels_ahead: [number, number]; price_mult: number };
+    materials: { id: string; qty: number; coins: number }[];
+    fertilizer: { qty: number; coins: number };
+  };
   friendship: { per_heart: number; gift: { loved: number; liked: number; neutral: number; disliked: number }; order: number; quest: number; perk_hearts: number };
 }
 
@@ -146,7 +155,14 @@ export type Objective =
   | { type: 'sell'; n: number }
   | { type: 'deliver_order'; order: OrderDef }
   | { type: 'hand_in'; items: Record<string, number>; coins?: number }
-  | { type: 'project'; id: string; n: number };
+  | { type: 'project'; id: string; n: number }
+  | { type: 'merchant_buy'; n: number };
+
+export interface ChapterDef {
+  n: number;
+  title: string;
+  blurb: string;
+}
 
 export interface Rewards {
   coins?: number;
@@ -184,6 +200,7 @@ export interface Content {
   letters: Map<string, LetterDef>;
   quests: QuestDef[];
   questById: Map<string, QuestDef>;
+  chapters: ChapterDef[];
 }
 
 /** Throws with a readable message if the crop data is malformed. */
@@ -244,6 +261,7 @@ export function validateStory(c: Omit<Content, 'questById'>): void {
     for (const m of q.rewards.mail ?? []) if (!c.letters.has(m.id)) throw new Error(`${where}: reward letter "${m.id}" does not exist`);
     for (const k of Object.keys(q.rewards.spawn ?? {})) if (!OBSTACLE_KINDS.has(k)) throw new Error(`${where}: cannot spawn "${k}"`);
   }
+  for (const q of c.quests) if (!c.chapters.some((ch) => ch.n === q.chapter)) throw new Error(`quests.json "${q.id}": chapter ${q.chapter} has no entry in chapters.json`);
   for (const l of c.letters.values()) if (!c.villagers.has(l.from)) throw new Error(`letters.json "${l.id}": unknown sender "${l.from}"`);
   for (const v of c.villagers.values()) {
     for (const id of [...(v.loves ?? []), ...(v.likes ?? []), ...(v.dislikes ?? [])]) if (!isItem(id)) throw new Error(`villagers.json "${v.id}": unknown gift item "${id}"`);
@@ -266,6 +284,7 @@ export function loadContent(rawCrops: unknown = cropsJson): Content {
     villagers: new Map((villagersJson as VillagerDef[]).map((v) => [v.id, v])),
     letters: new Map((lettersJson as LetterDef[]).map((l) => [l.id, l])),
     quests,
+    chapters: chaptersJson as ChapterDef[],
   };
   validateStory(c);
   return { ...c, questById: new Map(quests.map((q) => [q.id, q])) };

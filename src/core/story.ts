@@ -12,7 +12,8 @@ export type GameEvent =
   | { type: 'sell'; n: number }
   | { type: 'read_mail'; id: string }
   | { type: 'order_done'; id: string }
-  | { type: 'project'; id: string; stage: number };
+  | { type: 'project'; id: string; stage: number }
+  | { type: 'merchant_buy' };
 
 export const target = (o: Objective): number => ('n' in o ? o.n : 1);
 
@@ -62,7 +63,16 @@ export function advance(state: FarmState, content: Content, now: number, offsetM
   state.story.active = { id: q.id, status: q.giver === 'mail' ? 'active' : 'offered', progress: q.objectives.map(() => 0) };
   ensureQuestMaterials(state, content);
   out.started = q;
-  if (q.giver === 'mail') begin(state, q, now, offsetMin);
+  if (q.giver === 'mail') {
+    begin(state, q, now, offsetMin);
+    // the letter may already have been read (e.g. it arrived as a reward before this chapter existed)
+    for (const o of q.objectives) {
+      if (o.type === 'read_mail' && state.mail.some((m) => m.id === o.id && m.read && m.arrivesAt <= now)) {
+        const r = onEvent(state, content, { type: 'read_mail', id: o.id }, now, offsetMin);
+        return { ...r, started: r.started ?? q };
+      }
+    }
+  }
   return out;
 }
 
@@ -168,6 +178,8 @@ function matches(o: Objective, e: GameEvent): number {
       return e.type === 'order_done' && e.id === o.order.id ? 1 : 0;
     case 'project':
       return e.type === 'project' && e.id === o.id ? 1 : 0;
+    case 'merchant_buy':
+      return e.type === 'merchant_buy' ? 1 : 0;
     default:
       return 0;
   }
@@ -264,5 +276,7 @@ export function objectiveText(o: Objective, content: Content): string {
     }
     case 'project':
       return `Restore the ${content.projects.get(o.id)?.name ?? o.id} (in Town)`;
+    case 'merchant_buy':
+      return o.n === 1 ? "Buy something from Ziggy's cart (in Town)" : `Buy ${o.n} things from Ziggy's cart`;
   }
 }
