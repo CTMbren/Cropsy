@@ -1,7 +1,8 @@
 import * as Phaser from 'phaser';
-import { hasFlag, isFresh, key, parseKey, stageOf, type ObstacleKind, type PlotState } from '../core/farm';
+import { hasFlag, isFresh, key, parseKey, stageOf, type ObstacleKind } from '../core/farm';
 import { decorSpots, placed, spotCell } from '../core/decor';
 import type { Game } from '../game';
+import { ArtRegistry } from './art';
 import { cellToScreen, screenToCell, TILE_H, TILE_W } from './iso';
 
 const INK = 0x4a2e1a; // thick dark-brown outline used on everything in the cartoon style
@@ -23,6 +24,32 @@ const PAD = 2.7;
 const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 2.0;
 
+/** Placeholder bounds around each sprite's anchor, in logical pixels (see ArtRegistry). */
+const CROP_BOUNDS = { left: -34, top: -42, right: 34, bottom: 20 };
+const OBSTACLE_BOUNDS = { left: -42, top: -48, right: 42, bottom: 20 };
+const BUBBLE_BOUNDS = { left: -14, top: -18, right: 18, bottom: 14 };
+const FERT_BOUNDS = { left: -10, top: -10, right: 10, bottom: 10 };
+const SPARKLE_BOUNDS = { left: -5, top: -8, right: 5, bottom: 8 };
+/** Ripe-bubble, fertilizer and sparkle positions relative to the plot centre. */
+const BUBBLE_Y = -44;
+const FERT_AT = { x: 30, y: -4 };
+const SPARKLE_AT = { x: 23, y: -50 };
+
+/** The sprites standing on one cell, kept alive between frames and only re-pointed on change. */
+interface PlotView {
+  k: string;
+  sx: number;
+  sy: number;
+  crop: Phaser.GameObjects.Image;
+  fert: Phaser.GameObjects.Image;
+  bubble: Phaser.GameObjects.Image;
+  sparkle: Phaser.GameObjects.Image;
+  /** What the view currently shows, so syncPlots only touches views that changed. */
+  shown: string;
+  ripe: boolean;
+  fresh: boolean;
+}
+
 const hex = (c: string) => Phaser.Display.Color.HexStringToColor(c).color;
 const V = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
 
@@ -37,7 +64,11 @@ export class FarmScene extends Phaser.Scene {
   private ground!: Phaser.GameObjects.Graphics;
   private plotsG!: Phaser.GameObjects.Graphics;
   private buildG!: Phaser.GameObjects.Graphics;
-  private cropsG!: Phaser.GameObjects.Graphics;
+  /** Crops, obstacles and their markers as pooled sprites, back to front. */
+  private plotLayer!: Phaser.GameObjects.Container;
+  private views: PlotView[] = [];
+  private viewsSize = '';
+  private art!: ArtRegistry;
   private decoG!: Phaser.GameObjects.Graphics;
   /** Per-plot pop-in animations (planting), keyed by cell, with their start time. */
   private pops = new Map<string, number>();
@@ -73,11 +104,13 @@ export class FarmScene extends Phaser.Scene {
     this.ground = this.add.graphics();
     this.plotsG = this.add.graphics();
     this.buildG = this.add.graphics();
-    this.cropsG = this.add.graphics();
+    this.plotLayer = this.add.container(0, 0);
+    // bake placeholders at device pixels for max zoom, so they stay as crisp as the vector drawing
+    this.art = new ArtRegistry(this, Math.min(4, Math.ceil(this.dpr * MAX_ZOOM)));
     this.decoG = this.add.graphics();
     this.coachG = this.add.graphics();
     this.highlight = this.add.graphics();
-    this.world.add([this.ground, this.buildG, this.plotsG, this.coachG, this.cropsG, this.decoG, this.highlight]);
+    this.world.add([this.ground, this.buildG, this.plotsG, this.coachG, this.plotLayer, this.decoG, this.highlight]);
 
     if (this.registry.get('debug')) {
       this.perfText = this.add
@@ -161,7 +194,6 @@ export class FarmScene extends Phaser.Scene {
     if (this.sparkleT > 120) {
       this.sparkleT = 0;
       const t0 = performance.now();
-      this.drawCrops();
       this.drawBuildings();
       this.drawDecor();
       this.drawCoach();
@@ -172,6 +204,7 @@ export class FarmScene extends Phaser.Scene {
         this.perf.redrawMax = Math.max(this.perf.redrawMax, ms);
       }
     }
+    this.animatePlots(t);
     if (this.perfText) this.updatePerf(t, dt);
   }
 
@@ -246,6 +279,7 @@ export class FarmScene extends Phaser.Scene {
     this.world.setPosition(width / 2 - mid.sx * this.world.scale, UI_TOP + availH / 2 - mid.sy * this.world.scale + 10);
     this.drawGround();
     this.drawPlots();
+    this.buildViews();
     this.drawBuildings();
   }
 
@@ -348,7 +382,7 @@ export class FarmScene extends Phaser.Scene {
       this.layout();
     }
     this.drawPlots();
-    this.drawCrops();
+    this.syncPlots();
     this.drawDecor();
   }
 
@@ -399,21 +433,118 @@ export class FarmScene extends Phaser.Scene {
     }
   }
 
-  private drawCrops(): void {
-    const g = this.cropsG;
+  /** One pooled view per cell, created back to front so later cells draw over earlier ones. */
+  private buildViews(): void {
     const s = this.game_.state;
-    const now = this.game_.now();
-    g.clear();
+    const size = `${s.width}x${s.height}`;
+    if (size === this.viewsSize) return;
+    this.viewsSize = size;
+    this.plotLayer.removeAll(true);
+    this.views = [];
     const cells: [number, number][] = [];
     for (let y = 0; y < s.height; y++) for (let x = 0; x < s.width; x++) cells.push([x, y]);
     cells.sort((a, b) => a[0] + a[1] - (b[0] + b[1])); // back to front
+    const img = (x: number, y: number) => this.add.image(x, y, '__DEFAULT').setVisible(false);
     for (const [x, y] of cells) {
-      const k = key(x, y);
       const { sx, sy } = cellToScreen(x, y);
-      const ob = s.obstacles[k];
-      if (ob) this.drawObstacle(g, ob, sx, sy, x * 7 + y * 13);
-      else if (s.plots[k]?.crop) this.drawCrop(g, s.plots[k], sx, sy, now, this.popScale(k));
+      const v: PlotView = {
+        k: key(x, y),
+        sx,
+        sy,
+        crop: img(sx, sy),
+        fert: img(sx + FERT_AT.x, sy + FERT_AT.y),
+        bubble: img(sx, sy + BUBBLE_Y),
+        sparkle: img(sx + SPARKLE_AT.x, sy + SPARKLE_AT.y),
+        shown: '',
+        ripe: false,
+        fresh: false,
+      };
+      this.plotLayer.add([v.crop, v.fert, v.bubble, v.sparkle]);
+      this.views.push(v);
     }
+  }
+
+  /** Points each view at the art for its plot's current state. Runs on state change and once a second. */
+  private syncPlots(): void {
+    const s = this.game_.state;
+    const now = this.game_.now();
+    for (const v of this.views) {
+      const plot = s.plots[v.k];
+      const ob = s.obstacles[v.k];
+      const stage = !ob && plot?.crop ? stageOf(plot, now) : 'empty';
+      const fresh = stage === 'ripe' && isFresh(plot!, now);
+      const fert = !ob && !!plot?.fertilized && stage !== 'ripe' && stage !== 'empty';
+      const cropKey = ob ? this.obstacleArt(ob, v.k) : stage !== 'empty' ? this.cropArt(plot!.crop!, stage) : '';
+      const shown = `${cropKey}|${fert}|${fresh}`;
+      v.ripe = stage === 'ripe';
+      v.fresh = fresh;
+      if (shown === v.shown) continue;
+      v.shown = shown;
+      this.show(v.crop, cropKey);
+      this.show(v.fert, fert ? this.markerArt('fertilizer') : '');
+      this.show(v.bubble, v.ripe ? this.bubbleArt(plot!.crop!, fresh) : '');
+      this.show(v.sparkle, fresh ? this.markerArt('sparkle') : '');
+      if (!v.ripe) v.crop.x = v.sx;
+    }
+  }
+
+  private show(img: Phaser.GameObjects.Image, artKey: string): void {
+    if (!artKey || !this.art.apply(img, artKey)) {
+      img.setVisible(false);
+      return;
+    }
+    img.setScale(img.getData('artScale') as number).setVisible(true);
+  }
+
+  /** Per-frame motion only (no redrawing): ripe sway, bubble bob, fresh sparkle blink, planting pop. */
+  private animatePlots(time: number): void {
+    const bob = Math.sin(time / 250) * 3;
+    const blink = Math.floor(time / 400) % 2 === 0;
+    for (const v of this.views) {
+      const k = this.pops.size ? this.popScale(v.k) : 1;
+      if (k !== 1 || v.crop.getData('popping')) {
+        v.crop.setScale((v.crop.getData('artScale') as number) * k);
+        v.crop.setData('popping', k !== 1);
+      }
+      if (!v.ripe) continue;
+      v.crop.x = v.sx + Math.sin(time / 400 + v.sx) * 1.5 * k;
+      v.bubble.y = v.sy + BUBBLE_Y + bob;
+      if (v.fresh) v.sparkle.setVisible(blink);
+    }
+  }
+
+  private cropArt(id: string, stage: Exclude<ReturnType<typeof stageOf>, 'empty'>): string {
+    const k = `crop/${id}/${stage}`;
+    if (!this.art.has(k)) {
+      const def = this.game_.content.cropById.get(id);
+      if (def) this.art.placeholder(k, CROP_BOUNDS, (g, cx, cy) => this.drawCrop(g, stage, hex(def.leaf), hex(def.color), cx, cy));
+    }
+    return k;
+  }
+
+  private obstacleArt(kind: ObstacleKind, cell: string): string {
+    // weeds come in two shades so a field of them doesn't look stamped
+    const [x, y] = parseKey(cell);
+    const alt = kind === 'weeds' && (x * 7 + y * 13) % 2 === 1;
+    const k = `obstacle/${kind}${alt ? '/b' : ''}`;
+    this.art.placeholder(k, OBSTACLE_BOUNDS, (g, cx, cy) => this.drawObstacle(g, kind, cx, cy, alt ? 1 : 0));
+    return k;
+  }
+
+  private bubbleArt(cropId: string, fresh: boolean): string {
+    const k = `marker/bubble${fresh ? '-fresh' : ''}/${cropId}`;
+    if (!this.art.has(k)) {
+      const def = this.game_.content.cropById.get(cropId);
+      this.art.placeholder(k, BUBBLE_BOUNDS, (g, cx, cy) => this.drawBubble(g, def ? hex(def.color) : 0xffffff, fresh, cx, cy));
+    }
+    return k;
+  }
+
+  private markerArt(id: 'fertilizer' | 'sparkle'): string {
+    const k = `marker/${id}`;
+    if (id === 'fertilizer') this.art.placeholder(k, FERT_BOUNDS, (g, cx, cy) => this.drawFertilizer(g, cx, cy));
+    else this.art.placeholder(k, SPARKLE_BOUNDS, (g, cx, cy) => this.drawSparkle(g, cx, cy));
+    return k;
   }
 
   private drawObstacle(g: Phaser.GameObjects.Graphics, kind: ObstacleKind, sx: number, sy: number, seed: number): void {
@@ -498,13 +629,8 @@ export class FarmScene extends Phaser.Scene {
     return 0.3 + 0.7 * (1 + (back + 1) * u * u * u + back * u * u);
   }
 
-  private drawCrop(g: Phaser.GameObjects.Graphics, plot: PlotState, sx: number, sy: number, now: number, k = 1): void {
-    const def = this.game_.content.cropById.get(plot.crop!);
-    if (!def) return;
-    const stage = stageOf(plot, now);
-    const leaf = hex(def.leaf);
-    const fruit = hex(def.color);
-    const sway = stage === 'ripe' ? Math.sin(this.time.now / 400 + sx) * 1.5 : 0;
+  /** Placeholder crop art: four leaf clumps (and fruit when ripe) around the plot centre. */
+  private drawCrop(g: Phaser.GameObjects.Graphics, stage: 'seed' | 'sprout' | 'growing' | 'ripe', leaf: number, fruit: number, sx: number, sy: number): void {
     const spots: [number, number][] = [
       [-18, -4],
       [18, -4],
@@ -512,69 +638,66 @@ export class FarmScene extends Phaser.Scene {
       [0, -14],
     ];
     for (const [dx, dy] of spots) {
-      const cx = sx + (dx + sway) * k;
-      const cy = sy + dy * k;
+      const cx = sx + dx;
+      const cy = sy + dy;
       if (stage === 'seed') {
         g.fillStyle(0x5b3418, 1);
-        g.fillEllipse(cx, cy, 10 * k, 6 * k);
+        g.fillEllipse(cx, cy, 10, 6);
         continue;
       }
-      const h = (stage === 'sprout' ? 10 : stage === 'growing' ? 18 : 22) * k;
-      const w = 9 * k;
+      const h = stage === 'sprout' ? 10 : stage === 'growing' ? 18 : 22;
+      const w = 9;
       g.lineStyle(2.5, INK, 1);
       g.fillStyle(leaf, 1);
-      g.fillEllipse(cx - 5 * k, cy - h / 2, w, h);
-      g.strokeEllipse(cx - 5 * k, cy - h / 2, w, h);
-      g.fillEllipse(cx + 5 * k, cy - h / 2, w, h);
-      g.strokeEllipse(cx + 5 * k, cy - h / 2, w, h);
+      g.fillEllipse(cx - 5, cy - h / 2, w, h);
+      g.strokeEllipse(cx - 5, cy - h / 2, w, h);
+      g.fillEllipse(cx + 5, cy - h / 2, w, h);
+      g.strokeEllipse(cx + 5, cy - h / 2, w, h);
       if (stage === 'ripe') {
         g.fillStyle(fruit, 1);
-        g.fillCircle(cx, cy - 2, 9 * k);
-        g.strokeCircle(cx, cy - 2, 9 * k);
+        g.fillCircle(cx, cy - 2, 9);
+        g.strokeCircle(cx, cy - 2, 9);
         g.fillStyle(0xffffff, 0.7);
-        g.fillCircle(cx - 3 * k, cy - 5 * k, 2.5 * k);
+        g.fillCircle(cx - 3, cy - 5, 2.5);
       }
     }
-    if (plot.fertilized && stage !== 'ripe') {
-      g.lineStyle(2.5, INK, 1);
-      g.fillStyle(0x7cdc4f, 1);
-      g.fillCircle(sx + 30, sy - 4, 7);
-      g.strokeCircle(sx + 30, sy - 4, 7);
-      g.lineStyle(2.5, 0xffffff, 1);
-      g.lineBetween(sx + 26, sy - 4, sx + 34, sy - 4);
-      g.lineBetween(sx + 30, sy - 8, sx + 30, sy);
+  }
+
+  /** The ripe bubble; a star marks a Fresh Pick so it doesn't rely on the yellow alone. */
+  private drawBubble(g: Phaser.GameObjects.Graphics, fruit: number, fresh: boolean, cx: number, cy: number): void {
+    g.lineStyle(3, INK, 1);
+    g.fillStyle(fresh ? 0xffe14d : 0xffffff, 1);
+    g.fillCircle(cx, cy, 10);
+    g.strokeCircle(cx, cy, 10);
+    g.fillStyle(fruit, 1);
+    g.fillCircle(cx, cy, 5);
+    if (!fresh) return;
+    g.fillStyle(0xffffff, 1);
+    g.lineStyle(1.5, INK, 1);
+    const pts: Phaser.Math.Vector2[] = [];
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5;
+      const rr = i % 2 ? 6 * 0.45 : 6;
+      pts.push(V(cx + 9 + Math.cos(a) * rr, cy - 9 + Math.sin(a) * rr));
     }
-    if (stage === 'ripe') {
-      const bob = Math.sin(this.time.now / 250) * 3;
-      const fresh = isFresh(plot, now);
-      g.lineStyle(3, INK, 1);
-      g.fillStyle(fresh ? 0xffe14d : 0xffffff, 1);
-      g.fillCircle(sx, sy - 44 + bob, 10);
-      g.strokeCircle(sx, sy - 44 + bob, 10);
-      g.fillStyle(fruit, 1);
-      g.fillCircle(sx, sy - 44 + bob, 5);
-      if (fresh) {
-        // a star on the bubble marks a Fresh Pick, so it doesn't rely on the yellow alone
-        g.fillStyle(0xffffff, 1);
-        g.lineStyle(1.5, INK, 1);
-        const st = (cx: number, cy: number, r: number) => {
-          const pts: Phaser.Math.Vector2[] = [];
-          for (let i = 0; i < 10; i++) {
-            const a = -Math.PI / 2 + (i * Math.PI) / 5;
-            const rr = i % 2 ? r * 0.45 : r;
-            pts.push(V(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr));
-          }
-          g.fillPoints(pts, true);
-          g.strokePoints(pts, true);
-        };
-        st(sx + 9, sy - 53 + bob, 6);
-      }
-      if (fresh && Math.floor(this.time.now / 400) % 2 === 0) {
-        g.fillStyle(0xffffff, 1);
-        g.fillTriangle(sx + 20, sy - 50, sx + 23, sy - 44, sx + 26, sy - 50);
-        g.fillTriangle(sx + 20, sy - 50, sx + 23, sy - 56, sx + 26, sy - 50);
-      }
-    }
+    g.fillPoints(pts, true);
+    g.strokePoints(pts, true);
+  }
+
+  private drawFertilizer(g: Phaser.GameObjects.Graphics, cx: number, cy: number): void {
+    g.lineStyle(2.5, INK, 1);
+    g.fillStyle(0x7cdc4f, 1);
+    g.fillCircle(cx, cy, 7);
+    g.strokeCircle(cx, cy, 7);
+    g.lineStyle(2.5, 0xffffff, 1);
+    g.lineBetween(cx - 4, cy, cx + 4, cy);
+    g.lineBetween(cx, cy - 4, cx, cy + 4);
+  }
+
+  private drawSparkle(g: Phaser.GameObjects.Graphics, cx: number, cy: number): void {
+    g.fillStyle(0xffffff, 1);
+    g.fillTriangle(cx - 3, cy, cx, cy + 6, cx + 3, cy);
+    g.fillTriangle(cx - 3, cy, cx, cy - 6, cx + 3, cy);
   }
 
   // ── buildings ───────────────────────────────────────────────────
