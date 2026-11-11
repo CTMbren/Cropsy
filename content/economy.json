@@ -17,6 +17,18 @@
       "name": "Berry Pastry",
       "sell": 780,
       "color": "#e8b55c"
+    },
+    {
+      "id": "honey",
+      "name": "Honey",
+      "sell": 45,
+      "color": "#f5b32a"
+    },
+    {
+      "id": "honey_jam",
+      "name": "Honey Berry Jam",
+      "sell": 520,
+      "color": "#e89a2a"
     }
   ],
   "materials": [
@@ -73,6 +85,16 @@
           "output": "jam",
           "dur_s": 1200,
           "xp": 6
+        },
+        {
+          "id": "honey_jam",
+          "inputs": {
+            "honey": 2,
+            "blueberry": 2
+          },
+          "output": "honey_jam",
+          "dur_s": 2400,
+          "xp": 10
         }
       ]
     },
@@ -501,5 +523,13 @@
     "coins_per_level": 3500,
     "crops": 2,
     "qty_per_level": 3
+  },
+  "critters": {
+    "min_s": 300,
+    "max_s": 600,
+    "cap": 5,
+    "pollen_per_honey": 5,
+    "unlock_level": 3,
+    "hazel_points": 10
   }
 }

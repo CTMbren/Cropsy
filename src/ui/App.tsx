@@ -12,6 +12,8 @@ import { beauty, calendarRewards, canClaim, decorDef, decorDefs, nextGift, place
 import { hasImprovement, improvements, nextTownLevel, TOWN_BONUS_LEVELS, TOWN_BONUS_PER_LEVEL, townLevel, townProject, townProjectOpen, weekOf } from '../core/town';
 import { boughtToday, daysUntilMerchant, merchantHere, merchantStock, merchantUnlocked } from '../core/merchant';
 import { needsBackupNudge } from '../core/backup';
+import { CRITTERS, crittersOpen, nextVisitorIn, PAGE_TITLES, PAGES, pollenPerHoney } from '../core/critters';
+import { CritterIcon } from './critterIcons';
 import { formatDuration } from '../core/time';
 import { clearErrors, recentErrors } from '../platform/errors';
 import type { Game } from '../game';
@@ -83,6 +85,8 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       if (e.kind === 'levelup') setLevelCard(e.level);
       if (e.kind === 'chapter') setChapterCard(e.n);
       if (e.kind === 'star') setToast(`${'★'.repeat(e.stars)} ${e.crop} mastery! +${e.stars} Ribbon${e.stars > 1 ? 's' : ''} · ${MASTERY_PERKS[e.stars - 1]}`);
+      if (e.kind === 'critter' && e.result.pageDone) setToast(`Sketchbook page ${e.result.pageDone} complete! +1 Ribbon`);
+      else if (e.kind === 'critter' && e.result.firstTime) setToast(`Sketched the ${e.result.species.name}! See it in Town → Sketchbook`);
       if (e.kind === 'moss') setToast('coins' in e.find ? `Moss dug up ${e.find.coins} coins!` : `Moss dug up ${e.find.qty} ${itemName(game.content, e.find.item).toLowerCase()}!`);
       if (e.kind === 'ribbon') setToast(`+${e.amount} Ribbon${e.amount > 1 ? 's' : ''} · ${e.why}`);
       if (e.kind === 'heart') {
@@ -1120,7 +1124,8 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
   const almanac = hasFlag(s, 'almanac_open');
   const scenes = pendingEvents(s, c).length > 0;
   const townOpen = townProjectOpen(s, c);
-  const tabs = ['store', ...(cart ? ['cart'] : []), ...(friends(s, c).length ? ['friends'] : []), ...(almanac ? ['almanac'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(projects.length || townOpen ? ['projects'] : [])];
+  const sketch = crittersOpen(s, c);
+  const tabs = ['store', ...(cart ? ['cart'] : []), ...(friends(s, c).length ? ['friends'] : []), ...(almanac ? ['almanac'] : []), ...(sketch ? ['sketchbook'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(projects.length || townOpen ? ['projects'] : [])];
   const [tab, setTab] = useState<string>(projectDue ? 'projects' : scenes ? 'friends' : cart && merchantHere(c, day, s) && !boughtToday(s, day).length ? 'cart' : 'store');
   const exp = nextExpansion(s, c);
   return (
@@ -1128,7 +1133,7 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
       <div class="tabs" role="tablist">
         {tabs.map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} class={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'store' ? "Goldie's store" : t === 'cart' ? "Ziggy's cart" : t === 'friends' ? (scenes ? 'Friends ♥' : 'Friends') : t === 'almanac' ? 'Almanac' : t === 'land' ? 'Land' : t === 'market' ? 'Market' : 'Projects'}
+            {t === 'store' ? "Goldie's store" : t === 'cart' ? "Ziggy's cart" : t === 'friends' ? (scenes ? 'Friends ♥' : 'Friends') : t === 'almanac' ? 'Almanac' : t === 'sketchbook' ? 'Sketchbook' : t === 'land' ? 'Land' : t === 'market' ? 'Market' : 'Projects'}
           </button>
         ))}
       </div>
@@ -1292,6 +1297,7 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
       {tab === 'cart' && <CartTab game={game} day={day} />}
       {tab === 'friends' && <FriendsTab game={game} day={day} onScene={onScene} />}
       {tab === 'almanac' && <AlmanacTab game={game} />}
+      {tab === 'sketchbook' && <SketchbookTab game={game} />}
 
       {tab === 'projects' && (
         <div class="projects">
@@ -1500,6 +1506,70 @@ function CartTab({ game, day }: { game: Game; day: number }) {
           );
         })}
       </ul>
+    </>
+  );
+}
+
+/** The Field Sketchbook: every Meadow Visitor, page by page, with the pollen jar. */
+function SketchbookTab({ game }: { game: Game }) {
+  const s = game.state;
+  const c = game.content;
+  const seen = s.critters?.seen ?? [];
+  const pollen = s.critters?.pollen ?? 0;
+  const per = pollenPerHoney(c);
+  const next = nextVisitorIn(s, c, game.now());
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <>
+      <p class="muted small">
+        Little visitors drop by while your crops grow. Tap them on the farm: each one gives pollen, and new ones get sketched here. Finish a page for a Ribbon.
+      </p>
+      <div class="order">
+        <ItemIcon id="honey" size={40} />
+        <div class="order-body">
+          <div class="order-who">
+            Pollen jar {pollen}/{per}
+          </div>
+          <div class="grow-bar small" role="progressbar" aria-valuenow={pollen} aria-valuemax={per}>
+            <i style={{ width: `${(pollen / per) * 100}%` }} />
+          </div>
+          <p class="muted small">
+            Every {per} pollen makes a Honey (you have {s.inventory.honey ?? 0}).
+            <br />
+            {(s.critters?.out.length ?? 0) > 0
+              ? `${s.critters!.out.length} visiting your farm now!`
+              : next !== null
+                ? `Next visitor in about ${formatDuration(next)}.`
+                : 'Plant something and visitors will come.'}
+          </p>
+        </div>
+      </div>
+      {PAGES.map((page) => {
+        const list = CRITTERS.filter((x) => x.page === page);
+        const found = list.filter((x) => seen.includes(x.id)).length;
+        return (
+          <section key={page}>
+            <h3>
+              Page {page} · {PAGE_TITLES[page] ?? ''} <span class="muted small">{found === list.length ? '✓ complete' : `${found}/${list.length}`}</span>
+            </h3>
+            <ul class="almanac">
+              {list.map((x) => {
+                const got = seen.includes(x.id);
+                return (
+                  <li key={x.id} class={`almanac-card${got ? '' : ' unknown'}`}>
+                    <button class="critter-card" disabled={!got} onClick={() => setOpen(open === x.id ? null : x.id)} aria-expanded={open === x.id}>
+                      <CritterIcon shape={x.shape} color={x.color} unknown={!got} />
+                      <span class="almanac-name">{got ? x.name : x.secret ? '???' : 'Not yet seen'}</span>
+                      {!got && !x.secret && <small>{x.crops === 'any' ? 'Any crop' : x.crops.map((id) => c.cropById.get(id)?.name).join(', ')}</small>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {open && list.some((x) => x.id === open) && <p class="story-lines critter-note">“{CRITTERS.find((x) => x.id === open)!.note}” <b>– Hazel</b></p>}
+          </section>
+        );
+      })}
     </>
   );
 }

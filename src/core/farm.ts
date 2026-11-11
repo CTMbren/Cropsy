@@ -96,6 +96,8 @@ export interface FarmState {
   townLevel?: number;
   /** This week's town project and trophies earned so far. */
   town?: { week: number; done: boolean; trophies: number; project?: import('./town').TownProject };
+  /** Meadow Visitors: critters on the farm, the arrival clock, species sketched, pollen toward honey. */
+  critters?: { out: import('./critters').Visitor[]; nextAt: number; n: number; seen: string[]; pollen: number };
   /** Moss's digs today. */
   moss?: { day: number; digs: number };
   /** Harvests per crop, for Crop Mastery. */

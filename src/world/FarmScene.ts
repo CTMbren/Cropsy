@@ -3,6 +3,8 @@ import { hasFlag, isFresh, key, parseKey, stageOf, type ObstacleKind } from '../
 import { decorDefs, decorSpots, placed, spotCell } from '../core/decor';
 import type { Game } from '../game';
 import { ArtRegistry } from './art';
+import { critterById } from '../core/critters';
+import { CRITTER_BOUNDS, drawCritter } from './critterArt';
 import { light, shade } from './paint';
 import { cropBounds, drawCropArt } from './cropArt';
 import {
@@ -112,6 +114,9 @@ export class FarmScene extends Phaser.Scene {
   /** Crops, obstacles and their markers as pooled sprites, back to front. */
   private plotLayer!: Phaser.GameObjects.Container;
   private views: PlotView[] = [];
+  /** Meadow Visitors on the farm, by visitor id. */
+  private critterLayer!: Phaser.GameObjects.Container;
+  private critterViews = new Map<number, { img: Phaser.GameObjects.Image; x: number; y: number; flier: boolean; seed: number }>();
   private viewsSize = '';
   private art!: ArtRegistry;
   private decoG!: Phaser.GameObjects.Graphics;
@@ -158,7 +163,8 @@ export class FarmScene extends Phaser.Scene {
     this.decorLayer = this.add.container(0, 0);
     this.coachG = this.add.graphics();
     this.highlight = this.add.graphics();
-    this.world.add([this.ground, this.structLayer, this.soilLayer, this.coachG, this.plotLayer, this.decoG, this.decorLayer, this.highlight]);
+    this.critterLayer = this.add.container(0, 0);
+    this.world.add([this.ground, this.structLayer, this.soilLayer, this.coachG, this.plotLayer, this.decoG, this.decorLayer, this.critterLayer, this.highlight]);
     this.buildStructures();
 
     if (this.registry.get('debug')) {
@@ -199,6 +205,12 @@ export class FarmScene extends Phaser.Scene {
         this.pops.set(e.key, this.time.now);
       }
       if (e.kind === 'dug') this.burst(e.key, 0x7a4626, 9);
+      if (e.kind === 'critter') {
+        this.burst(e.key, 0xffe14d, e.result.firstTime ? 12 : 6);
+        if (e.result.firstTime) this.popText(e.key, `New: ${e.result.species.name}!`, '#ffe14d');
+        else if (e.result.honey) this.popText(e.key, `+${e.result.honey} Honey!`, '#ffc531');
+        else this.popText(e.key, '+1 Pollen', '#fff4b0');
+      }
       if (e.kind === 'decor') {
         const c = spotCell(this.game_.state, e.spot);
         this.burst(`${c.x},${c.y}`, e.placed ? 0xffe14d : 0xffffff, e.placed ? 10 : 5);
@@ -255,6 +267,7 @@ export class FarmScene extends Phaser.Scene {
     }
     this.animatePlots(t);
     this.animateStructures(t);
+    this.animateCritters(t);
     if (this.perfText) this.updatePerf(t, dt);
   }
 
@@ -493,6 +506,81 @@ export class FarmScene extends Phaser.Scene {
     this.syncPlots();
     this.syncStructures();
     this.drawDecor();
+    this.syncCritters();
+  }
+
+  // ── Meadow Visitors ─────────────────────────────────────────────
+
+  /** Creates or removes one sprite per visitor so they match the save. */
+  private syncCritters(): void {
+    const out = this.game_.state.critters?.out ?? [];
+    const live = new Set(out.map((v) => v.id));
+    for (const [id, cv] of this.critterViews) {
+      if (!live.has(id)) {
+        cv.img.destroy();
+        this.critterViews.delete(id);
+      }
+    }
+    for (const v of out) {
+      const def = critterById.get(v.species);
+      if (!def) continue;
+      const [x, y] = parseKey(v.plot);
+      const { sx, sy } = cellToScreen(x, y);
+      const seed = (v.id * 7919) % 1000;
+      const px = sx + ((seed % 25) - 12);
+      const py = sy - 4 + ((seed % 7) - 3);
+      const existing = this.critterViews.get(v.id);
+      if (existing) {
+        // flew to another plot
+        existing.x = px;
+        existing.y = py;
+        continue;
+      }
+      const artKey = `critter/${def.id}`;
+      this.art.placeholder(artKey, CRITTER_BOUNDS, (g, cx, cy) => drawCritter(g, def.shape, hex(def.color), cx, cy));
+      const img = this.add.image(px, py, '__DEFAULT');
+      this.show(img, artKey);
+      img.setData('artScale', (img.getData('artScale') as number) * 1.25);
+      img.setScale(img.getData('artScale') as number);
+      this.critterLayer.add(img);
+      // arriving visitors fade in with a little hop
+      img.setAlpha(0);
+      this.tweens.add({ targets: img, alpha: 1, duration: 300 });
+      this.critterViews.set(v.id, { img, x: px, y: py, flier: ['bee', 'butterfly', 'dragonfly', 'moth'].includes(def.shape), seed });
+    }
+    // nearer plots draw over farther ones
+    this.critterLayer.sort('y');
+  }
+
+  /** Per-frame idle motion: fliers hover and flutter, crawlers wiggle. */
+  private animateCritters(t: number): void {
+    for (const cv of this.critterViews.values()) {
+      const ph = t / 1000 + cv.seed;
+      const sc = cv.img.getData('artScale') as number;
+      if (cv.flier) {
+        cv.img.setPosition(cv.x + Math.sin(ph * 1.3) * 5, cv.y - 6 + Math.sin(ph * 3.1) * 3);
+        cv.img.setScale(sc * (0.92 + Math.abs(Math.sin(ph * 9)) * 0.08), sc);
+      } else {
+        cv.img.setPosition(cv.x + Math.sin(ph * 0.7) * 2, cv.y);
+        cv.img.setAngle(Math.sin(ph * 2.4) * 4);
+      }
+    }
+  }
+
+  /** The visitor under a touch, with a generous target so small critters are easy to tap. */
+  private critterAt(p: Phaser.Input.Pointer): number | null {
+    const q = this.pt(p);
+    const r = Math.max(24, 26 * this.world.scale);
+    let best: number | null = null;
+    let bestD = r;
+    for (const [id, cv] of this.critterViews) {
+      const d = Phaser.Math.Distance.Between(q.x, q.y, this.world.x + cv.img.x * this.world.scale, this.world.y + (cv.img.y - 14) * this.world.scale);
+      if (d < bestD) {
+        bestD = d;
+        best = id;
+      }
+    }
+    return best;
   }
 
   /** One pooled view per cell, created back to front so later cells draw over earlier ones. */
@@ -1013,6 +1101,12 @@ export class FarmScene extends Phaser.Scene {
         this.dragMode = 'none';
         this.game_.tapSpot(spot);
       }
+      return;
+    }
+    const critter = this.game_.mode === 'plant' ? this.critterAt(p) : null;
+    if (critter !== null) {
+      this.dragMode = 'none';
+      this.game_.tapCritter(critter);
       return;
     }
     if (this.mossAt(p)) {
