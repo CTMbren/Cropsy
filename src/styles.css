@@ -475,3 +475,5 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .mini-bar { display: block; width: 80%; height: 5px; border-radius: 3px; background: #eadfcb; overflow: hidden; }
 .mini-bar i { display: block; height: 100%; background: var(--gold); }
 @keyframes mastery-pulse { 50% { transform: scale(1.15); } }
+/* bigger touch target than the badge itself */
+.mastery-badge::after { content: ''; position: absolute; inset: -10px -8px; }
