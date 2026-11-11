@@ -18,11 +18,11 @@ import {
   type AwaySummary,
   type FarmState,
 } from './core/farm';
-import { giveGift, type FriendshipChange } from './core/friendship';
+import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, type MossFind } from './core/friendship';
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
 import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merchant';
 import { buyBarn, buyExpansion, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
-import { advance, ensureQuestMaterials, onEvent, readMail, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
+import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
 import { dayIndex, gameNow, localOffsetMinutes, systemNow } from './core/time';
 import { loadSave, requestPersistence, writeSave } from './platform/storage';
 
@@ -43,6 +43,8 @@ export type FxEvent =
   | { kind: 'quest'; title: string; done: boolean }
   | { kind: 'expand' }
   | { kind: 'chapter'; n: number }
+  | { kind: 'star'; crop: string; stars: number }
+  | { kind: 'moss'; find: MossFind }
   | { kind: 'denied'; key: string; reason: string }
   | { kind: 'ui' };
 
@@ -81,6 +83,7 @@ export class Game {
       }
     }
     this.applyStory(advance(this.state, this.content, now, this.tz()));
+    refreshQuest(this.state, this.content);
     this.checkAway();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') this.saveNow();
@@ -152,6 +155,7 @@ export class Game {
     if (r.kind === 'harvested') {
       this.fx({ kind: 'harvest', key, tip: r.tip, fresh: r.fresh, crop: r.crop.id, qty: r.qty });
       if (r.firstTime) this.fx({ kind: 'ribbon', amount: 1, why: `First ${r.crop.name} harvest!` });
+      if (r.star) this.fx({ kind: 'star', crop: r.crop.name, stars: r.star });
       if (r.shipped) this.fx({ kind: 'shipped', n: r.shipped, coins: r.tip });
       this.levelUps(r.levelsGained);
       this.event({ type: 'harvest', crop: r.crop.id });
@@ -285,6 +289,29 @@ export class Game {
     this.event({ type: 'project', id, stage: r.stage });
     this.changed();
     return true;
+  }
+
+  /** Watch a heart event; returns its scene for the dialogue box. */
+  watchEvent(villager: string, hearts: number): HeartEvent | null {
+    const r = watchEvent(this.state, this.content, villager, hearts);
+    if (!r) return null;
+    this.fx({ kind: 'ribbon', amount: r.ribbons, why: r.event.title });
+    log(this.state, this.now(), `event ${villager} ${hearts}`);
+    this.changed();
+    return r.event;
+  }
+
+  /** Tap Moss: he digs up today's find. */
+  patMoss(): MossFind | null {
+    const f = patMoss(this.state, this.day());
+    if (!f) {
+      this.fx({ kind: 'ui' });
+      return null;
+    }
+    this.fx({ kind: 'moss', find: f });
+    log(this.state, this.now(), `moss ${'coins' in f ? `${f.coins} coins` : `${f.qty} ${f.item}`}`);
+    this.changed();
+    return f;
   }
 
   buyMerchant(index: number): MerchantResult {
@@ -447,6 +474,8 @@ export class Game {
     syncMerchant(this.state, this.content, this.day());
     // keep the active quest possible (places missing weeds, branches or rocks on free plots)
     ensureQuestMaterials(this.state, this.content);
+    // quests measured from the farm (crops discovered, mastery) can finish without an event
+    refreshQuest(this.state, this.content);
     // board opens mid-session when the story sets its flag
     refreshBoard(this.state, this.content, this.now(), this.tz());
     window.clearTimeout(this.saveTimer);

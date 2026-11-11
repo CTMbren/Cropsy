@@ -146,6 +146,8 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
     .filter(([id]) => crops.some((x) => x.id === id))
     .map(([id, n]) => [id, Math.max(0, n - (s.inventory[id] ?? 0) - (growing[id] ?? 0))] as const)
     .filter(([, n]) => n > 0);
+  // Hazel wants new species: plant one of each crop not yet discovered
+  if (activeQuest(s, c)?.objectives.some((o) => o.type === 'discover')) for (const x of crops) if (!s.seen.includes(x.id) && !growing[x.id]) need.push([x.id, 1]);
   for (const k of Object.keys(s.plots)) {
     if (s.plots[k].crop || s.obstacles[k]) continue;
     const want = need.find(([, n]) => n > 0);

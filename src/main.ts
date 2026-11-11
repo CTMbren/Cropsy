@@ -42,7 +42,8 @@ async function start() {
     else if (e.kind === 'clear') play('clear');
     else if (e.kind === 'coins') play('coin');
     else if (e.kind === 'levelup') play('levelup');
-    else if (e.kind === 'quest' || e.kind === 'expand' || e.kind === 'chapter') play('quest');
+    else if (e.kind === 'quest' || e.kind === 'expand' || e.kind === 'chapter' || e.kind === 'star') play('quest');
+    else if (e.kind === 'moss') play('coin');
     else if (e.kind === 'denied') play('denied');
     else if (e.kind === 'ui') play('ui');
   });

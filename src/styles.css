@@ -329,3 +329,17 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .story-lines p { margin: 4px 0; font-size: 14px; font-weight: 500; }
 .row-item.sold { opacity: 0.6; }
 .story-lines p { white-space: pre-line; }
+
+/* Phase 3 part 2: Almanac, heart events */
+.almanac { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.almanac-card { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; text-align: center; background: #fff; border: 2.5px solid var(--ink); border-radius: 14px; }
+.almanac-card.unknown { background: #f1ebdf; border-style: dashed; }
+.almanac-card small { font-size: 11px; color: #6d5440; }
+.almanac-name { font-size: 13px; line-height: 1.1; }
+.stars { font-size: 15px; letter-spacing: 1px; color: #d8cdb9; -webkit-text-stroke: 0.6px var(--ink); }
+.stars .on { color: var(--gold); }
+.away-list.small { font-size: 13px; font-weight: 500; }
+.scene-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 4px; font-size: 14px; }
+.memories { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.memory { padding: 2px 10px; font: 600 12px 'Fredoka', system-ui; color: #a1335a; background: #ffe8f0; border: 2px solid #e6a3bd; border-radius: 10px; }
+.dialogue-title { font-family: 'Fredoka', system-ui; font-size: 13px; color: #8a4fd0; }

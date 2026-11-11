@@ -437,5 +437,142 @@
         }
       ]
     }
+  },
+  {
+    "id": "ch4_letter",
+    "chapter": 4,
+    "giver": "mail",
+    "title": "Tobias's seed collection",
+    "objectives": [
+      {
+        "type": "read_mail",
+        "id": "tobias_3"
+      }
+    ],
+    "rewards": {
+      "flags": [
+        "met_hazel",
+        "almanac_open"
+      ]
+    }
+  },
+  {
+    "id": "ch4_hazel",
+    "chapter": 4,
+    "giver": "hazel",
+    "title": "The botanist",
+    "min_level": 12,
+    "intro": [
+      "Dr. Hazel Quill. Botanist. You must be the great-niece, or great-nephew, or whatever Tobias calls you. He was vague. He's always vague.",
+      "Tobias left me his almanac. Half the pages are blank and the other half are covered in jam. I need specimens.",
+      "Grow ten different crops and I'll record each one in the Almanac. You'll find it in Town."
+    ],
+    "outro": [
+      "Ten species, all healthy, all correctly labelled by me. Satisfactory. More than satisfactory.",
+      "There's a child who keeps following me around with a dog. She says she's an inventor. Could you... deal with that?"
+    ],
+    "objectives": [
+      {
+        "type": "discover",
+        "n": 10
+      }
+    ],
+    "rewards": {
+      "xp": 60,
+      "ribbons": 2,
+      "flags": [
+        "met_juniper"
+      ]
+    }
+  },
+  {
+    "id": "ch4_juniper",
+    "chapter": 4,
+    "giver": "juniper",
+    "title": "Juniper's invention",
+    "min_level": 13,
+    "intro": [
+      "Hi! I'm Juniper and this is Moss. Moss, say hi. He's saying hi.",
+      "I'm building the world's first Automatic Carrot Launcher. Moss LOVES carrots. Like, more than me, probably.",
+      "I need 30 carrots for testing and 10 wood for the launcher. Please? Moss is doing his please face."
+    ],
+    "outro": [
+      "IT WORKS! Well, it launched one carrot into the river. But Moss got the other twenty-nine!",
+      "Moss likes your farm. He wants to visit. He's going to visit whether you say yes or not, but saying yes is nicer."
+    ],
+    "objectives": [
+      {
+        "type": "hand_in",
+        "items": {
+          "carrot": 30,
+          "wood": 10
+        }
+      }
+    ],
+    "rewards": {
+      "xp": 50,
+      "flags": [
+        "moss_visits"
+      ]
+    }
+  },
+  {
+    "id": "ch4_mastery",
+    "chapter": 4,
+    "giver": "hazel",
+    "title": "A true expert",
+    "min_level": 14,
+    "intro": [
+      "A good farmer grows everything. A great farmer knows one crop better than anyone alive.",
+      "Harvest any single crop fifty times and you'll earn a mastery star. The Almanac keeps count."
+    ],
+    "outro": [
+      "Fifty harvests. You know that crop's moods better than your own now. I approve.",
+      "Tobias marked one page of the almanac with a pressed sunflower. I think I know what it means."
+    ],
+    "objectives": [
+      {
+        "type": "mastery",
+        "n": 50
+      }
+    ],
+    "rewards": {
+      "xp": 60,
+      "ribbons": 3
+    }
+  },
+  {
+    "id": "ch4_heirloom",
+    "chapter": 4,
+    "giver": "hazel",
+    "title": "Tobias's heirloom",
+    "min_level": 15,
+    "intro": [
+      "The pressed-sunflower page. Tobias wrote: 'Sunflowers for the sun, pumpkins for the soil, and the rest is patience.'",
+      "It's a recipe for soil. The soil a golden melon needs. Bring me ten of each and I'll prove it."
+    ],
+    "outro": [
+      "It's true. Tobias was growing golden melons here forty years ago, and nobody believed him. Including me.",
+      "I'm writing to him tonight. I suspect he'll want to see this for himself."
+    ],
+    "objectives": [
+      {
+        "type": "hand_in",
+        "items": {
+          "sunflower": 10,
+          "pumpkin": 10
+        }
+      }
+    ],
+    "rewards": {
+      "xp": 80,
+      "ribbons": 3,
+      "mail": [
+        {
+          "id": "tobias_4",
+          "delay": "next_day"
+        }
+      ]
+    }
   }
 ]

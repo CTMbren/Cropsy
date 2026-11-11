@@ -38,6 +38,30 @@
         "You're family now. I don't say that to everyone. I say it to most people, but I mean it with you.",
         "When the market's full again, the first pie is yours."
       ]
+    ],
+    "events": [
+      {
+        "hearts": 3,
+        "title": "The pie debt",
+        "lines": [
+          "Sit down, sit down. I've got something to confess.",
+          "Tobias said I owe him a pie. I do. From 1987. I lost a bet about whether it would rain on Harvest Day.",
+          "It didn't rain. It snowed. In August. Technically we were both wrong.",
+          "So I've baked the pie. Thirty-odd years late. Would you take it to him next time you write?",
+          "...You can have a slice first. It's a big pie."
+        ]
+      },
+      {
+        "hearts": 6,
+        "title": "Closing time",
+        "lines": [
+          "The store's quiet tonight. I like it like this.",
+          "When my Henry passed, I kept the store open every day. Couldn't bear the quiet.",
+          "Then the valley emptied out and the quiet came anyway.",
+          "But now there's mud on my floor again. Farmers tracking in, asking for seeds.",
+          "It's the best mess I've had in years. Thank you, dear."
+        ]
+      }
     ]
   },
   {
@@ -78,6 +102,29 @@
         "You know what I like about you? You finish things.",
         "Whatever this valley needs next, count me in."
       ]
+    ],
+    "events": [
+      {
+        "hearts": 3,
+        "title": "The sign",
+        "lines": [
+          "Here. It's finished. Took me a while.",
+          "It's a sign for your gate. Carved the name in oak. Your farm needs a name, you know.",
+          "I left it blank in the middle. Wasn't my place to choose.",
+          "...Don't look at me like that. I'm not getting sentimental. It's sawdust in my eyes."
+        ]
+      },
+      {
+        "hearts": 6,
+        "title": "My father's chisel",
+        "lines": [
+          "This chisel was my father's. He built half of Bramblewick with it.",
+          "When the young folk left, he stopped building. Said there was no one left to build for.",
+          "I kept making things anyway. Fences nobody needed. Benches nobody sat on.",
+          "Now I've got a waiting list. A waiting list! He'd have laughed.",
+          "I want you to have the first bench I made. It's crooked. It's the best one."
+        ]
+      }
     ]
   },
   {
@@ -119,6 +166,30 @@
         "You can call me Ru. Nobody calls me Ru. Don't call me Ru in front of Bruno.",
         "Bring me flour sacks and I'll tell you stories. Short ones."
       ]
+    ],
+    "events": [
+      {
+        "hearts": 3,
+        "title": "Grain cart race",
+        "lines": [
+          "Sit. I'm going to tell you a story. A short one.",
+          "Your great-uncle and I raced grain carts down Mill Hill. Every summer. Ten years running.",
+          "I won six times. He says he won six times. That's twelve, which is impossible. So he's lying.",
+          "...He let me win the last one. I knew he did. I never told him I knew.",
+          "Don't you tell him either."
+        ]
+      },
+      {
+        "hearts": 6,
+        "title": "The millstone",
+        "lines": [
+          "See that mark on the millstone? My daughter carved it when she was six. Her initials.",
+          "She lives in the city now. Calls on Sundays. Says the valley's too quiet.",
+          "I wrote to her last week. Told her the wheel's turning again. Told her about you.",
+          "She's coming to visit. First time in eight years.",
+          "...Make sure there's good wheat that week. I want her to see what this place can be."
+        ]
+      }
     ]
   },
   {
@@ -160,6 +231,30 @@
         "You're my favourite customer. Don't tell the others. Actually, they know.",
         "When I'm nervous now, I think about your farm. All those neat little rows."
       ]
+    ],
+    "events": [
+      {
+        "hearts": 3,
+        "title": "The burnt batch",
+        "lines": [
+          "Don't look! Don't look at the oven!",
+          "I tried to make Goldie's birthday cake and it's... it's charcoal. It's a charcoal cake.",
+          "Her party's in an hour. I'm going to have to move to another valley. Do you know any nice valleys?",
+          "Wait. You brought strawberries? We could... we could do a strawberry shortcake. No oven needed!",
+          "You're a genius. I'm a genius. We're geniuses. Hand me that bowl."
+        ]
+      },
+      {
+        "hearts": 6,
+        "title": "Pip's secret",
+        "lines": [
+          "Can I tell you something? I almost didn't open the bakery again.",
+          "I had my bags packed. Bus ticket and everything. No flour, no customers, no point.",
+          "Then Rufus knocked on my door with a sack of your flour. Rufus! He doesn't knock on anyone's door.",
+          "He said, 'Someone's working hard up there. Least you can do is bake.'",
+          "So I unpacked. And now look. I have a pink stall and a waiting list and a friend. That's you. You're the friend."
+        ]
+      }
     ]
   },
   {
@@ -201,7 +296,160 @@
         "I don't usually stay anywhere long. I might make an exception for this place.",
         "For you, the secret stock. There is no secret stock. Or is there."
       ]
+    ],
+    "events": [
+      {
+        "hearts": 3,
+        "title": "A real treasure",
+        "lines": [
+          "Ah, a private viewing! Come, come. I show this to no one.",
+          "This is a compass. It doesn't point north. It points to wherever I'm needed next.",
+          "Every three days it points to Bramblewick. Most towns, it points once and never again.",
+          "...Alright, it's a regular compass. It's broken. But the story's true in spirit!"
+        ]
+      },
+      {
+        "hearts": 6,
+        "title": "The end of the road",
+        "lines": [
+          "Can I be honest with you? Properly honest? It doesn't come naturally.",
+          "I've been rolling this cart for twenty years. Never stayed anywhere longer than a night.",
+          "Moving's easier. Nobody expects anything from someone who's always leaving.",
+          "But Bramblewick... Goldie saves me a pie. Juniper named a gadget after me. You ask how I've been.",
+          "I might rent the old shop by the square. Just for winters. Don't tell anyone. Especially me."
+        ]
+      }
     ]
+  },
+  {
+    "id": "hazel",
+    "name": "Dr. Hazel Quill",
+    "role": "Botanist",
+    "color": "#4f9a8a",
+    "hair": "#5a3a2a",
+    "loves": [
+      "sunflower",
+      "blueberry",
+      "cotton"
+    ],
+    "likes": [
+      "pumpkin",
+      "tomato",
+      "lettuce",
+      "coffee"
+    ],
+    "dislikes": [
+      "jam",
+      "pastry"
+    ],
+    "perk": "Hazel shares her notes: +10% XP from every harvest",
+    "lines": [
+      [
+        "Brassica, solanum, cucurbita. I'm not showing off. I'm labelling.",
+        "Please don't touch the specimens. Those are specimens. That's lunch."
+      ],
+      [
+        "Your soil pH is excellent. That's the nicest thing I know how to say.",
+        "Tobias and I argued about tomatoes for forty years. I was right. Don't ask him."
+      ],
+      [
+        "I've started a page in the Almanac just for your farm. Don't let it go to your head.",
+        "I used to think plants were easier than people. You're making me reconsider. Slightly."
+      ],
+      [
+        "You notice things. Most people don't notice anything. It's very restful, talking to you.",
+        "When I'm gone, the Almanac is yours. Not soon. I'm extremely healthy. I just mean eventually."
+      ]
+    ],
+    "events": [
+      {
+        "hearts": 3,
+        "title": "The jam stains",
+        "lines": [
+          "I've been restoring the almanac. Look at this. Look at all this jam.",
+          "Tobias always ate toast while he wrote. Strawberry jam, every page.",
+          "I used to find it unbearable. Unscientific. Sticky.",
+          "Now I'm leaving the stains in. They're part of the record. Don't tell him."
+        ]
+      },
+      {
+        "hearts": 6,
+        "title": "The last specimen",
+        "lines": [
+          "This seed is the last one Tobias sent me before he left. Forty years ago. I never planted it.",
+          "I told myself I was waiting for the right soil. The right conditions.",
+          "The truth is, planting it meant admitting he wasn't coming back.",
+          "But he is coming back. You did that. So I'd like you to plant it.",
+          "Whatever grows, I'll draw it on the first page."
+        ]
+      }
+    ],
+    "short": "Hazel"
+  },
+  {
+    "id": "juniper",
+    "name": "Juniper & Moss",
+    "role": "Inventor (and her dog)",
+    "color": "#f2c94c",
+    "hair": "#7a3b1e",
+    "loves": [
+      "carrot",
+      "pumpkin",
+      "golden_melon"
+    ],
+    "likes": [
+      "strawberry",
+      "corn",
+      "pastry",
+      "wood"
+    ],
+    "dislikes": [
+      "lettuce",
+      "coffee"
+    ],
+    "perk": "Moss digs up two finds a day instead of one",
+    "lines": [
+      [
+        "Moss says hi! He says it a lot. It's mostly hi.",
+        "I'm inventing a machine that invents machines. It's going great. It's on fire, but great."
+      ],
+      [
+        "Can Moss sleep in your field? He likes the carrot smell. He's already asleep in your field.",
+        "Hazel says I ask too many questions. Is that a question? Asking for me."
+      ],
+      [
+        "I made you a badge. It says FARMER. I spelled it right this time!",
+        "Moss dug up your old boot. He thinks it's treasure. It's kind of treasure."
+      ],
+      [
+        "You're my best friend. Moss's too. We voted. It was unanimous. Moss voted twice.",
+        "When I grow up I'm going to invent a farm that farms itself. But you can still visit."
+      ]
+    ],
+    "events": [
+      {
+        "hearts": 3,
+        "title": "Moss's birthday",
+        "lines": [
+          "It's Moss's birthday! Well, it's the day I found him. Same thing.",
+          "He was in a box by the mill. Tiny. Cold. Rufus pretended he didn't see me take him home.",
+          "Rufus brings him a biscuit every week. He thinks I don't know. I know.",
+          "Anyway! Moss wants a carrot cake. Pip's making one. You're invited. Moss says you have to come. He's very bossy for a dog."
+        ]
+      },
+      {
+        "hearts": 6,
+        "title": "The real invention",
+        "lines": [
+          "Can I show you my best invention ever? It's not a machine.",
+          "It's a map. Of Bramblewick. I drew everyone on it.",
+          "Goldie in the store. Rufus at the mill. Pip at her stall. Ziggy's cart, which moves, so I drew wheels.",
+          "And here's you, in the middle. Because everything started with you.",
+          "Moss is next to you. He insisted."
+        ]
+      }
+    ],
+    "short": "Juniper"
   },
   {
     "id": "tobias",

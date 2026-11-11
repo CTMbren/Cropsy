@@ -185,6 +185,32 @@ function matches(o: Objective, e: GameEvent): number {
   }
 }
 
+/** Objectives measured from the farm itself rather than counted from events. */
+function derived(state: FarmState, content: Content, o: Objective): number | null {
+  if (o.type === 'discover') return state.seen.filter((id) => content.cropById.has(id)).length;
+  if (o.type === 'mastery') return Math.max(0, ...Object.values(state.harvests ?? {}));
+  return null;
+}
+
+/**
+ * Updates progress for objectives measured from the farm (crops discovered, best crop's harvests)
+ * and marks a villager quest ready when everything is done. Safe to call any time.
+ */
+export function refreshQuest(state: FarmState, content: Content): void {
+  const a = state.story.active;
+  const q = activeQuest(state, content);
+  if (!a || !q || a.status !== 'active') return;
+  let any = false;
+  q.objectives.forEach((o, i) => {
+    const v = derived(state, content, o);
+    if (v !== null) {
+      a.progress[i] = Math.min(target(o), v);
+      any = true;
+    }
+  });
+  if (any && q.giver !== 'mail' && q.objectives.every((o, i) => o.type !== 'hand_in' && a.progress[i] >= target(o))) a.status = 'ready';
+}
+
 /** Feeds a gameplay event to the active quest. Mail quests complete on their own; villager quests wait to be handed in. */
 export function onEvent(state: FarmState, content: Content, e: GameEvent, now: number, offsetMin: number): StoryOutcome {
   const a = state.story.active;
@@ -192,7 +218,7 @@ export function onEvent(state: FarmState, content: Content, e: GameEvent, now: n
   const out: StoryOutcome = { levelsGained: 0 };
   if (!a || !q || a.status !== 'active') return out;
   q.objectives.forEach((o, i) => {
-    a.progress[i] = Math.min(target(o), a.progress[i] + matches(o, e));
+    a.progress[i] = Math.min(target(o), derived(state, content, o) ?? a.progress[i] + matches(o, e));
   });
   if (q.objectives.every((o, i) => o.type !== 'hand_in' && a.progress[i] >= target(o))) {
     a.status = 'ready';
@@ -219,6 +245,7 @@ export function talk(state: FarmState, content: Content, now: number, offsetMin:
   if (a.status === 'offered') {
     a.status = 'active';
     begin(state, q, now, offsetMin);
+    refreshQuest(state, content);
     return { kind: 'intro', quest: q, lines: q.intro ?? [] };
   }
   const handIn = q.objectives.find((o) => o.type === 'hand_in');
@@ -278,5 +305,9 @@ export function objectiveText(o: Objective, content: Content): string {
       return `Restore the ${content.projects.get(o.id)?.name ?? o.id} (in Town)`;
     case 'merchant_buy':
       return o.n === 1 ? "Buy something from Ziggy's cart (in Town)" : `Buy ${o.n} things from Ziggy's cart`;
+    case 'discover':
+      return `Grow ${o.n} different crops`;
+    case 'mastery':
+      return `Harvest one crop ${o.n} times`;
   }
 }
