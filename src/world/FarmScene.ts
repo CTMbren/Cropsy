@@ -38,6 +38,7 @@ import {
 } from './structureArt';
 import { DIRT_SIDE_L, DIRT_SIDE_R, drawObstacleArt, drawOvergrown, drawSoil, OBSTACLE_BOUNDS, OVERGROWN_BOUNDS, SOIL_BOUNDS } from './tileArt';
 import { cellToScreen, screenToCell, TILE_H, TILE_W } from './iso';
+import { FxLayer } from './fx';
 
 const INK = 0x4a2e1a; // thick dark-brown outline used on everything in the cartoon style
 const GRASS = 0x7cc94f;
@@ -128,6 +129,7 @@ export class FarmScene extends Phaser.Scene {
   /** Per-plot pop-in animations (planting), keyed by cell, with their start time. */
   private pops = new Map<string, number>();
   private combo = { n: 0, at: 0 };
+  private fxLayer!: FxLayer;
   private coachG!: Phaser.GameObjects.Graphics;
   private highlight!: Phaser.GameObjects.Graphics;
   private dragMode: 'none' | 'act' | 'pan' = 'none';
@@ -174,6 +176,10 @@ export class FarmScene extends Phaser.Scene {
     this.highlight = this.add.graphics();
     this.critterLayer = this.add.container(0, 0);
     this.world.add([this.ground, this.structLayer, this.soilLayer, this.coachG, this.plotLayer, this.decoG, this.decorLayer, this.critterLayer, this.highlight]);
+    const c = this.game_.content;
+    this.fxLayer = new FxLayer(this, [...c.crops.map((x) => x.name)].join(''));
+    this.world.add(this.fxLayer.root);
+    if (this.registry.get('debug')) (window as unknown as { cropsyFx: FxLayer }).cropsyFx = this.fxLayer;
     this.buildStructures();
 
     if (this.registry.get('debug')) {
@@ -1065,46 +1071,20 @@ export class FarmScene extends Phaser.Scene {
   private popCombo(k: string, n: number): void {
     const [x, y] = parseKey(k);
     const { sx, sy } = cellToScreen(x, y);
-    const t = this.add
-      .text(sx, sy - 70, `Combo ×${n}!`, { fontFamily: 'Lilita One, Fredoka, system-ui', fontSize: n >= 10 ? '34px' : '28px', color: '#ffe14d', stroke: '#4a2e1a', strokeThickness: 7, resolution: this.dpr })
-      .setOrigin(0.5)
-      .setAngle(-6);
-    this.world.add(t);
-    this.tweens.add({ targets: t, scale: { from: 0.4, to: 1 }, duration: 260, ease: 'Back.easeOut' });
-    this.tweens.add({ targets: t, y: sy - 120, alpha: 0, delay: 500, duration: 600, ease: 'Cubic.easeIn', onComplete: () => t.destroy() });
+    this.fxLayer.combo(sx, sy, n);
     if (n >= 8) this.cameras.main.shake(120, 0.002);
   }
 
   private popText(k: string, text: string, color: string): void {
     const [x, y] = parseKey(k);
     const { sx, sy } = cellToScreen(x, y);
-    const t = this.add
-      .text(sx, sy - 30, text, { fontFamily: 'Lilita One, Fredoka, system-ui', fontSize: '22px', color, stroke: '#4a2e1a', strokeThickness: 6, resolution: this.dpr })
-      .setOrigin(0.5);
-    this.world.add(t);
-    this.tweens.add({ targets: t, y: sy - 80, alpha: 0, duration: 900, ease: 'Cubic.easeOut', onComplete: () => t.destroy() });
-    this.tweens.add({ targets: t, scale: { from: 0.6, to: 1.15 }, duration: 180, yoyo: true, ease: 'Back.easeOut' });
+    this.fxLayer.pop(sx, sy, text, color);
   }
 
   private burst(k: string, color: number, count = 8): void {
     const [x, y] = parseKey(k);
     const { sx, sy } = cellToScreen(x, y);
-    for (let i = 0; i < count; i++) {
-      const a = (i / count) * Math.PI * 2 + Math.random() * 0.5;
-      const d = 22 + Math.random() * 18;
-      const c = this.add.circle(sx, sy - 10, 4 + Math.random() * 3, color).setStrokeStyle(2, INK);
-      this.world.add(c);
-      this.tweens.add({
-        targets: c,
-        x: sx + Math.cos(a) * d,
-        y: sy - 10 + Math.sin(a) * d * 0.6 - 14,
-        scale: 0.2,
-        alpha: 0,
-        duration: 420,
-        ease: 'Cubic.easeOut',
-        onComplete: () => c.destroy(),
-      });
-    }
+    this.fxLayer.burst(sx, sy, color, count);
   }
 
   private coinFly(k: string, amount: number): void {
