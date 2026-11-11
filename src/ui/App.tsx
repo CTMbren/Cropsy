@@ -19,6 +19,7 @@ import { lastSavedAt } from '../platform/storage';
 import { ItemIcon } from './itemArt';
 import { Portrait, type Mood } from './portraits';
 import { Icon } from './icons';
+import { NavIcon } from './navIcons';
 
 function useGame(game: Game): number {
   const [, setTick] = useState(0);
@@ -442,8 +443,10 @@ const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0
 function NavBtn({ icon, label, badge, active, locked, pulse, onClick }: { icon: string; label: string; badge?: number; active?: boolean; locked?: boolean; pulse?: boolean; onClick: () => void }) {
   return (
     <button class={`nav-btn${active ? ' active' : ''}${locked ? ' locked' : ''}${pulse ? ' coach-pulse' : ''}`} onClick={onClick} aria-label={`${label}${badge ? `, ${badge}` : ''}${locked ? ', locked' : ''}`}>
-      <Icon name={locked ? 'lock' : icon} size={26} />
-      <span>{label}</span>
+      <span class="nav-medal">
+        <NavIcon name={locked ? 'lock' : icon} size={30} />
+      </span>
+      <span class="nav-label">{label}</span>
       {!!badge && <span class="badge">{badge > 9 ? '9+' : badge}</span>}
     </button>
   );

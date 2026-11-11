@@ -1,10 +1,38 @@
 import * as Phaser from 'phaser';
 import { hasFlag, isFresh, key, parseKey, stageOf, type ObstacleKind } from '../core/farm';
-import { decorSpots, placed, spotCell } from '../core/decor';
+import { decorDefs, decorSpots, placed, spotCell } from '../core/decor';
 import type { Game } from '../game';
 import { ArtRegistry } from './art';
 import { light, shade } from './paint';
 import { cropBounds, drawCropArt } from './cropArt';
+import {
+  BADGE_BOUNDS,
+  BONE_AT,
+  BONE_BOUNDS,
+  CHIMNEY_TOP,
+  DECOR_BOUNDS,
+  DECOR_PARTS,
+  drawBadge,
+  drawBakery,
+  drawBoneBubble,
+  drawDecor as drawDecorArt,
+  drawDecorPart,
+  drawJamMaker,
+  drawMill,
+  drawMoss as drawMossArt,
+  drawPuff,
+  drawTail,
+  drawWheel,
+  MILL_BOUNDS,
+  MILL_WHEEL_AT,
+  MOSS_BOUNDS,
+  PART_BOUNDS,
+  PUFF_BOUNDS,
+  SHOP_BOUNDS,
+  TAIL_AT,
+  TAIL_BOUNDS,
+  WHEEL_BOUNDS,
+} from './structureArt';
 import { DIRT_SIDE_L, DIRT_SIDE_R, drawObstacleArt, drawOvergrown, drawSoil, OBSTACLE_BOUNDS, OVERGROWN_BOUNDS, SOIL_BOUNDS } from './tileArt';
 import { cellToScreen, screenToCell, TILE_H, TILE_W } from './iso';
 
@@ -49,6 +77,15 @@ interface PlotView {
   fresh: boolean;
 }
 
+/** A placed decoration: its baked base plus any animated parts. */
+interface DecorView {
+  id: string;
+  sx: number;
+  sy: number;
+  base: Phaser.GameObjects.Image;
+  parts: Phaser.GameObjects.Image[];
+}
+
 const hex = (c: string) => Phaser.Display.Color.HexStringToColor(c).color;
 const V = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
 
@@ -63,7 +100,15 @@ export class FarmScene extends Phaser.Scene {
   private ground!: Phaser.GameObjects.Graphics;
   /** Soil beds and overgrown patches, one sprite per cell, under the crops. */
   private soilLayer!: Phaser.GameObjects.Container;
-  private buildG!: Phaser.GameObjects.Graphics;
+  /** Buildings and Moss as baked sprites; moving parts are separate sprites animated per frame. */
+  private structLayer!: Phaser.GameObjects.Container;
+  private decorLayer!: Phaser.GameObjects.Container;
+  private st: Record<string, Phaser.GameObjects.Image> = {};
+  private stBase: Record<string, { x: number; y: number }> = {};
+  private millWorking = false;
+  private decorViews: DecorView[] = [];
+  private decorSig = '';
+  private decorEditing = false;
   /** Crops, obstacles and their markers as pooled sprites, back to front. */
   private plotLayer!: Phaser.GameObjects.Container;
   private views: PlotView[] = [];
@@ -103,14 +148,16 @@ export class FarmScene extends Phaser.Scene {
     this.world = this.add.container(0, 0);
     this.ground = this.add.graphics();
     this.soilLayer = this.add.container(0, 0);
-    this.buildG = this.add.graphics();
+    this.structLayer = this.add.container(0, 0);
     this.plotLayer = this.add.container(0, 0);
     // bake placeholders at device pixels for max zoom, so they stay as crisp as the vector drawing
     this.art = new ArtRegistry(this, Math.min(4, Math.ceil(this.dpr * MAX_ZOOM)));
     this.decoG = this.add.graphics();
+    this.decorLayer = this.add.container(0, 0);
     this.coachG = this.add.graphics();
     this.highlight = this.add.graphics();
-    this.world.add([this.ground, this.buildG, this.soilLayer, this.coachG, this.plotLayer, this.decoG, this.highlight]);
+    this.world.add([this.ground, this.structLayer, this.soilLayer, this.coachG, this.plotLayer, this.decoG, this.decorLayer, this.highlight]);
+    this.buildStructures();
 
     if (this.registry.get('debug')) {
       this.perfText = this.add
@@ -194,7 +241,6 @@ export class FarmScene extends Phaser.Scene {
     if (this.sparkleT > 120) {
       this.sparkleT = 0;
       const t0 = performance.now();
-      this.drawBuildings();
       this.drawDecor();
       this.drawCoach();
       if (this.perfText) {
@@ -205,6 +251,7 @@ export class FarmScene extends Phaser.Scene {
       }
     }
     this.animatePlots(t);
+    this.animateStructures(t);
     if (this.perfText) this.updatePerf(t, dt);
   }
 
@@ -279,7 +326,6 @@ export class FarmScene extends Phaser.Scene {
     this.world.setPosition(width / 2 - mid.sx * this.world.scale, UI_TOP + availH / 2 - mid.sy * this.world.scale + 10);
     this.drawGround();
     this.buildViews();
-    this.drawBuildings();
   }
 
   private diamond(cx: number, cy: number, w = TILE_W, h = TILE_H): Phaser.Math.Vector2[] {
@@ -442,6 +488,7 @@ export class FarmScene extends Phaser.Scene {
       this.layout();
     }
     this.syncPlots();
+    this.syncStructures();
     this.drawDecor();
   }
 
@@ -655,208 +702,27 @@ export class FarmScene extends Phaser.Scene {
     return best;
   }
 
+  /** Spot outlines while decorating (the decorations themselves are sprites, see syncDecor). */
   private drawDecor(): void {
     const g = this.decoG;
     const s = this.game_.state;
-    g.clear();
     const editing = this.game_.mode === 'decorate';
-    const spots = decorSpots(s);
+    if (!editing && !this.decorEditing) return;
+    this.decorEditing = editing;
+    g.clear();
+    if (!editing) return;
     const items = placed(s);
-    // back to front so nearer decorations overlap farther ones
-    const order = [...spots].sort((a, b) => {
-      const ca = spotCell(s, a);
-      const cb = spotCell(s, b);
-      return ca.x + ca.y - (cb.x + cb.y);
-    });
-    for (const spot of order) {
+    for (const spot of decorSpots(s)) {
       const c = spotCell(s, spot);
       const { sx, sy } = cellToScreen(c.x, c.y);
-      if (editing) {
-        const d = this.diamond(sx, sy, TILE_W * 0.7, TILE_H * 0.7);
-        g.fillStyle(0xffffff, items[spot] ? 0.15 : 0.35);
-        g.fillPoints(d, true);
-        g.lineStyle(2.5, 0xffffff, 0.9);
-        g.strokePoints(d, true);
-      }
-      if (items[spot]) this.drawDecoration(g, items[spot], sx, sy);
+      const d = this.diamond(sx, sy, TILE_W * 0.7, TILE_H * 0.7);
+      g.fillStyle(0xffffff, items[spot] ? 0.15 : 0.35);
+      g.fillPoints(d, true);
+      g.lineStyle(2.5, 0xffffff, 0.9);
+      g.strokePoints(d, true);
     }
   }
 
-  /** Placeholder vector art for each decoration, in the thick-outline style. */
-  private drawDecoration(g: Phaser.GameObjects.Graphics, id: string, x: number, y: number): void {
-    const t = this.time.now;
-    g.lineStyle(3, INK, 1);
-    g.fillStyle(0x000000, 0.15);
-    g.fillEllipse(x, y + 2, 56, 16);
-    g.lineStyle(3, INK, 1);
-    switch (id) {
-      case 'flowerbed': {
-        g.fillStyle(0x7a4626, 1);
-        g.fillEllipse(x, y - 4, 54, 22);
-        g.strokeEllipse(x, y - 4, 54, 22);
-        const cols = [0xe8506a, 0xffd54f, 0xf2f2f2, 0xb36ad6, 0xe8506a];
-        cols.forEach((col, i) => {
-          const fx = x - 18 + i * 9;
-          const fy = y - 10 - (i % 2) * 5;
-          g.fillStyle(0x4caf50, 1);
-          g.fillRect(fx - 1, fy, 2, 8);
-          g.fillStyle(col, 1);
-          g.fillCircle(fx, fy, 5);
-          g.lineStyle(2, INK, 1);
-          g.strokeCircle(fx, fy, 5);
-        });
-        break;
-      }
-      case 'hay': {
-        for (const [dx, dy] of [[-14, 0], [14, 0], [0, -18]]) {
-          g.fillStyle(0xf2c230, 1);
-          g.fillRoundedRect(x + dx - 16, y + dy - 22, 32, 20, 5);
-          g.strokeRoundedRect(x + dx - 16, y + dy - 22, 32, 20, 5);
-          g.lineStyle(2, 0xc9a227, 1);
-          g.lineBetween(x + dx - 8, y + dy - 20, x + dx - 8, y + dy - 4);
-          g.lineBetween(x + dx + 8, y + dy - 20, x + dx + 8, y + dy - 4);
-          g.lineStyle(3, INK, 1);
-        }
-        break;
-      }
-      case 'bench': {
-        g.fillStyle(0x8b5a2b, 1);
-        g.fillRect(x - 22, y - 14, 5, 14);
-        g.strokeRect(x - 22, y - 14, 5, 14);
-        g.fillRect(x + 17, y - 14, 5, 14);
-        g.strokeRect(x + 17, y - 14, 5, 14);
-        g.fillStyle(0xc98a4b, 1);
-        g.fillRoundedRect(x - 28, y - 22, 56, 9, 3);
-        g.strokeRoundedRect(x - 28, y - 22, 56, 9, 3);
-        g.fillRoundedRect(x - 28, y - 40, 56, 9, 3);
-        g.strokeRoundedRect(x - 28, y - 40, 56, 9, 3);
-        break;
-      }
-      case 'scarecrow': {
-        const sway = Math.sin(t / 900) * 2;
-        g.lineStyle(5, INK, 1);
-        g.lineBetween(x, y, x, y - 56);
-        g.lineBetween(x - 24 + sway, y - 40, x + 24 + sway, y - 40);
-        g.lineStyle(3, INK, 1);
-        g.fillStyle(0x3f7fd0, 1);
-        g.fillRoundedRect(x - 12 + sway, y - 46, 24, 26, 4);
-        g.strokeRoundedRect(x - 12 + sway, y - 46, 24, 26, 4);
-        g.fillStyle(0xf2d29b, 1);
-        g.fillCircle(x + sway, y - 56, 10);
-        g.strokeCircle(x + sway, y - 56, 10);
-        g.fillStyle(0xc0562a, 1);
-        g.fillTriangle(x - 16 + sway, y - 62, x + 16 + sway, y - 62, x + sway, y - 80);
-        g.strokeTriangle(x - 16 + sway, y - 62, x + 16 + sway, y - 62, x + sway, y - 80);
-        break;
-      }
-      case 'lamp': {
-        g.fillStyle(0x4a4a4a, 1);
-        g.fillRect(x - 3, y - 60, 6, 60);
-        g.strokeRect(x - 3, y - 60, 6, 60);
-        const glow = 0.25 + Math.sin(t / 600) * 0.1;
-        g.fillStyle(0xffe14d, glow);
-        g.fillCircle(x, y - 68, 22);
-        g.fillStyle(0xffd54f, 1);
-        g.fillRoundedRect(x - 9, y - 78, 18, 20, 4);
-        g.strokeRoundedRect(x - 9, y - 78, 18, 20, 4);
-        g.fillStyle(0x4a4a4a, 1);
-        g.fillTriangle(x - 13, y - 78, x + 13, y - 78, x, y - 88);
-        g.strokeTriangle(x - 13, y - 78, x + 13, y - 78, x, y - 88);
-        break;
-      }
-      case 'beehive': {
-        g.fillStyle(0x8b5a2b, 1);
-        g.fillRect(x - 3, y - 18, 6, 18);
-        g.strokeRect(x - 3, y - 18, 6, 18);
-        for (let i = 0; i < 3; i++) {
-          const w = 34 - i * 8;
-          g.fillStyle(0xf5b32a, 1);
-          g.fillEllipse(x, y - 24 - i * 11, w, 14);
-          g.strokeEllipse(x, y - 24 - i * 11, w, 14);
-        }
-        g.fillStyle(INK, 1);
-        g.fillCircle(x, y - 24, 3);
-        const bx = x + Math.cos(t / 300) * 22;
-        const by = y - 48 + Math.sin(t / 200) * 8;
-        g.fillStyle(0xffd54f, 1);
-        g.fillCircle(bx, by, 3.5);
-        g.lineStyle(1.5, INK, 1);
-        g.strokeCircle(bx, by, 3.5);
-        break;
-      }
-      case 'pumpkins': {
-        for (const [dx, dy, r] of [[-14, 0, 14], [14, 0, 14], [0, -20, 12]]) {
-          g.fillStyle(0xf57c00, 1);
-          g.fillEllipse(x + dx, y + dy - 12, r * 2.2, r * 1.7);
-          g.strokeEllipse(x + dx, y + dy - 12, r * 2.2, r * 1.7);
-          g.lineStyle(2, 0xc45f00, 1);
-          g.lineBetween(x + dx, y + dy - 12 - r * 0.8, x + dx, y + dy - 12 + r * 0.8);
-          g.lineStyle(3, INK, 1);
-          g.fillStyle(0x558b2f, 1);
-          g.fillRect(x + dx - 2, y + dy - 12 - r * 0.85 - 6, 4, 7);
-        }
-        break;
-      }
-      case 'windmill': {
-        this.box(g, x, y, 18, 50, 0xf3ede0, 0xd9d1bf, 0xc9c0ab);
-        g.fillStyle(0xc9483a, 1);
-        g.fillTriangle(x - 20, y - 50, x + 20, y - 50, x, y - 74);
-        g.strokeTriangle(x - 20, y - 50, x + 20, y - 50, x, y - 74);
-        const a0 = t / 800;
-        for (let i = 0; i < 4; i++) {
-          const a = a0 + (i * Math.PI) / 2;
-          const ex = x + Math.cos(a) * 34;
-          const ey = y - 56 + Math.sin(a) * 34;
-          g.lineStyle(6, INK, 1);
-          g.lineBetween(x, y - 56, ex, ey);
-          g.lineStyle(3, 0xffffff, 1);
-          g.lineBetween(x, y - 56, ex, ey);
-        }
-        g.lineStyle(3, INK, 1);
-        g.fillStyle(0x8b5a2b, 1);
-        g.fillCircle(x, y - 56, 5);
-        g.strokeCircle(x, y - 56, 5);
-        break;
-      }
-      case 'fountain': {
-        g.fillStyle(0xb0a99a, 1);
-        g.fillEllipse(x, y - 8, 60, 26);
-        g.strokeEllipse(x, y - 8, 60, 26);
-        g.fillStyle(0x7cc4f5, 1);
-        g.fillEllipse(x, y - 11, 48, 17);
-        g.fillStyle(0xb0a99a, 1);
-        g.fillRect(x - 5, y - 40, 10, 30);
-        g.strokeRect(x - 5, y - 40, 10, 30);
-        g.fillEllipse(x, y - 42, 24, 9);
-        g.strokeEllipse(x, y - 42, 24, 9);
-        const ph = (t / 400) % 1;
-        g.fillStyle(0xbfe6ff, 0.9 - ph * 0.6);
-        for (const dx of [-12, 0, 12]) g.fillCircle(x + dx * (0.4 + ph), y - 50 - Math.sin(ph * Math.PI) * 14, 3.5);
-        break;
-      }
-      case 'statue': {
-        g.fillStyle(0xb0a99a, 1);
-        this.box(g, x, y, 22, 18, 0xc9c0ab, 0xb0a99a, 0xd9d1bf);
-        const shine = Math.sin(t / 500) > 0.6 ? 0xfff1a8 : 0xffc531;
-        g.fillStyle(0xffc531, 1);
-        g.fillRoundedRect(x - 12, y - 52, 24, 34, 8);
-        g.strokeRoundedRect(x - 12, y - 52, 24, 34, 8);
-        g.fillCircle(x, y - 62, 11);
-        g.strokeCircle(x, y - 62, 11);
-        g.fillStyle(shine, 1);
-        g.fillCircle(x - 4, y - 66, 3);
-        // Tobias's hat
-        g.fillStyle(0xd9a521, 1);
-        g.fillEllipse(x, y - 70, 30, 8);
-        g.strokeEllipse(x, y - 70, 30, 8);
-        g.fillRoundedRect(x - 8, y - 82, 16, 12, 3);
-        g.strokeRoundedRect(x - 8, y - 82, 16, 12, 3);
-        break;
-      }
-    }
-  }
-
-  /** Moss naps just outside the fence, on the left. */
   private mossCell(): { x: number; y: number } {
     return { x: -1.3, y: this.game_.state.height - 1.2 };
   }
@@ -869,61 +735,6 @@ export class FarmScene extends Phaser.Scene {
     const mx = this.world.x + sx * this.world.scale;
     const my = this.world.y + (sy - 14) * this.world.scale;
     return Phaser.Math.Distance.Between(q.x, q.y, mx, my) < 40 * this.world.scale;
-  }
-
-  private drawMoss(g: Phaser.GameObjects.Graphics): void {
-    const s = this.game_.state;
-    if (!s.flags.includes('moss_visits')) return;
-    const c = this.mossCell();
-    const { sx: x, sy: y } = cellToScreen(c.x, c.y);
-    const t = this.time.now;
-    const wag = Math.sin(t / 120) * 0.5;
-    const breathe = Math.sin(t / 700) * 1.2;
-    g.lineStyle(3, INK, 1);
-    // shadow
-    g.fillStyle(0x000000, 0.15);
-    g.fillEllipse(x, y + 4, 52, 14);
-    // tail
-    g.lineStyle(6, INK, 1);
-    g.lineBetween(x + 16, y - 12, x + 16 + Math.cos(-1.2 + wag) * 16, y - 12 + Math.sin(-1.2 + wag) * 16);
-    g.lineStyle(3.5, 0xc98a4b, 1);
-    g.lineBetween(x + 16, y - 12, x + 16 + Math.cos(-1.2 + wag) * 15, y - 12 + Math.sin(-1.2 + wag) * 15);
-    // body
-    g.lineStyle(3, INK, 1);
-    g.fillStyle(0xc98a4b, 1);
-    g.fillEllipse(x + 2, y - 10 - breathe / 2, 40, 22 + breathe);
-    g.strokeEllipse(x + 2, y - 10 - breathe / 2, 40, 22 + breathe);
-    g.fillStyle(0xf3e1c4, 1);
-    g.fillEllipse(x - 4, y - 6, 18, 10);
-    // head
-    g.fillStyle(0xc98a4b, 1);
-    g.fillCircle(x - 16, y - 24, 12);
-    g.strokeCircle(x - 16, y - 24, 12);
-    g.fillStyle(0x8b5a2b, 1);
-    g.fillEllipse(x - 8, y - 26, 8, 16);
-    g.strokeEllipse(x - 8, y - 26, 8, 16);
-    g.fillStyle(0xf3e1c4, 1);
-    g.fillEllipse(x - 24, y - 20, 12, 9);
-    g.fillStyle(INK, 1);
-    g.fillCircle(x - 29, y - 21, 2.5);
-    g.fillCircle(x - 19, y - 27, 2);
-    // a bone bubble when he has something to dig up
-    const day = this.game_.day();
-    const left = s.moss?.day === day ? (s.flags.includes('perk:juniper') ? 2 : 1) - s.moss.digs : s.flags.includes('perk:juniper') ? 2 : 1;
-    if (left > 0) {
-      const bob = Math.sin(t / 250) * 3;
-      g.lineStyle(3, INK, 1);
-      g.fillStyle(0xffffff, 1);
-      g.fillCircle(x - 16, y - 58 + bob, 14);
-      g.strokeCircle(x - 16, y - 58 + bob, 14);
-      g.lineStyle(2.5, INK, 1);
-      g.fillStyle(0xf8f1e0, 1);
-      g.fillRoundedRect(x - 24, y - 61 + bob, 16, 6, 3);
-      g.fillCircle(x - 25, y - 61 + bob, 3);
-      g.fillCircle(x - 25, y - 55 + bob, 3);
-      g.fillCircle(x - 7, y - 61 + bob, 3);
-      g.fillCircle(x - 7, y - 55 + bob, 3);
-    }
   }
 
   private buildingAt(p: Phaser.Input.Pointer): string | null {
@@ -943,121 +754,165 @@ export class FarmScene extends Phaser.Scene {
     return null;
   }
 
-  /** An isometric box: footprint half-width `a` (px), wall height `h`. Returns the roof-top centre y. */
-  private box(g: Phaser.GameObjects.Graphics, cx: number, cy: number, a: number, h: number, left: number, right: number, top: number): number {
-    const b = a / 2;
-    g.lineStyle(3, INK, 1);
-    g.fillStyle(left, 1);
-    g.fillPoints([V(cx - a, cy - h), V(cx, cy + b - h), V(cx, cy + b), V(cx - a, cy)], true);
-    g.strokePoints([V(cx - a, cy - h), V(cx, cy + b - h), V(cx, cy + b), V(cx - a, cy)], true);
-    g.fillStyle(right, 1);
-    g.fillPoints([V(cx, cy + b - h), V(cx + a, cy - h), V(cx + a, cy), V(cx, cy + b)], true);
-    g.strokePoints([V(cx, cy + b - h), V(cx + a, cy - h), V(cx + a, cy), V(cx, cy + b)], true);
-    g.fillStyle(top, 1);
-    const roof = [V(cx, cy - b - h), V(cx + a, cy - h), V(cx, cy + b - h), V(cx - a, cy - h)];
-    g.fillPoints(roof, true);
-    g.strokePoints(roof, true);
-    return cy - h;
+  // ── structures as sprites ───────────────────────────────────────
+
+  /** Registers every structure's art and creates its sprites once; syncStructures shows and hides them. */
+  private buildStructures(): void {
+    const art = this.art;
+    for (let st = 0; st <= 3; st++) art.placeholder(`building/mill/${st}`, MILL_BOUNDS, (g, cx, cy) => drawMill(g, cx, cy, st));
+    art.placeholder('building/mill/wheel', WHEEL_BOUNDS, (g, cx, cy) => drawWheel(g, cx, cy));
+    art.placeholder('building/jam_maker', SHOP_BOUNDS, (g, cx, cy) => drawJamMaker(g, cx, cy));
+    art.placeholder('building/bakery', SHOP_BOUNDS, (g, cx, cy) => drawBakery(g, cx, cy));
+    art.placeholder('fx/badge', BADGE_BOUNDS, (g, cx, cy) => drawBadge(g, cx, cy));
+    art.placeholder('fx/puff', PUFF_BOUNDS, (g, cx, cy) => drawPuff(g, cx, cy));
+    art.placeholder('moss/body', MOSS_BOUNDS, (g, cx, cy) => drawMossArt(g, cx, cy));
+    art.placeholder('moss/tail', TAIL_BOUNDS, (g, cx, cy) => drawTail(g, cx, cy));
+    art.placeholder('moss/bone', BONE_BOUNDS, (g, cx, cy) => drawBoneBubble(g, cx, cy));
+    for (const d of decorDefs(this.game_.content)) art.placeholder(`decor/${d.id}`, DECOR_BOUNDS, (g, cx, cy) => drawDecorArt(g, d.id, cx, cy));
+    for (const [k, b] of Object.entries(PART_BOUNDS)) art.placeholder(k, b, (g, cx, cy) => drawDecorPart(g, k, cx, cy));
+
+    const at = (id: string) => {
+      const c = this.buildingCell(id)!;
+      const p = cellToScreen(c.x, c.y);
+      return { x: p.sx, y: p.sy };
+    };
+    const mill = at('mill');
+    const jam = at('jam_maker');
+    const bakery = at('bakery');
+    const place: [string, string, number, number][] = [
+      ['mill', 'building/mill/0', mill.x, mill.y],
+      ['wheel', 'building/mill/wheel', mill.x + MILL_WHEEL_AT.x, mill.y + MILL_WHEEL_AT.y],
+      ['jam', 'building/jam_maker', jam.x, jam.y],
+      ['bakery', 'building/bakery', bakery.x, bakery.y],
+      ['smoke', 'fx/puff', bakery.x + CHIMNEY_TOP.x, bakery.y + CHIMNEY_TOP.y - 6],
+      ['millBadge', 'fx/badge', mill.x, mill.y - 172],
+      ['jamBadge', 'fx/badge', jam.x, jam.y - 124],
+      ['bakeryBadge', 'fx/badge', bakery.x - 10, bakery.y - 140],
+      ['tail', 'moss/tail', 0, 0],
+      ['moss', 'moss/body', 0, 0],
+      ['bone', 'moss/bone', 0, 0],
+    ];
+    for (const [name, artKey, x, y] of place) {
+      const img = this.add.image(x, y, '__DEFAULT').setVisible(false);
+      this.show(img, artKey);
+      img.setVisible(false);
+      this.structLayer.add(img);
+      this.st[name] = img;
+      this.stBase[name] = { x, y };
+    }
   }
 
-  /** A gabled roof over a box drawn with `box`. */
-  private gable(g: Phaser.GameObjects.Graphics, cx: number, cy: number, a: number, h: number, peak: number, color: number, dark: number): void {
-    const b = a / 2;
-    const top = cy - h;
-    g.lineStyle(3, INK, 1);
-    g.fillStyle(dark, 1);
-    const l = [V(cx - a - 4, top + 2), V(cx - a / 2, top - b / 2 - peak), V(cx + a / 2, top + b / 2 - peak), V(cx + 4, top + b + 2)];
-    g.fillPoints(l, true);
-    g.strokePoints(l, true);
-    g.fillStyle(color, 1);
-    const r = [V(cx + 4, top + b + 2), V(cx + a / 2, top + b / 2 - peak), V(cx + a + 4, top + 2), V(cx + a, top + 2)];
-    g.fillPoints(r, true);
-    g.strokePoints(r, true);
-  }
-
-  private badge(g: Phaser.GameObjects.Graphics, x: number, y: number, n: number): void {
-    if (n <= 0) return;
-    const bob = Math.sin(this.time.now / 250) * 3;
-    g.lineStyle(3, INK, 1);
-    g.fillStyle(0x5cb83a, 1);
-    g.fillCircle(x, y + bob, 12);
-    g.strokeCircle(x, y + bob, 12);
-    g.lineStyle(3.5, 0xffffff, 1);
-    g.lineBetween(x - 5, y + bob, x - 1, y + 4 + bob);
-    g.lineBetween(x - 1, y + 4 + bob, x + 6, y - 4 + bob);
-  }
-
-  private drawBuildings(): void {
-    const g = this.buildG;
+  private syncStructures(): void {
     const s = this.game_.state;
     const now = this.game_.now();
-    g.clear();
     const ready = (id: string) => (s.buildings[id] ? s.buildings[id].queue.filter((q) => now >= q.startsAt + q.durS).length : 0);
-
-    // Bramblewick Mill, beyond the fence: a ruin, then scaffolding, then turning
-    const mc = this.buildingCell('mill')!;
-    const m = cellToScreen(mc.x, mc.y);
+    const st = this.st;
+    // the mill: a ruin, then scaffolding, then turning
     const stage = s.projects.mill ?? 0;
     const working = !!s.buildings.mill;
-    if (s.flags.includes('met_rufus') || stage > 0 || working) {
-      if (!working && stage < 3) {
-        // ruined walls
-        this.box(g, m.sx, m.sy, 56, 36 + stage * 20, 0xb0a99a, 0x938c7e, 0x7d766a);
-        if (stage >= 1) {
-          g.lineStyle(3, 0x8b5a2b, 1);
-          for (let i = -1; i <= 1; i++) g.lineBetween(m.sx + i * 32, m.sy + 16, m.sx + i * 32, m.sy - 100);
-          g.lineBetween(m.sx - 44, m.sy - 58, m.sx + 44, m.sy - 58);
-          g.lineBetween(m.sx - 44, m.sy - 90, m.sx + 44, m.sy - 90);
-        }
-      } else {
-        this.box(g, m.sx, m.sy, 56, 80, 0xd9c7a3, 0xbfa985, 0xa38f6b);
-        this.gable(g, m.sx, m.sy, 56, 80, 42, 0xc9483a, 0xa63a2f);
-      }
-      // water wheel on the right wall
-      const wx = m.sx + 44;
-      const wy = m.sy - 24;
-      const turning = working ? this.time.now / 900 : 0.3;
-      g.lineStyle(3, INK, 1);
-      g.fillStyle(0x8b5a2b, 1);
-      g.fillCircle(wx, wy, 32);
-      g.strokeCircle(wx, wy, 32);
-      g.fillStyle(0xc98a4b, 1);
-      g.fillCircle(wx, wy, 22);
-      g.lineStyle(3, INK, 1);
-      for (let i = 0; i < 6; i++) {
-        const a = turning + (i * Math.PI) / 3;
-        g.lineBetween(wx, wy, wx + Math.cos(a) * 32, wy + Math.sin(a) * 32);
-      }
-      if (working) this.badge(g, m.sx, m.sy - 156, ready('mill'));
-    }
+    const millSeen = s.flags.includes('met_rufus') || stage > 0 || working;
+    this.millWorking = working;
+    this.show(st.mill, millSeen ? `building/mill/${working ? 3 : Math.min(stage, 3)}` : '');
+    st.wheel.setVisible(millSeen);
+    st.millBadge.setVisible(working && ready('mill') > 0);
+    st.jam.setVisible(!!s.buildings.jam_maker);
+    st.jamBadge.setVisible(!!s.buildings.jam_maker && ready('jam_maker') > 0);
+    st.bakery.setVisible(!!s.buildings.bakery);
+    st.smoke.setVisible(!!s.buildings.bakery);
+    st.bakeryBadge.setVisible(!!s.buildings.bakery && ready('bakery') > 0);
+    // Moss naps just outside the fence, on the left; a bone bubble when he has something to dig up
+    const moss = s.flags.includes('moss_visits');
+    const mc = this.mossCell();
+    const m = cellToScreen(mc.x, mc.y);
+    this.stBase.moss = { x: m.sx, y: m.sy };
+    this.stBase.tail = { x: m.sx + TAIL_AT.x, y: m.sy + TAIL_AT.y };
+    this.stBase.bone = { x: m.sx + BONE_AT.x, y: m.sy + BONE_AT.y };
+    st.moss.setPosition(m.sx, m.sy).setVisible(moss);
+    st.tail.setPosition(m.sx + TAIL_AT.x, m.sy + TAIL_AT.y).setVisible(moss);
+    const day = this.game_.day();
+    const perDay = s.flags.includes('perk:juniper') ? 2 : 1;
+    const left = s.moss?.day === day ? perDay - s.moss.digs : perDay;
+    st.bone.setVisible(moss && left > 0);
+    this.syncDecor();
+  }
 
-    // farm buildings on the right
-    if (s.buildings.jam_maker) {
-      const c = this.buildingCell('jam_maker')!;
-      const p = cellToScreen(c.x, c.y);
-      this.box(g, p.sx, p.sy, 50, 52, 0xf3ede0, 0xd9d1bf, 0xc9c0ab);
-      this.gable(g, p.sx, p.sy, 50, 52, 32, 0xe8323c, 0xc42630);
-      g.lineStyle(2.5, INK, 1);
-      g.fillStyle(0xd6304a, 1);
-      g.fillRoundedRect(p.sx + 14, p.sy - 42, 20, 26, 4);
-      g.strokeRoundedRect(p.sx + 14, p.sy - 42, 20, 26, 4);
-      this.badge(g, p.sx, p.sy - 124, ready('jam_maker'));
+  /** Placed decorations, back to front; rebuilt only when what's placed (or where) changes. */
+  private syncDecor(): void {
+    const s = this.game_.state;
+    const items = placed(s);
+    const spots = decorSpots(s);
+    const sig = spots.map((sp) => `${sp}:${items[sp] ?? ''}`).join('|');
+    if (sig === this.decorSig) return;
+    this.decorSig = sig;
+    this.decorLayer.removeAll(true);
+    this.decorViews = [];
+    const order = spots
+      .filter((sp) => items[sp])
+      .sort((a, b) => {
+        const ca = spotCell(s, a);
+        const cb = spotCell(s, b);
+        return ca.x + ca.y - (cb.x + cb.y);
+      });
+    for (const spot of order) {
+      const id = items[spot];
+      const c = spotCell(s, spot);
+      const { sx, sy } = cellToScreen(c.x, c.y);
+      const mk = (artKey: string, x: number, y: number) => {
+        const img = this.add.image(x, y, '__DEFAULT');
+        this.show(img, artKey);
+        return img;
+      };
+      const partsDef = DECOR_PARTS[id] ?? [];
+      const behind = partsDef.filter((p) => p.behind).map((p) => mk(p.key, sx + p.x, sy + p.y));
+      const base = mk(`decor/${id}`, sx, sy);
+      const front = partsDef.filter((p) => !p.behind).map((p) => mk(p.key, sx + p.x, sy + p.y));
+      this.decorLayer.add([...behind, base, ...front]);
+      this.decorViews.push({ id, sx, sy, base, parts: [...behind, ...front] });
     }
-    if (s.buildings.bakery) {
-      const c = this.buildingCell('bakery')!;
-      const p = cellToScreen(c.x, c.y);
-      this.box(g, p.sx, p.sy, 52, 60, 0xd27a4c, 0xb5633a, 0x9c5230);
-      this.gable(g, p.sx, p.sy, 52, 60, 32, 0x6b4a8f, 0x553a73);
-      g.lineStyle(3, INK, 1);
-      g.fillStyle(0x9a9a9a, 1);
-      g.fillRect(p.sx + 22, p.sy - 132, 14, 30);
-      g.strokeRect(p.sx + 22, p.sy - 132, 14, 30);
-      const puff = (this.time.now / 600) % 1;
-      g.fillStyle(0xffffff, 0.8 - puff * 0.8);
-      g.fillCircle(p.sx + 29, p.sy - 140 - puff * 24, 8 + puff * 8);
-      this.badge(g, p.sx, p.sy - 140, ready('bakery'));
+  }
+
+  /** Per-frame motion for structures: transforms only, nothing is redrawn. */
+  private animateStructures(t: number): void {
+    const st = this.st;
+    const base = this.stBase;
+    if (st.wheel.visible) st.wheel.setRotation(this.millWorking ? t / 900 : 0.3);
+    const bob = Math.sin(t / 250) * 3;
+    for (const k of ['millBadge', 'jamBadge', 'bakeryBadge']) if (st[k].visible) st[k].y = base[k].y + bob;
+    if (st.smoke.visible) {
+      const puff = (t / 600) % 1;
+      const sc = st.smoke.getData('artScale') as number;
+      st.smoke.setPosition(base.smoke.x + puff * 4, base.smoke.y - puff * 24).setAlpha(0.85 - puff * 0.85).setScale(sc * (0.7 + puff * 0.9));
     }
-    this.drawMoss(g);
+    if (st.moss.visible) {
+      const sc = st.moss.getData('artScale') as number;
+      st.moss.setScale(sc, sc * (1 + Math.sin(t / 700) * 0.035));
+      st.tail.setRotation(Math.sin(t / 120) * 0.45);
+      if (st.bone.visible) st.bone.setPosition(base.bone.x, base.bone.y + bob);
+    }
+    for (const v of this.decorViews) {
+      switch (v.id) {
+        case 'scarecrow':
+          v.base.setRotation(Math.sin(t / 900) * 0.035);
+          break;
+        case 'lamp':
+          v.parts[0].setAlpha(0.7 + Math.sin(t / 600) * 0.3);
+          break;
+        case 'beehive':
+          v.parts[0].setPosition(v.sx + Math.cos(t / 300) * 22, v.sy - 48 + Math.sin(t / 200) * 8).setFlipX(Math.sin(t / 300) > 0);
+          break;
+        case 'windmill':
+          v.parts[0].setRotation(t / 800);
+          break;
+        case 'fountain': {
+          const ph = (t / 400) % 1;
+          v.parts.forEach((d, i) => d.setPosition(v.sx + (i - 1) * 12 * (0.4 + ph), v.sy - 50 - Math.sin(ph * Math.PI) * 14).setAlpha(0.9 - ph * 0.6));
+          break;
+        }
+        case 'statue':
+          v.parts[0].setVisible(Math.sin(t / 500) > 0.6);
+          break;
+      }
+    }
   }
 
   // ── juice ───────────────────────────────────────────────────────
