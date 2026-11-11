@@ -19,7 +19,7 @@ import {
 import { giveGift, type FriendshipChange } from './core/friendship';
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
 import { buyBarn, buyExpansion, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
-import { advance, onEvent, readMail, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
+import { advance, ensureQuestMaterials, onEvent, readMail, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
 import { dayIndex, gameNow, localOffsetMinutes, systemNow } from './core/time';
 import { loadSave, requestPersistence, writeSave } from './platform/storage';
 
@@ -415,6 +415,8 @@ export class Game {
   }
 
   private changed(): void {
+    // keep the active quest possible (places missing weeds, branches or rocks on free plots)
+    ensureQuestMaterials(this.state, this.content);
     // board opens mid-session when the story sets its flag
     refreshBoard(this.state, this.content, this.now(), this.tz());
     window.clearTimeout(this.saveTimer);

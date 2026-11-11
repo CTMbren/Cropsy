@@ -53,13 +53,59 @@ export interface StoryOutcome {
 /** Starts the next quest if none is active. Mail-given quests start immediately. */
 export function advance(state: FarmState, content: Content, now: number, offsetMin: number): StoryOutcome {
   const out: StoryOutcome = { levelsGained: 0 };
-  if (state.story.active) return out;
+  if (state.story.active) {
+    ensureQuestMaterials(state, content);
+    return out;
+  }
   const q = nextQuest(state, content);
   if (!q) return out;
   state.story.active = { id: q.id, status: q.giver === 'mail' ? 'active' : 'offered', progress: q.objectives.map(() => 0) };
+  ensureQuestMaterials(state, content);
   out.started = q;
   if (q.giver === 'mail') begin(state, q, now, offsetMin);
   return out;
+}
+
+const OBSTACLE_GIVES: Partial<Record<ObstacleKind, { item: string; qty: number }>> = {
+  branch: { item: 'wood', qty: 1 },
+  stump: { item: 'wood', qty: 2 },
+  rock: { item: 'stone', qty: 1 },
+  boulder: { item: 'stone', qty: 3 },
+};
+/** Which obstacle to place when a quest needs a material the farm can't provide. */
+const SOURCE_FOR: Record<string, ObstacleKind> = { wood: 'branch', stone: 'rock' };
+
+/**
+ * Makes sure the active quest is possible: if it asks you to clear weeds the farm doesn't have, or
+ * to bring wood or stone with no branches or rocks left to gather, the missing obstacles appear on
+ * empty plots. Farms from before the story existed were already cleared, which left quests stuck.
+ * Safe to call any time; it only places what's missing (and waits if every plot is planted).
+ */
+export function ensureQuestMaterials(state: FarmState, content: Content): string[] {
+  const a = state.story.active;
+  const q = activeQuest(state, content);
+  if (!a || !q) return [];
+  const placed: string[] = [];
+  const count = (kind: ObstacleKind | 'any') => Object.values(state.obstacles).filter((k) => kind === 'any' || k === kind).length;
+  q.objectives.forEach((o, i) => {
+    if (o.type === 'clear') {
+      const missing = o.n - (a.progress[i] ?? 0) - count(o.obstacle);
+      if (missing > 0) placed.push(...spawnObstacles(state, o.obstacle === 'any' ? 'weeds' : o.obstacle, missing));
+    }
+    if (o.type === 'hand_in' && a.status !== 'ready') {
+      for (const [item, need] of Object.entries(o.items)) {
+        const source = SOURCE_FOR[item];
+        if (!source) continue;
+        let available = state.inventory[item] ?? 0;
+        for (const kind of Object.values(state.obstacles)) {
+          const g = OBSTACLE_GIVES[kind];
+          if (g?.item === item) available += g.qty;
+        }
+        if (need - available > 0) placed.push(...spawnObstacles(state, source, need - available));
+      }
+    }
+  });
+  return placed;
 }
 
 /** Side effects when a quest becomes active (pinning story orders, delivering its letter). */
