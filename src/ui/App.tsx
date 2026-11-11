@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DAILY_ORDERS } from '../core/board';
-import { itemName, itemValue, type Content, type VillagerDef } from '../core/content';
-import { barnCapacity, barnUsed, cratePrice, hasFlag, hasItems, nextReady, unlockedCrops } from '../core/farm';
+import { itemName, itemValue, shortName, type Content, type VillagerDef } from '../core/content';
+import { barnCapacity, barnUsed, cratePrice, hasFlag, hasItems, MASTERY, MASTERY_PERKS, masteryStars, nextReady, seedCost, unlockedCrops } from '../core/farm';
 import { xpToNext } from '../core/progression';
 import { fromSaveCode, toSaveCode } from '../core/save';
-import { canGiftToday, chatter, friends, heartProgress, hearts, taste } from '../core/friendship';
+import { canGiftToday, chatter, friends, heartProgress, hearts, pendingEvents, seenEvents, taste } from '../core/friendship';
 import { buildingPrice, canAffordBuilding, queueView, readyCount, slotUpgradeCost } from '../core/processing';
 import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, nextExpansion, priceFactor, toolPrice } from '../core/shop';
 import { activeQuest, canHandIn, inbox, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
@@ -40,7 +40,7 @@ const seenHint = (): boolean => {
 const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
 type Sheet = 'barn' | 'board' | 'mail' | 'settings' | 'town' | `building:${string}` | null;
-type Dialogue = { villager: VillagerDef; lines: string[]; index: number; done?: string };
+type Dialogue = { villager: VillagerDef; lines: string[]; index: number; done?: string; title?: string };
 type Flyer = { id: number; x: number; y: number; go: boolean };
 
 export function App({ game, updateReady, onUpdate, debug }: { game: Game; updateReady: boolean; onUpdate: () => void; debug: boolean }) {
@@ -72,13 +72,15 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
     const offFx = game.onFx((e) => {
       if (e.kind === 'levelup') setLevelCard(e.level);
       if (e.kind === 'chapter') setChapterCard(e.n);
-      if (e.kind === 'ribbon') setToast(`+${e.amount} Ribbon · ${e.why}`);
+      if (e.kind === 'star') setToast(`${'★'.repeat(e.stars)} ${e.crop} mastery! +${e.stars} Ribbon${e.stars > 1 ? 's' : ''} · ${MASTERY_PERKS[e.stars - 1]}`);
+      if (e.kind === 'moss') setToast('coins' in e.find ? `Moss dug up ${e.find.coins} coins!` : `Moss dug up ${e.find.qty} ${itemName(game.content, e.find.item).toLowerCase()}!`);
+      if (e.kind === 'ribbon') setToast(`+${e.amount} Ribbon${e.amount > 1 ? 's' : ''} · ${e.why}`);
       if (e.kind === 'heart') {
         const v = game.content.villagers.get(e.villager);
-        setToast(e.perk ? `${v?.name.split(' ')[0]}: ${e.hearts} hearts! ${e.perk}` : `${v?.name.split(' ')[0]} likes you more: ${e.hearts} ${e.hearts === 1 ? 'heart' : 'hearts'}`);
+        setToast(e.perk ? `${shortName(v)}: ${e.hearts} hearts! ${e.perk}` : `${shortName(v)} likes you more: ${e.hearts} ${e.hearts === 1 ? 'heart' : 'hearts'}`);
       }
       if (e.kind === 'gift') {
-        const v = game.content.villagers.get(e.villager)?.name.split(' ')[0];
+        const v = shortName(game.content.villagers.get(e.villager));
         setToast(e.taste === 'loved' ? `${v} loved it!` : e.taste === 'liked' ? `${v} liked it.` : e.taste === 'disliked' ? `${v} didn't care for that.` : `${v} said thanks.`);
       }
       if (e.kind === 'shipped') setToast(`Barn full! ${e.n} shipped for ${e.coins} coins`);
@@ -157,9 +159,9 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         <button class="tracker" onClick={() => (giver ? openTalk() : setSheet('mail'))}>
           <span class="tracker-title">{quest.title}</span>
           {active.status === 'offered' ? (
-            <span class="tracker-obj">Tap {giver?.name.split(' ')[0]} to start</span>
+            <span class="tracker-obj">Tap {shortName(giver)} to start</span>
           ) : active.status === 'ready' ? (
-            <span class="tracker-obj done">Done! Tap {giver?.name.split(' ')[0]} to hand in</span>
+            <span class="tracker-obj done">Done! Tap {shortName(giver)} to hand in</span>
           ) : (
             quest.objectives.map((o, i) => (
               <span class="tracker-obj" key={i}>
@@ -203,7 +205,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         <button class="visitor" onClick={openTalk} aria-label={`Talk to ${giver.name}`}>
           <Portrait v={giver} size={58} />
           <span class={`bubble ${active.status}`}>{active.status === 'offered' ? '!' : active.status === 'ready' || (quest && canHandIn(s, quest) && quest.objectives.some((o) => o.type === 'hand_in')) ? '✓' : '…'}</span>
-          <span class="visitor-name">{giver.name.split(' ')[0]}</span>
+          <span class="visitor-name">{shortName(giver)}</span>
         </button>
       )}
 
@@ -237,7 +239,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
                     <span class="chip time">{formatDuration(c.grow_s)}</span>
                     <span class="cost">
                       <span class="coin sm" aria-hidden="true" />
-                      {c.seed_cost}
+                      {seedCost(s, c)}
                     </span>
                   </span>
                 )}
@@ -277,7 +279,16 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       {sheet === 'board' && <BoardSheet game={game} onClose={() => setSheet(null)} />}
       {sheet === 'mail' && <MailSheet game={game} now={now} onClose={() => setSheet(null)} />}
       {sheet === 'settings' && <Settings game={game} onClose={() => setSheet(null)} debug={debug} />}
-      {sheet === 'town' && <TownSheet game={game} onClose={() => setSheet(null)} />}
+      {sheet === 'town' && (
+        <TownSheet
+          game={game}
+          onClose={() => setSheet(null)}
+          onScene={(villager, title, lines) => {
+            setSheet(null);
+            setDialogue({ villager, lines, index: 0, title });
+          }}
+        />
+      )}
       {sheet?.startsWith('building:') && <BuildingSheet game={game} id={sheet.slice(9)} now={now} onClose={() => setSheet(null)} />}
 
       {levelCard !== null && <LevelCard content={game.content} level={levelCard} onClose={() => setLevelCard(null)} />}
@@ -288,7 +299,10 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
           <div class="dialogue" role="dialog" aria-label={`${dialogue.villager.name} says`}>
             <Portrait v={dialogue.villager} size={72} />
             <div class="dialogue-body">
-              <div class="dialogue-name">{dialogue.villager.name}</div>
+              <div class="dialogue-name">
+                {dialogue.villager.name}
+                {dialogue.title && <small class="dialogue-title"> · {dialogue.title}</small>}
+              </div>
               <p>{dialogue.lines[dialogue.index]}</p>
               {dialogue.done && dialogue.index === dialogue.lines.length - 1 && <div class="quest-done">Quest complete: {dialogue.done}</div>}
               <div class="dialogue-next">{dialogue.index < dialogue.lines.length - 1 ? 'Tap to continue ▸' : 'Tap to close'}</div>
@@ -446,7 +460,7 @@ function BoardSheet({ game, onClose }: { game: Game; onClose: () => void }) {
               {v && <Portrait v={v} size={44} />}
               <div class="order-body">
                 <div class="order-who">
-                  {v?.name.split(' ')[0]}
+                  {shortName(v)}
                   {o.story && <span class="chip story">Story</span>}
                 </div>
                 <div class="order-wants">
@@ -719,22 +733,26 @@ function Need({ have, need, label }: { have: number; need: number; label: string
   return <span class={have >= need ? 'have' : 'need'}>{Math.min(have, need)}/{need} {label}</span>;
 }
 
-function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
+type SceneFn = (v: VillagerDef, title: string, lines: string[]) => void;
+
+function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void; onScene: SceneFn }) {
   const s = game.state;
   const c = game.content;
   const day = game.day();
   const projects = [...c.projects.values()].filter((p) => s.flags.includes(`${p.id}_project`));
   const projectDue = projects.some((p) => (s.projects[p.id] ?? 0) < p.stages.length);
   const cart = merchantUnlocked(s);
-  const tabs = ['store', ...(cart ? ['cart'] : []), ...(friends(s, c).length ? ['friends'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(projects.length ? ['projects'] : [])];
-  const [tab, setTab] = useState<string>(projectDue ? 'projects' : cart && merchantHere(c, day) && !boughtToday(s, day).length ? 'cart' : 'store');
+  const almanac = hasFlag(s, 'almanac_open');
+  const scenes = pendingEvents(s, c).length > 0;
+  const tabs = ['store', ...(cart ? ['cart'] : []), ...(friends(s, c).length ? ['friends'] : []), ...(almanac ? ['almanac'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(projects.length ? ['projects'] : [])];
+  const [tab, setTab] = useState<string>(projectDue ? 'projects' : scenes ? 'friends' : cart && merchantHere(c, day) && !boughtToday(s, day).length ? 'cart' : 'store');
   const exp = nextExpansion(s, c);
   return (
     <Sheet title="Bramblewick" onClose={onClose}>
       <div class="tabs" role="tablist">
         {tabs.map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} class={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'store' ? "Goldie's store" : t === 'cart' ? "Ziggy's cart" : t === 'friends' ? 'Friends' : t === 'land' ? 'Land' : t === 'market' ? 'Market' : 'Projects'}
+            {t === 'store' ? "Goldie's store" : t === 'cart' ? "Ziggy's cart" : t === 'friends' ? (scenes ? 'Friends ♥' : 'Friends') : t === 'almanac' ? 'Almanac' : t === 'land' ? 'Land' : t === 'market' ? 'Market' : 'Projects'}
           </button>
         ))}
       </div>
@@ -872,7 +890,8 @@ function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
 
       {tab === 'market' && <MarketTab game={game} day={day} />}
       {tab === 'cart' && <CartTab game={game} day={day} />}
-      {tab === 'friends' && <FriendsTab game={game} day={day} />}
+      {tab === 'friends' && <FriendsTab game={game} day={day} onScene={onScene} />}
+      {tab === 'almanac' && <AlmanacTab game={game} />}
 
       {tab === 'projects' && (
         <div class="projects">
@@ -981,6 +1000,49 @@ function CartTab({ game, day }: { game: Game; day: number }) {
             </li>
           );
         })}
+      </ul>
+    </>
+  );
+}
+
+function AlmanacTab({ game }: { game: Game }) {
+  const s = game.state;
+  const c = game.content;
+  const found = c.crops.filter((x) => s.seen.includes(x.id)).length;
+  return (
+    <>
+      <p class="muted small">
+        Hazel's Almanac · <b>{found}/{c.crops.length}</b> crops recorded. Harvest a crop {MASTERY.join(', ')} times to earn mastery stars.
+      </p>
+      <ul class="almanac">
+        {c.crops.map((x) => {
+          const seen = s.seen.includes(x.id);
+          const n = s.harvests?.[x.id] ?? 0;
+          const stars = masteryStars(s, x.id);
+          const next = MASTERY[stars];
+          return (
+            <li key={x.id} class={`almanac-card${seen ? '' : ' unknown'}`}>
+              <span class="seed-icon" style={{ background: seen ? x.color : '#cfc4b0' }} aria-hidden="true" />
+              <span class="almanac-name">{seen ? x.name : '???'}</span>
+              <span class="stars" aria-label={`${stars} of 3 mastery stars`}>
+                {[0, 1, 2].map((i) => (
+                  <span key={i} class={i < stars ? 'on' : ''}>
+                    ★
+                  </span>
+                ))}
+              </span>
+              <small>{seen ? (next ? `${n}/${next} harvests` : 'Mastered!') : `Level ${x.unlock_level}`}</small>
+            </li>
+          );
+        })}
+      </ul>
+      <h3>Mastery rewards</h3>
+      <ul class="away-list small">
+        {MASTERY_PERKS.map((p, i) => (
+          <li key={i}>
+            {'★'.repeat(i + 1)} {MASTERY[i]} harvests: {p} (+{i + 1} Ribbon{i ? 's' : ''})
+          </li>
+        ))}
       </ul>
     </>
   );
@@ -1140,7 +1202,7 @@ function Hearts({ n, progress }: { n: number; progress: number }) {
   );
 }
 
-function FriendsTab({ game, day }: { game: Game; day: number }) {
+function FriendsTab({ game, day, onScene }: { game: Game; day: number; onScene: SceneFn }) {
   const s = game.state;
   const c = game.content;
   const [giving, setGiving] = useState<string | null>(null);
@@ -1168,6 +1230,30 @@ function FriendsTab({ game, day }: { game: Game; day: number }) {
                 </button>
               </div>
               <p class="chatter">“{chatter(s, c, id, day)}”</p>
+              {pendingEvents(s, c)
+                .filter((e) => e.villager === id)
+                .slice(0, 1)
+                .map((e) => (
+                  <button
+                    key={e.hearts}
+                    class="btn small green scene-btn"
+                    onClick={() => {
+                      const ev = game.watchEvent(id, e.hearts);
+                      if (ev) onScene(v, ev.title, ev.lines);
+                    }}
+                  >
+                    <Icon name="heart" size={16} /> {shortName(v)} wants to talk: “{e.title}”
+                  </button>
+                ))}
+              {seenEvents(s, c, id).length > 0 && (
+                <div class="memories">
+                  {seenEvents(s, c, id).map((e) => (
+                    <button key={e.hearts} class="memory" onClick={() => onScene(v, e.title, e.lines)}>
+                      ♥{e.hearts} {e.title}
+                    </button>
+                  ))}
+                </div>
+              )}
               <p class="muted small">
                 Loves {v.loves?.map((x) => itemName(c, x).toLowerCase()).join(', ')}
                 {h >= 5 ? ` · ${v.perk}` : ` · At 5 hearts: ${v.perk}`}

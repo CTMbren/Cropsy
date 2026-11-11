@@ -83,3 +83,73 @@ export function chatter(state: FarmState, content: Content, id: string, day: num
   const lines = v?.lines?.[band] ?? ['…'];
   return lines[day % lines.length];
 }
+
+// ── Heart events ─────────────────────────────────────────────────
+
+export interface HeartEvent {
+  villager: string;
+  hearts: number;
+  title: string;
+  lines: string[];
+}
+
+const eventFlag = (v: string, h: number) => `event:${v}:${h}`;
+
+/** Heart events you've unlocked (enough hearts) but not yet watched, lowest first. */
+export function pendingEvents(state: FarmState, content: Content): HeartEvent[] {
+  const out: HeartEvent[] = [];
+  for (const id of friends(state, content)) {
+    const h = hearts(state, content, id);
+    for (const e of content.villagers.get(id)?.events ?? []) if (h >= e.hearts && !hasFlag(state, eventFlag(id, e.hearts))) out.push({ villager: id, ...e });
+  }
+  return out.sort((a, b) => a.hearts - b.hearts);
+}
+
+/** Heart events already watched (for re-reading). */
+export function seenEvents(state: FarmState, content: Content, id: string): HeartEvent[] {
+  return (content.villagers.get(id)?.events ?? []).filter((e) => hasFlag(state, eventFlag(id, e.hearts))).map((e) => ({ villager: id, ...e }));
+}
+
+/** Watching a heart event for the first time gives Ribbons (2 at 3 hearts, 3 at 6, and so on). */
+export function watchEvent(state: FarmState, content: Content, id: string, h: number): { event: HeartEvent; ribbons: number } | null {
+  const e = pendingEvents(state, content).find((x) => x.villager === id && x.hearts === h);
+  if (!e) return null;
+  setFlag(state, eventFlag(id, h));
+  const ribbons = 1 + Math.floor(h / 3);
+  state.ribbons += ribbons;
+  return { event: e, ribbons };
+}
+
+// ── Moss ─────────────────────────────────────────────────────────
+
+export type MossFind = { item: string; qty: number } | { coins: number };
+
+/** What Moss digs up: fixed per day and dig, so reloading can't reroll it. */
+export function mossFind(day: number, n: number): MossFind {
+  let h = 2166136261;
+  for (const ch of `moss:${day}:${n}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  const r = (h >>> 0) % 100;
+  if (r < 30) return { item: 'wood', qty: 4 };
+  if (r < 55) return { item: 'stone', qty: 3 };
+  if (r < 80) return { item: 'fertilizer', qty: 2 };
+  if (r < 95) return { coins: 150 };
+  return { item: 'gold', qty: 1 };
+}
+
+/** Finds left today: one a day, two with Juniper's 5-heart perk. */
+export function mossDigsLeft(state: FarmState, day: number): number {
+  if (!hasFlag(state, 'moss_visits')) return 0;
+  const per = hasFlag(state, 'perk:juniper') ? 2 : 1;
+  const used = state.moss?.day === day ? state.moss.digs : 0;
+  return Math.max(0, per - used);
+}
+
+export function patMoss(state: FarmState, day: number): MossFind | null {
+  if (mossDigsLeft(state, day) <= 0) return null;
+  const used = state.moss?.day === day ? state.moss.digs : 0;
+  const f = mossFind(day, used);
+  state.moss = { day, digs: used + 1 };
+  if ('coins' in f) state.coins += f.coins;
+  else addItem(state, f.item, f.qty);
+  return f;
+}

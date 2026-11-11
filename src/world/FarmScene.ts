@@ -472,6 +472,76 @@ export class FarmScene extends Phaser.Scene {
     return null;
   }
 
+  /** Moss naps just outside the fence, on the left. */
+  private mossCell(): { x: number; y: number } {
+    return { x: -1.3, y: this.game_.state.height - 1.2 };
+  }
+
+  private mossAt(p: Phaser.Input.Pointer): boolean {
+    if (!this.game_.state.flags.includes('moss_visits')) return false;
+    const q = this.pt(p);
+    const c = this.mossCell();
+    const { sx, sy } = cellToScreen(c.x, c.y);
+    const mx = this.world.x + sx * this.world.scale;
+    const my = this.world.y + (sy - 14) * this.world.scale;
+    return Phaser.Math.Distance.Between(q.x, q.y, mx, my) < 40 * this.world.scale;
+  }
+
+  private drawMoss(g: Phaser.GameObjects.Graphics): void {
+    const s = this.game_.state;
+    if (!s.flags.includes('moss_visits')) return;
+    const c = this.mossCell();
+    const { sx: x, sy: y } = cellToScreen(c.x, c.y);
+    const t = this.time.now;
+    const wag = Math.sin(t / 120) * 0.5;
+    const breathe = Math.sin(t / 700) * 1.2;
+    g.lineStyle(3, INK, 1);
+    // shadow
+    g.fillStyle(0x000000, 0.15);
+    g.fillEllipse(x, y + 4, 52, 14);
+    // tail
+    g.lineStyle(6, INK, 1);
+    g.lineBetween(x + 16, y - 12, x + 16 + Math.cos(-1.2 + wag) * 16, y - 12 + Math.sin(-1.2 + wag) * 16);
+    g.lineStyle(3.5, 0xc98a4b, 1);
+    g.lineBetween(x + 16, y - 12, x + 16 + Math.cos(-1.2 + wag) * 15, y - 12 + Math.sin(-1.2 + wag) * 15);
+    // body
+    g.lineStyle(3, INK, 1);
+    g.fillStyle(0xc98a4b, 1);
+    g.fillEllipse(x + 2, y - 10 - breathe / 2, 40, 22 + breathe);
+    g.strokeEllipse(x + 2, y - 10 - breathe / 2, 40, 22 + breathe);
+    g.fillStyle(0xf3e1c4, 1);
+    g.fillEllipse(x - 4, y - 6, 18, 10);
+    // head
+    g.fillStyle(0xc98a4b, 1);
+    g.fillCircle(x - 16, y - 24, 12);
+    g.strokeCircle(x - 16, y - 24, 12);
+    g.fillStyle(0x8b5a2b, 1);
+    g.fillEllipse(x - 8, y - 26, 8, 16);
+    g.strokeEllipse(x - 8, y - 26, 8, 16);
+    g.fillStyle(0xf3e1c4, 1);
+    g.fillEllipse(x - 24, y - 20, 12, 9);
+    g.fillStyle(INK, 1);
+    g.fillCircle(x - 29, y - 21, 2.5);
+    g.fillCircle(x - 19, y - 27, 2);
+    // a bone bubble when he has something to dig up
+    const day = this.game_.day();
+    const left = s.moss?.day === day ? (s.flags.includes('perk:juniper') ? 2 : 1) - s.moss.digs : s.flags.includes('perk:juniper') ? 2 : 1;
+    if (left > 0) {
+      const bob = Math.sin(t / 250) * 3;
+      g.lineStyle(3, INK, 1);
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(x - 16, y - 58 + bob, 14);
+      g.strokeCircle(x - 16, y - 58 + bob, 14);
+      g.lineStyle(2.5, INK, 1);
+      g.fillStyle(0xf8f1e0, 1);
+      g.fillRoundedRect(x - 24, y - 61 + bob, 16, 6, 3);
+      g.fillCircle(x - 25, y - 61 + bob, 3);
+      g.fillCircle(x - 25, y - 55 + bob, 3);
+      g.fillCircle(x - 7, y - 61 + bob, 3);
+      g.fillCircle(x - 7, y - 55 + bob, 3);
+    }
+  }
+
   private buildingAt(p: Phaser.Input.Pointer): string | null {
     const q = this.pt(p);
     const s = this.game_.state;
@@ -603,6 +673,7 @@ export class FarmScene extends Phaser.Scene {
       g.fillCircle(p.sx + 29, p.sy - 140 - puff * 24, 8 + puff * 8);
       this.badge(g, p.sx, p.sy - 140, ready('bakery'));
     }
+    this.drawMoss(g);
   }
 
   // ── juice ───────────────────────────────────────────────────────
@@ -680,6 +751,11 @@ export class FarmScene extends Phaser.Scene {
     this.downAt = { x: q.x, y: q.y };
     this.lastPan = { x: q.x, y: q.y };
     this.actedKeys.clear();
+    if (this.mossAt(p)) {
+      this.dragMode = 'none';
+      this.game_.patMoss();
+      return;
+    }
     const b = this.buildingAt(p);
     if (b) {
       this.dragMode = 'none';

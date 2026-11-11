@@ -117,6 +117,8 @@ export interface ProjectDef {
 export interface VillagerDef {
   id: string;
   name: string;
+  /** What the HUD calls them (defaults to the first word of the name). */
+  short?: string;
   role: string;
   color: string;
   hair: string;
@@ -127,6 +129,8 @@ export interface VillagerDef {
   perk?: string;
   /** Idle chatter by heart band: 0–2, 3–5, 6–8, 9–10. */
   lines?: string[][];
+  /** Short scenes that unlock at a heart level. */
+  events?: { hearts: number; title: string; lines: string[] }[];
 }
 
 export interface LetterDef {
@@ -156,7 +160,11 @@ export type Objective =
   | { type: 'deliver_order'; order: OrderDef }
   | { type: 'hand_in'; items: Record<string, number>; coins?: number }
   | { type: 'project'; id: string; n: number }
-  | { type: 'merchant_buy'; n: number };
+  | { type: 'merchant_buy'; n: number }
+  /** Grow n different crops (counts crops already discovered). */
+  | { type: 'discover'; n: number }
+  /** Harvest any one crop n times (counts the best crop's total). */
+  | { type: 'mastery'; n: number };
 
 export interface ChapterDef {
   n: number;
@@ -265,6 +273,7 @@ export function validateStory(c: Omit<Content, 'questById'>): void {
   for (const l of c.letters.values()) if (!c.villagers.has(l.from)) throw new Error(`letters.json "${l.id}": unknown sender "${l.from}"`);
   for (const v of c.villagers.values()) {
     for (const id of [...(v.loves ?? []), ...(v.likes ?? []), ...(v.dislikes ?? [])]) if (!isItem(id)) throw new Error(`villagers.json "${v.id}": unknown gift item "${id}"`);
+    for (const e of v.events ?? []) if (!e.lines?.length || e.hearts < 1 || e.hearts > 10) throw new Error(`villagers.json "${v.id}": bad heart event "${e.title}"`);
     if (v.lines && v.lines.length !== 4) throw new Error(`villagers.json "${v.id}": lines needs 4 heart bands`);
   }
 }
@@ -289,6 +298,8 @@ export function loadContent(rawCrops: unknown = cropsJson): Content {
   validateStory(c);
   return { ...c, questById: new Map(quests.map((q) => [q.id, q])) };
 }
+
+export const shortName = (v: VillagerDef | undefined) => v?.short ?? v?.name.split(' ')[0] ?? '';
 
 export function itemName(content: Content, id: string): string {
   return content.cropById.get(id)?.name ?? content.goods.get(id)?.name ?? content.economy.materials.find((m) => m.id === id)?.name ?? id;
