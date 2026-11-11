@@ -3,17 +3,15 @@ import { hasFlag, isFresh, key, parseKey, stageOf, type ObstacleKind } from '../
 import { decorSpots, placed, spotCell } from '../core/decor';
 import type { Game } from '../game';
 import { ArtRegistry } from './art';
+import { light, shade } from './paint';
+import { cropBounds, drawCropArt } from './cropArt';
+import { DIRT_SIDE_L, DIRT_SIDE_R, drawObstacleArt, drawOvergrown, drawSoil, OBSTACLE_BOUNDS, OVERGROWN_BOUNDS, SOIL_BOUNDS } from './tileArt';
 import { cellToScreen, screenToCell, TILE_H, TILE_W } from './iso';
 
 const INK = 0x4a2e1a; // thick dark-brown outline used on everything in the cartoon style
-const DIRT_TOP = 0xa86a3c;
-const DIRT_TOP_DARK = 0x8e5530;
-const DIRT_SIDE_L = 0x7a4626;
-const DIRT_SIDE_R = 0x653a1f;
 const GRASS = 0x7cc94f;
 const GRASS_EDGE = 0x5aa83a;
 const WOOD = 0xc98a4b;
-const PLOT_DEPTH = 10;
 const TAP_SLOP = 10;
 /** Space reserved for the HUD above and the seed tray + nav below, in logical pixels. */
 const UI_TOP = 116;
@@ -25,21 +23,22 @@ const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 2.0;
 
 /** Placeholder bounds around each sprite's anchor, in logical pixels (see ArtRegistry). */
-const CROP_BOUNDS = { left: -34, top: -42, right: 34, bottom: 20 };
-const OBSTACLE_BOUNDS = { left: -42, top: -48, right: 42, bottom: 20 };
+/** Crops are shown a little larger than drawn so they read at phone size. */
+const CROP_SCALE = 1.15;
 const BUBBLE_BOUNDS = { left: -14, top: -18, right: 18, bottom: 14 };
 const FERT_BOUNDS = { left: -10, top: -10, right: 10, bottom: 10 };
 const SPARKLE_BOUNDS = { left: -5, top: -8, right: 5, bottom: 8 };
 /** Ripe-bubble, fertilizer and sparkle positions relative to the plot centre. */
-const BUBBLE_Y = -44;
+const BUBBLE_Y = -52;
 const FERT_AT = { x: 30, y: -4 };
-const SPARKLE_AT = { x: 23, y: -50 };
+const SPARKLE_AT = { x: 23, y: -58 };
 
 /** The sprites standing on one cell, kept alive between frames and only re-pointed on change. */
 interface PlotView {
   k: string;
   sx: number;
   sy: number;
+  soil: Phaser.GameObjects.Image;
   crop: Phaser.GameObjects.Image;
   fert: Phaser.GameObjects.Image;
   bubble: Phaser.GameObjects.Image;
@@ -62,7 +61,8 @@ export class FarmScene extends Phaser.Scene {
   private game_!: Game;
   private world!: Phaser.GameObjects.Container;
   private ground!: Phaser.GameObjects.Graphics;
-  private plotsG!: Phaser.GameObjects.Graphics;
+  /** Soil beds and overgrown patches, one sprite per cell, under the crops. */
+  private soilLayer!: Phaser.GameObjects.Container;
   private buildG!: Phaser.GameObjects.Graphics;
   /** Crops, obstacles and their markers as pooled sprites, back to front. */
   private plotLayer!: Phaser.GameObjects.Container;
@@ -102,7 +102,7 @@ export class FarmScene extends Phaser.Scene {
     this.input.addPointer(1);
     this.world = this.add.container(0, 0);
     this.ground = this.add.graphics();
-    this.plotsG = this.add.graphics();
+    this.soilLayer = this.add.container(0, 0);
     this.buildG = this.add.graphics();
     this.plotLayer = this.add.container(0, 0);
     // bake placeholders at device pixels for max zoom, so they stay as crisp as the vector drawing
@@ -110,7 +110,7 @@ export class FarmScene extends Phaser.Scene {
     this.decoG = this.add.graphics();
     this.coachG = this.add.graphics();
     this.highlight = this.add.graphics();
-    this.world.add([this.ground, this.buildG, this.plotsG, this.coachG, this.plotLayer, this.decoG, this.highlight]);
+    this.world.add([this.ground, this.buildG, this.soilLayer, this.coachG, this.plotLayer, this.decoG, this.highlight]);
 
     if (this.registry.get('debug')) {
       this.perfText = this.add
@@ -278,7 +278,6 @@ export class FarmScene extends Phaser.Scene {
     this.world.setScale(Phaser.Math.Clamp(fit, MIN_ZOOM, MAX_ZOOM));
     this.world.setPosition(width / 2 - mid.sx * this.world.scale, UI_TOP + availH / 2 - mid.sy * this.world.scale + 10);
     this.drawGround();
-    this.drawPlots();
     this.buildViews();
     this.drawBuildings();
   }
@@ -296,21 +295,73 @@ export class FarmScene extends Phaser.Scene {
       const c = cellToScreen(x, y);
       return V(c.sx, c.sy);
     };
-    const pts = [corner(-pad, -pad), corner(s.width - 1 + pad, -pad), corner(s.width - 1 + pad, s.height - 1 + pad), corner(-pad, s.height - 1 + pad)];
+    const [n, e, so, w] = [corner(-pad, -pad), corner(s.width - 1 + pad, -pad), corner(s.width - 1 + pad, s.height - 1 + pad), corner(-pad, s.height - 1 + pad)];
+    const down = (p: Phaser.Math.Vector2, d: number) => V(p.x, p.y + d);
+    // the island's edge: a grass lip over layered earth, lit on the left face
+    const LIP = 6;
+    const CLIFF = 22;
+    g.fillStyle(DIRT_SIDE_L, 1);
+    g.fillPoints([w, so, down(so, CLIFF), down(w, CLIFF)], true);
+    g.fillStyle(DIRT_SIDE_R, 1);
+    g.fillPoints([so, e, down(e, CLIFF), down(so, CLIFF)], true);
+    g.fillStyle(shade(DIRT_SIDE_L, 0.2), 1);
+    g.fillPoints([down(w, 15), down(so, 15), down(so, CLIFF), down(w, CLIFF)], true);
+    g.fillStyle(shade(DIRT_SIDE_R, 0.2), 1);
+    g.fillPoints([down(so, 15), down(e, 15), down(e, CLIFF), down(so, CLIFF)], true);
     g.fillStyle(GRASS_EDGE, 1);
-    g.fillPoints(pts.map((p) => V(p.x, p.y + 14)), true);
+    g.fillPoints([w, so, down(so, LIP), down(w, LIP)], true);
+    g.fillStyle(shade(GRASS_EDGE, 0.12), 1);
+    g.fillPoints([so, e, down(e, LIP), down(so, LIP)], true);
+    // pebbles in the earth
+    for (let i = 0; i < 18; i++) {
+      const t = ((i * 37) % 100) / 100;
+      const leftFace = i % 2 === 0;
+      const p = leftFace ? Phaser.Math.LinearXY(w, so, t) : Phaser.Math.LinearXY(so, e, t);
+      g.fillStyle(shade(leftFace ? DIRT_SIDE_L : DIRT_SIDE_R, 0.35), 1);
+      g.fillEllipse(p.x, p.y + 10 + (i % 3) * 3, 5, 2.6);
+    }
+    // lawn
     g.fillStyle(GRASS, 1);
-    g.fillPoints(pts, true);
+    g.fillPoints([n, e, so, w], true);
+    // mown checkerboard, one tile per cell
+    g.fillStyle(light(GRASS, 0.07), 1);
+    for (let y = -2; y <= s.height + 1; y++) {
+      for (let x = -2; x <= s.width + 1; x++) {
+        if ((x + y) % 2 === 0) continue;
+        const c = cellToScreen(x, y);
+        g.fillPoints(this.diamond(c.sx, c.sy), true);
+      }
+    }
     g.lineStyle(4, INK, 1);
-    g.strokePoints(pts, true);
-    // grass tufts for texture
-    g.lineStyle(2, GRASS_EDGE, 1);
-    for (let i = 0; i < 30; i++) {
-      const a = (i * 97) % 100 / 100;
-      const b = (i * 53) % 100 / 100;
-      const c = cellToScreen(-pad + 0.3 + a * (s.width + 2 * pad - 1.6), -pad + 0.3 + b * (s.height + 2 * pad - 1.6));
-      g.lineBetween(c.sx - 3, c.sy, c.sx - 1, c.sy - 6);
-      g.lineBetween(c.sx + 2, c.sy, c.sx + 3, c.sy - 5);
+    g.strokePoints([n, e, down(e, CLIFF), down(so, CLIFF), down(w, CLIFF), w], true);
+    g.lineBetween(w.x, w.y, so.x, so.y);
+    g.lineBetween(so.x, so.y, e.x, e.y);
+    g.lineBetween(so.x, so.y, so.x, so.y + CLIFF);
+    // tufts and flowers on the grass around the field (the field itself is covered by plots)
+    const inField = (cx: number, cy: number) => cx > -0.7 && cy > -0.7 && cx < s.width - 0.3 && cy < s.height - 0.3;
+    for (let i = 0; i < 60; i++) {
+      const a = ((i * 97) % 100) / 100;
+      const b = ((i * 53 + 17) % 100) / 100;
+      const cx = -pad + 0.3 + a * (s.width + 2 * pad - 1.6);
+      const cy = -pad + 0.3 + b * (s.height + 2 * pad - 1.6);
+      if (inField(cx, cy)) continue;
+      const c = cellToScreen(cx, cy);
+      if (i % 5 === 0) {
+        const petal = [0xffffff, 0xffe14d, 0xf48fb1, 0xb39ddb][i % 4];
+        g.fillStyle(petal, 1);
+        for (let k = 0; k < 5; k++) {
+          const ang = (k / 5) * Math.PI * 2;
+          g.fillCircle(c.sx + Math.cos(ang) * 2.2, c.sy - 3 + Math.sin(ang) * 1.6, 1.6);
+        }
+        g.fillStyle(0xffb300, 1);
+        g.fillCircle(c.sx, c.sy - 3, 1.1);
+      } else {
+        g.lineStyle(2, GRASS_EDGE, 1);
+        g.lineBetween(c.sx - 3, c.sy, c.sx - 1.5, c.sy - 6);
+        g.lineBetween(c.sx + 2, c.sy, c.sx + 3, c.sy - 5);
+        g.lineStyle(1.6, light(GRASS, 0.25), 1);
+        g.lineBetween(c.sx - 0.5, c.sy, c.sx + 0.5, c.sy - 7);
+      }
     }
     this.drawFence(g);
   }
@@ -327,16 +378,25 @@ export class FarmScene extends Phaser.Scene {
     const b = edge(s.width - 1 + off, -off);
     const d = edge(-off, s.height - 1 + off);
     const post = (p: Phaser.Math.Vector2) => {
+      // two faces, lit left, with a lighter cut top
       g.fillStyle(WOOD, 1);
-      g.fillRect(p.x - 3, p.y - 18, 6, 18);
+      g.fillRect(p.x - 3.5, p.y - 20, 4, 20);
+      g.fillStyle(shade(WOOD, 0.25), 1);
+      g.fillRect(p.x + 0.5, p.y - 20, 3, 20);
+      g.fillStyle(light(WOOD, 0.3), 1);
+      g.fillRect(p.x - 3.5, p.y - 22, 7, 2.5);
       g.lineStyle(2, INK, 1);
-      g.strokeRect(p.x - 3, p.y - 18, 6, 18);
+      g.strokeRect(p.x - 3.5, p.y - 22, 7, 22);
     };
     const rail = (p: Phaser.Math.Vector2, q: Phaser.Math.Vector2) => {
-      g.lineStyle(6, INK, 1);
-      g.lineBetween(p.x, p.y - 12, q.x, q.y - 12);
-      g.lineStyle(3.5, WOOD, 1);
-      g.lineBetween(p.x, p.y - 12, q.x, q.y - 12);
+      for (const h of [14, 7]) {
+        g.lineStyle(6.5, INK, 1);
+        g.lineBetween(p.x, p.y - h, q.x, q.y - h);
+        g.lineStyle(4, WOOD, 1);
+        g.lineBetween(p.x, p.y - h, q.x, q.y - h);
+        g.lineStyle(1.3, light(WOOD, 0.3), 1);
+        g.lineBetween(p.x, p.y - h - 1.2, q.x, q.y - h - 1.2);
+      }
     };
     // back two sides only, so the fence never hides crops
     const segs = 6;
@@ -381,56 +441,8 @@ export class FarmScene extends Phaser.Scene {
       this.drawnSize = size;
       this.layout();
     }
-    this.drawPlots();
     this.syncPlots();
     this.drawDecor();
-  }
-
-  private drawPlots(): void {
-    const g = this.plotsG;
-    const s = this.game_.state;
-    g.clear();
-    const inset = 0.84;
-    for (let y = 0; y < s.height; y++) {
-      for (let x = 0; x < s.width; x++) {
-        const k = key(x, y);
-        if (!s.plots[k]) continue;
-        const { sx, sy } = cellToScreen(x, y);
-        if (s.obstacles[k]) {
-          // overgrown patch: rough darker grass until cleared
-          const patch = this.diamond(sx, sy, TILE_W * 0.9, TILE_H * 0.9);
-          g.fillStyle(0x5f9e36, 1);
-          g.fillPoints(patch, true);
-          g.lineStyle(2, 0x3f7a22, 1);
-          g.strokePoints(patch, true);
-          continue;
-        }
-        const top = this.diamond(sx, sy, TILE_W * inset, TILE_H * inset);
-        const [n, e, so, w] = top;
-        g.fillStyle(DIRT_SIDE_L, 1);
-        g.fillPoints([w, so, V(so.x, so.y + PLOT_DEPTH), V(w.x, w.y + PLOT_DEPTH)], true);
-        g.fillStyle(DIRT_SIDE_R, 1);
-        g.fillPoints([so, e, V(e.x, e.y + PLOT_DEPTH), V(so.x, so.y + PLOT_DEPTH)], true);
-        const soil = s.plots[k].soil ?? 0;
-        g.fillStyle([DIRT_TOP, 0x8a5430, 0x6e3f22, 0x8a5a24][soil] ?? DIRT_TOP, 1);
-        g.fillPoints(top, true);
-        if (soil >= 2) {
-          // rich and golden soil glitter
-          g.fillStyle(soil >= 3 ? 0xffd54f : 0xc9955c, 1);
-          for (let i = 0; i < 6; i++) g.fillCircle(sx + ((i * 37) % 70) - 35, sy + ((i * 23) % 26) - 13, soil >= 3 ? 2.2 : 1.6);
-        }
-        g.lineStyle(2, DIRT_TOP_DARK, 1);
-        for (let i = 1; i < 4; i++) {
-          const t = i / 4;
-          g.lineBetween(Phaser.Math.Linear(w.x, n.x, t), Phaser.Math.Linear(w.y, n.y, t), Phaser.Math.Linear(so.x, e.x, t), Phaser.Math.Linear(so.y, e.y, t));
-        }
-        g.lineStyle(3, INK, 1);
-        g.strokePoints([n, e, V(e.x, e.y + PLOT_DEPTH), V(so.x, so.y + PLOT_DEPTH), V(w.x, w.y + PLOT_DEPTH), w], true);
-        g.lineBetween(w.x, w.y, so.x, so.y);
-        g.lineBetween(so.x, so.y, e.x, e.y);
-        g.lineBetween(so.x, so.y, so.x, so.y + PLOT_DEPTH);
-      }
-    }
   }
 
   /** One pooled view per cell, created back to front so later cells draw over earlier ones. */
@@ -440,6 +452,7 @@ export class FarmScene extends Phaser.Scene {
     if (size === this.viewsSize) return;
     this.viewsSize = size;
     this.plotLayer.removeAll(true);
+    this.soilLayer.removeAll(true);
     this.views = [];
     const cells: [number, number][] = [];
     for (let y = 0; y < s.height; y++) for (let x = 0; x < s.width; x++) cells.push([x, y]);
@@ -451,6 +464,7 @@ export class FarmScene extends Phaser.Scene {
         k: key(x, y),
         sx,
         sy,
+        soil: img(sx, sy),
         crop: img(sx, sy),
         fert: img(sx + FERT_AT.x, sy + FERT_AT.y),
         bubble: img(sx, sy + BUBBLE_Y),
@@ -459,9 +473,11 @@ export class FarmScene extends Phaser.Scene {
         ripe: false,
         fresh: false,
       };
+      this.soilLayer.add(v.soil);
       this.plotLayer.add([v.crop, v.fert, v.bubble, v.sparkle]);
       this.views.push(v);
     }
+    this.syncPlots();
   }
 
   /** Points each view at the art for its plot's current state. Runs on state change and once a second. */
@@ -475,11 +491,13 @@ export class FarmScene extends Phaser.Scene {
       const fresh = stage === 'ripe' && isFresh(plot!, now);
       const fert = !ob && !!plot?.fertilized && stage !== 'ripe' && stage !== 'empty';
       const cropKey = ob ? this.obstacleArt(ob, v.k) : stage !== 'empty' ? this.cropArt(plot!.crop!, stage) : '';
-      const shown = `${cropKey}|${fert}|${fresh}`;
+      const soilKey = !plot ? '' : ob ? this.tileArt('overgrown') : this.tileArt('soil', plot.soil ?? 0);
+      const shown = `${soilKey}|${cropKey}|${fert}|${fresh}`;
       v.ripe = stage === 'ripe';
       v.fresh = fresh;
       if (shown === v.shown) continue;
       v.shown = shown;
+      this.show(v.soil, soilKey);
       this.show(v.crop, cropKey);
       this.show(v.fert, fert ? this.markerArt('fertilizer') : '');
       this.show(v.bubble, v.ripe ? this.bubbleArt(plot!.crop!, fresh) : '');
@@ -517,8 +535,18 @@ export class FarmScene extends Phaser.Scene {
     const k = `crop/${id}/${stage}`;
     if (!this.art.has(k)) {
       const def = this.game_.content.cropById.get(id);
-      if (def) this.art.placeholder(k, CROP_BOUNDS, (g, cx, cy) => this.drawCrop(g, stage, hex(def.leaf), hex(def.color), cx, cy));
+      if (def) this.art.placeholder(k, cropBounds(id), (g, cx, cy) => drawCropArt(g, id, stage, hex(def.leaf), hex(def.color), cx, cy), CROP_SCALE);
     }
+    return k;
+  }
+
+  private tileArt(kind: 'soil' | 'overgrown', tier = 0): string {
+    if (kind === 'overgrown') {
+      this.art.placeholder('tile/overgrown', OVERGROWN_BOUNDS, (g, cx, cy) => drawOvergrown(g, cx, cy));
+      return 'tile/overgrown';
+    }
+    const k = `tile/soil/${tier}`;
+    this.art.placeholder(k, SOIL_BOUNDS, (g, cx, cy) => drawSoil(g, cx, cy, tier));
     return k;
   }
 
@@ -527,7 +555,7 @@ export class FarmScene extends Phaser.Scene {
     const [x, y] = parseKey(cell);
     const alt = kind === 'weeds' && (x * 7 + y * 13) % 2 === 1;
     const k = `obstacle/${kind}${alt ? '/b' : ''}`;
-    this.art.placeholder(k, OBSTACLE_BOUNDS, (g, cx, cy) => this.drawObstacle(g, kind, cx, cy, alt ? 1 : 0));
+    this.art.placeholder(k, OBSTACLE_BOUNDS, (g, cx, cy) => drawObstacleArt(g, kind, cx, cy, alt));
     return k;
   }
 
@@ -547,74 +575,6 @@ export class FarmScene extends Phaser.Scene {
     return k;
   }
 
-  private drawObstacle(g: Phaser.GameObjects.Graphics, kind: ObstacleKind, sx: number, sy: number, seed: number): void {
-    g.lineStyle(2.5, INK, 1);
-    if (kind === 'weeds') {
-      const tufts: [number, number][] = [
-        [-24, 0],
-        [-2, -10],
-        [20, 0],
-        [-4, 12],
-        [10, 6],
-      ];
-      for (const [dx, dy] of tufts) {
-        const cx = sx + dx;
-        const cy = sy + dy;
-        g.fillStyle(seed % 2 ? 0x4f9a2f : 0x5aa83a, 1);
-        g.fillTriangle(cx - 9, cy, cx - 3, cy - 20, cx + 1, cy);
-        g.strokeTriangle(cx - 9, cy, cx - 3, cy - 20, cx + 1, cy);
-        g.fillStyle(0x6cc040, 1);
-        g.fillTriangle(cx - 3, cy, cx + 4, cy - 24, cx + 8, cy);
-        g.strokeTriangle(cx - 3, cy, cx + 4, cy - 24, cx + 8, cy);
-      }
-    } else if (kind === 'branch') {
-      g.lineStyle(9, INK, 1);
-      g.lineBetween(sx - 26, sy + 4, sx + 22, sy - 10);
-      g.lineBetween(sx - 6, sy - 4, sx + 4, sy + 12);
-      g.lineStyle(5, 0x8b5a2b, 1);
-      g.lineBetween(sx - 26, sy + 4, sx + 22, sy - 10);
-      g.lineBetween(sx - 6, sy - 4, sx + 4, sy + 12);
-      g.lineStyle(2.5, INK, 1);
-      g.fillStyle(0x5cb83a, 1);
-      g.fillEllipse(sx + 22, sy - 14, 14, 9);
-      g.strokeEllipse(sx + 22, sy - 14, 14, 9);
-    } else if (kind === 'stump') {
-      g.fillStyle(0x6b4423, 1);
-      g.fillRect(sx - 20, sy - 22, 40, 20);
-      g.fillEllipse(sx, sy - 2, 40, 18);
-      g.lineStyle(2.5, INK, 1);
-      g.strokeEllipse(sx, sy - 2, 40, 18);
-      g.fillStyle(0x6b4423, 1);
-      g.fillRect(sx - 18.5, sy - 22, 37, 20);
-      g.lineBetween(sx - 20, sy - 22, sx - 20, sy - 2);
-      g.lineBetween(sx + 20, sy - 22, sx + 20, sy - 2);
-      g.fillStyle(0xd9a86c, 1);
-      g.fillEllipse(sx, sy - 22, 40, 18);
-      g.strokeEllipse(sx, sy - 22, 40, 18);
-      g.lineStyle(1.5, 0x9c6b3a, 1);
-      g.strokeEllipse(sx, sy - 22, 24, 10);
-      g.strokeEllipse(sx, sy - 22, 10, 4);
-    } else if (kind === 'boulder') {
-      g.fillStyle(0x7d7d7d, 1);
-      g.fillEllipse(sx, sy - 16, 70, 50);
-      g.strokeEllipse(sx, sy - 16, 70, 50);
-      g.fillStyle(0xa8a8a8, 1);
-      g.fillEllipse(sx - 10, sy - 26, 34, 18);
-      g.lineStyle(2.5, INK, 1);
-      g.lineBetween(sx + 4, sy - 38, sx + 10, sy - 22);
-      g.lineBetween(sx + 10, sy - 22, sx + 2, sy - 10);
-    } else {
-      g.fillStyle(0x8f8f8f, 1);
-      g.fillEllipse(sx, sy - 8, 52, 34);
-      g.strokeEllipse(sx, sy - 8, 52, 34);
-      g.fillStyle(0xb5b5b5, 1);
-      g.fillEllipse(sx - 6, sy - 14, 28, 14);
-      g.fillStyle(0x7a7a7a, 1);
-      g.fillEllipse(sx + 18, sy, 22, 14);
-      g.strokeEllipse(sx + 18, sy, 22, 14);
-    }
-  }
-
   /** Squash-and-stretch for a freshly planted plot: grows from small with a little overshoot. */
   private popScale(k: string): number {
     const start = this.pops.get(k);
@@ -627,40 +587,6 @@ export class FarmScene extends Phaser.Scene {
     const back = 1.70158;
     const u = t - 1;
     return 0.3 + 0.7 * (1 + (back + 1) * u * u * u + back * u * u);
-  }
-
-  /** Placeholder crop art: four leaf clumps (and fruit when ripe) around the plot centre. */
-  private drawCrop(g: Phaser.GameObjects.Graphics, stage: 'seed' | 'sprout' | 'growing' | 'ripe', leaf: number, fruit: number, sx: number, sy: number): void {
-    const spots: [number, number][] = [
-      [-18, -4],
-      [18, -4],
-      [0, 8],
-      [0, -14],
-    ];
-    for (const [dx, dy] of spots) {
-      const cx = sx + dx;
-      const cy = sy + dy;
-      if (stage === 'seed') {
-        g.fillStyle(0x5b3418, 1);
-        g.fillEllipse(cx, cy, 10, 6);
-        continue;
-      }
-      const h = stage === 'sprout' ? 10 : stage === 'growing' ? 18 : 22;
-      const w = 9;
-      g.lineStyle(2.5, INK, 1);
-      g.fillStyle(leaf, 1);
-      g.fillEllipse(cx - 5, cy - h / 2, w, h);
-      g.strokeEllipse(cx - 5, cy - h / 2, w, h);
-      g.fillEllipse(cx + 5, cy - h / 2, w, h);
-      g.strokeEllipse(cx + 5, cy - h / 2, w, h);
-      if (stage === 'ripe') {
-        g.fillStyle(fruit, 1);
-        g.fillCircle(cx, cy - 2, 9);
-        g.strokeCircle(cx, cy - 2, 9);
-        g.fillStyle(0xffffff, 0.7);
-        g.fillCircle(cx - 3, cy - 5, 2.5);
-      }
-    }
   }
 
   /** The ripe bubble; a star marks a Fresh Pick so it doesn't rely on the yellow alone. */
