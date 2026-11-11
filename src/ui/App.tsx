@@ -6,7 +6,8 @@ import { xpToNext } from '../core/progression';
 import { fromSaveCode, toSaveCode } from '../core/save';
 import { canGiftToday, chatter, friends, heartProgress, hearts, pendingEvents, seenEvents, taste } from '../core/friendship';
 import { buildingPrice, canAffordBuilding, queueView, readyCount, slotUpgradeCost } from '../core/processing';
-import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, nextExpansion, priceFactor, toolPrice } from '../core/shop';
+import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, priceFactor, toolPrice } from '../core/shop';
+import { blockerAt, clearCost, clearReward, clearTime, landOpen, nextCapLevel, plotCap, plotCount, touchesField } from '../core/land';
 import { activeQuest, canHandIn, inbox, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
 import { beauty, calendarRewards, canClaim, decorDef, decorDefs, nextGift, placed, stored, tipBonus, type CalendarReward } from '../core/decor';
 import { hasImprovement, improvements, nextTownLevel, TOWN_BONUS_LEVELS, TOWN_BONUS_PER_LEVEL, townLevel, townProject, townProjectOpen, weekOf } from '../core/town';
@@ -64,6 +65,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
   const [levelCard, setLevelCard] = useState<number | null>(null);
   const [chapterCard, setChapterCard] = useState<number | null>(null);
   const [cropInfo, setCropInfo] = useState<string | null>(null);
+  const [landCell, setLandCell] = useState<string | null>(null);
   const [gift, setGift] = useState<CalendarReward | null>(null);
   const [giftLater, setGiftLater] = useState(false);
   const coinRef = useRef<HTMLDivElement>(null);
@@ -100,6 +102,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       if (e.kind === 'shipped') setToast(`Barn full! ${e.n} shipped for ${e.coins} coins`);
       if (e.kind === 'quest') setToast(e.done ? `Quest complete: ${e.title}` : `New quest: ${e.title}`);
       if (e.kind === 'expand') setToast('The back field is open!');
+      if (e.kind === 'land') setToast(`Bruno's crew cleared a new plot! +${e.qty} ${itemName(game.content, e.item).toLowerCase()}${e.gold ? ' and a gold nugget' : ''}`);
       if (e.kind === 'coins') fly(window.innerWidth / 2, window.innerHeight - 200, e.amount);
       if (e.kind === 'harvest' && !isStandalone() && isIOS() && !seenHint()) {
         setInstallHint(true);
@@ -109,6 +112,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       if (e.kind === 'coin-fly') fly(e.x, e.y, e.amount);
       if (e.kind === 'open-building') setSheet(`building:${e.id}`);
       if (e.kind === 'open-crop') setCropInfo(e.key);
+      if (e.kind === 'open-land') setLandCell(e.cell);
     });
     return () => {
       offFx();
@@ -345,6 +349,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       )}
       {sheet?.startsWith('building:') && <BuildingSheet game={game} id={sheet.slice(9)} now={now} onClose={() => setSheet(null)} />}
 
+      {landCell && <LandCard game={game} cell={landCell} now={now} onClose={() => setLandCell(null)} />}
       {cropInfo && <CropInfo game={game} plotKey={cropInfo} now={now} onClose={() => setCropInfo(null)} />}
       {levelCard !== null && <LevelCard content={game.content} level={levelCard} onClose={() => setLevelCard(null)} />}
       {chapterCard !== null && levelCard === null && <ChapterCard content={game.content} n={chapterCard} onClose={() => setChapterCard(null)} />}
@@ -876,7 +881,7 @@ function LevelCard({ content, level, onClose }: { content: Content; level: numbe
   for (const c of content.crops) if (c.unlock_level === level) items.push(`New seed: ${c.name}`);
   for (const b of content.buildings.values()) if (b.unlock_level === level) items.push(`New building in Town: ${b.name}`);
   for (const t of content.tools.values()) if (t.unlock_level === level) items.push(`New tool in Town: ${t.name}`);
-  for (const e of content.economy.expansions) if (e.level === level) items.push(`Bruno can expand your farm to ${e.size}×${e.size}`);
+  for (const cap of (content.economy as unknown as { land: { caps: { level: number; plots: number }[] } }).land.caps) if (cap.level === level && level > 1) items.push(`Bruno can clear land up to ${cap.plots} plots`);
   if (content.economy.market.unlock_level === level) items.push('The market stall is open in Town');
   for (const q of content.quests) if (q.min_level === level && content.quests.find((x) => x.chapter === q.chapter && x.giver !== 'mail')?.id === q.id) items.push(`Chapter ${q.chapter} of the story can begin`);
   for (const d of decorDefs(content)) if (!d.story && d.level === level) items.push(`New decoration: ${d.name}`);
@@ -1022,6 +1027,121 @@ function GiftCalendar({ game, claimed, onClaim, onClose }: { game: Game; claimed
   );
 }
 
+/** Field size and the crew's current job, for the Land tab. */
+function LandSummary({ game }: { game: Game }) {
+  const s = game.state;
+  const c = game.content;
+  const cap = plotCap(s, c);
+  const next = nextCapLevel(s, c);
+  const job = s.clearing;
+  return (
+    <>
+      <div class="order">
+        <Portrait v={c.villagers.get('bruno')!} size={44} />
+        <div class="order-body">
+          <div class="order-who">
+            Your field: {plotCount(s)} plots
+            {landOpen(s) && <span class="muted small"> (up to {cap} at your level)</span>}
+          </div>
+          <p class="muted small">
+            {!landOpen(s)
+              ? 'Bruno will help with your land once he has rebuilt your old gate in the story.'
+              : job
+                ? `Bruno's crew is clearing a ${job.kind}: ${formatDuration(Math.max(0, job.endsAt - game.now()))} left.`
+                : plotCount(s) >= cap
+                  ? next
+                    ? `Reach level ${next.level} and Bruno can clear up to ${next.plots} plots.`
+                    : 'Every corner of the homestead is cleared. Bruno is very proud.'
+                  : 'Tap a stump or boulder next to your field to clear it, one plot at a time.'}
+          </p>
+        </div>
+      </div>
+      {landOpen(s) && plotCount(s) < cap && <p class="muted small">Next plot costs {clearCost(s, c).toLocaleString()} coins. Stumps take about {formatDuration(clearTime(s, c, 'stump'))} and boulders {formatDuration(clearTime(s, c, 'boulder'))}, and you keep the wood or stone.</p>}
+    </>
+  );
+}
+
+/** Tap overgrown land: what it is, what clearing it costs, and the crew's progress. */
+function LandCard({ game, cell, now, onClose }: { game: Game; cell: string; now: number; onClose: () => void }) {
+  const s = game.state;
+  const c = game.content;
+  const kind = blockerAt(cell);
+  const job = s.clearing;
+  const here = job?.cell === cell;
+  // close once this cell has become a plot
+  if (s.plots[cell]) {
+    queueMicrotask(onClose);
+    return null;
+  }
+  const cost = clearCost(s, c);
+  const time = clearTime(s, c, kind);
+  const reward = clearReward(c, cell, kind);
+  const cap = plotCap(s, c);
+  const next = nextCapLevel(s, c);
+  let blocked: string | null = null;
+  if (!landOpen(s)) blocked = 'Bruno will help clear land once he has rebuilt your gate (Chapter 1).';
+  else if (!touchesField(s, cell)) blocked = 'Clear the land right next to your field first.';
+  else if (plotCount(s) >= cap) blocked = next ? `Your field is as big as it can be for now. Reach level ${next.level} to clear more.` : 'Your field is as big as the homestead allows.';
+  else if (job && !here) blocked = `Bruno's crew is busy clearing another ${job.kind}: ${formatDuration(Math.max(0, job.endsAt - now))} left.`;
+  return (
+    <div class="modal-back" onClick={onClose}>
+      <div class="card crop-info" role="dialog" aria-labelledby="land-title" onClick={(e) => e.stopPropagation()}>
+        <div class="crop-head">
+          <Icon name={kind === 'stump' ? 'wood' : 'stone'} size={46} />
+          <div>
+            <h2 id="land-title">{kind === 'stump' ? 'Old stump' : 'Boulder'}</h2>
+            <p class="muted small">Overgrown land. Clearing it gives you a new plot and {reward.qty} {itemName(c, reward.item).toLowerCase()}.</p>
+          </div>
+        </div>
+        {here ? (
+          <>
+            <div class="grow-bar" role="progressbar">
+              <i style={{ width: `${Math.min(100, Math.round((1 - (job!.endsAt - now) / time) * 100))}%` }} />
+            </div>
+            <p class="crop-left">
+              Bruno's crew is on it: <b>{formatDuration(Math.max(0, job!.endsAt - now))}</b> left
+            </p>
+            <div class="row">
+              <button class="btn green" onClick={onClose}>
+                OK
+              </button>
+            </div>
+          </>
+        ) : blocked ? (
+          <>
+            <p class="muted">{blocked}</p>
+            <div class="row">
+              <button class="btn green" onClick={onClose}>
+                OK
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p class="crop-left">
+              <span class="coin sm" aria-hidden="true" /> <b>{cost.toLocaleString()}</b> coins · <b>{formatDuration(time)}</b>
+            </p>
+            <div class="row">
+              <button class="btn" onClick={onClose}>
+                Not now
+              </button>
+              <button
+                class="btn green"
+                disabled={s.coins < cost}
+                onClick={() => {
+                  if (game.startClearing(cell).ok) onClose();
+                }}
+              >
+                {s.coins < cost ? 'Need coins' : 'Clear it'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const STAGE_NAMES: Record<string, string> = { seed: 'Just planted', sprout: 'Sprouting', growing: 'Growing', ripe: 'Ripe' };
 
 /** Tap a growing crop: what it is, how long is left, and the option to dig it up early. */
@@ -1127,7 +1247,6 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
   const sketch = crittersOpen(s, c);
   const tabs = ['store', ...(cart ? ['cart'] : []), ...(friends(s, c).length ? ['friends'] : []), ...(almanac ? ['almanac'] : []), ...(sketch ? ['sketchbook'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(projects.length || townOpen ? ['projects'] : [])];
   const [tab, setTab] = useState<string>(projectDue ? 'projects' : scenes ? 'friends' : cart && merchantHere(c, day, s) && !boughtToday(s, day).length ? 'cart' : 'store');
-  const exp = nextExpansion(s, c);
   return (
     <Sheet title="Bramblewick" onClose={onClose}>
       <div class="tabs" role="tablist">
@@ -1249,32 +1368,7 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
 
       {tab === 'land' && (
         <div class="land">
-          <p class="muted">
-            Your field is {s.width}×{s.height}.
-          </p>
-          {!exp && <p class="muted">Bruno says your farm is as big as the valley allows. For now.</p>}
-          {exp?.story && <p class="muted">Bruno will look at your sorry old gate once you've met him in the story.</p>}
-          {exp && !exp.story && (
-            <div class="order">
-              <Portrait v={c.villagers.get('bruno')!} size={44} />
-              <div class="order-body">
-                <div class="order-who">
-                  Expand to {exp.size}×{exp.size}
-                </div>
-                <div class="order-wants">
-                  {(exp.level ?? 1) > s.level && <span class="need">Level {exp.level}</span>}
-                  <Need have={s.coins} need={brunoPrice(s, exp.coins ?? 0)} label="coins" />
-                  {Object.entries(exp.items ?? {}).map(([id, n]) => (
-                    <Need key={id} have={s.inventory[id] ?? 0} need={n} label={itemName(c, id)} />
-                  ))}
-                </div>
-              </div>
-              <button class="btn small green" onClick={() => game.buyExpansion()} disabled={(exp.level ?? 1) > s.level || s.coins < brunoPrice(s, exp.coins ?? 0) || !Object.entries(exp.items ?? {}).every(([id, n]) => (s.inventory[id] ?? 0) >= n)}>
-                Build
-              </button>
-            </div>
-          )}
-          <p class="muted small">New land comes with weeds, stumps and boulders to clear. Stumps need a saw and boulders a pickaxe.</p>
+          <LandSummary game={game} />
           <h3>Bruno's lumber yard</h3>
           <ul class="rows">
             {c.economy.lumber_yard.map((o) => (

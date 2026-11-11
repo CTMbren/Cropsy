@@ -1,5 +1,5 @@
-import { itemValue, type BarnTier, type Content, type ExpansionDef, type ToolDef } from './content';
-import { addItem, expand, hasItems, sellBonus, takeItems, unlockedCrops, type FarmState } from './farm';
+import { itemValue, type BarnTier, type Content, type ToolDef } from './content';
+import { addItem, hasItems, sellBonus, takeItems, unlockedCrops, type FarmState } from './farm';
 import { fnv1a } from './save';
 import { rng } from './time';
 
@@ -42,25 +42,7 @@ export function buyBarn(state: FarmState, content: Content): BuyResult {
   return { ok: true };
 }
 
-// ── Bruno: land expansions ───────────────────────────────────────
-
-/** The next expansion Bruno can build, or null when the farm is at full size. Tier 0 comes from the story. */
-export function nextExpansion(state: FarmState, content: Content): ExpansionDef | null {
-  return content.economy.expansions[state.expansions] ?? null;
-}
-
-export function buyExpansion(state: FarmState, content: Content): BuyResult {
-  const e = nextExpansion(state, content);
-  if (!e || e.story) return { ok: false, reason: 'unknown' };
-  if ((e.level ?? 1) > state.level) return { ok: false, reason: 'locked' };
-  const coins = brunoPrice(state, e.coins ?? 0);
-  if (state.coins < coins) return { ok: false, reason: 'no-coins' };
-  if (!hasItems(state, e.items ?? {})) return { ok: false, reason: 'missing' };
-  state.coins -= coins;
-  takeItems(state, e.items ?? {});
-  expand(state);
-  return { ok: true };
-}
+// Land is cleared plot by plot now: see land.ts.
 
 // ── Market stall: daily prices ───────────────────────────────────
 

@@ -98,6 +98,8 @@ export interface FarmState {
   town?: { week: number; done: boolean; trophies: number; project?: import('./town').TownProject };
   /** Meadow Visitors: critters on the farm, the arrival clock, species sketched, pollen toward honey. */
   critters?: { out: import('./critters').Visitor[]; nextAt: number; n: number; seen: string[]; pollen: number };
+  /** Land being cleared by Bruno's crew: one plot at a time. */
+  clearing?: { cell: string; kind: 'stump' | 'boulder'; endsAt: number };
   /** Moss's digs today. */
   moss?: { day: number; digs: number };
   /** Harvests per crop, for Crop Mastery. */
@@ -138,7 +140,7 @@ function patternFor(size: number): ObstacleKind[] {
   return p;
 }
 
-const emptyPlot = (soil = 0): PlotState => ({ crop: null, plantedAt: 0, growS: 0, soil });
+export const emptyPlot = (soil = 0): PlotState => ({ crop: null, plantedAt: 0, growS: 0, soil });
 
 export function newFarm(now: number): FarmState {
   const width = 4;

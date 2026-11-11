@@ -29,9 +29,10 @@ export function decorSpots(state: FarmState): string[] {
 
 /** Fractional cell coordinates of a spot (one tile outside the field). */
 export function spotCell(state: FarmState, spot: string): { x: number; y: number } {
-  if (spot === 'C') return { x: state.width + 0.35, y: state.height + 0.35 };
+  // one tile further out than the field's edge, beyond any overgrown land waiting to be cleared
+  if (spot === 'C') return { x: state.width + 1.1, y: state.height + 1.1 };
   const i = Number(spot.slice(1));
-  return spot[0] === 'R' ? { x: state.width + 0.35, y: i } : { x: i, y: state.height + 0.35 };
+  return spot[0] === 'R' ? { x: state.width + 1.1, y: i } : { x: i, y: state.height + 1.1 };
 }
 
 export const placed = (state: FarmState): Record<string, string> => state.decor ?? {};
