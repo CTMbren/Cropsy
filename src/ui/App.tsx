@@ -286,7 +286,16 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
                 <ItemIcon id={c.id} color={c.color} />
                 <span class="seed-name">{c.name}</span>
                 {masteryLevel(s, c.id) > 0 && (
-                  <span class={`mastery-badge${masteryPending(s, c.id) ? ' pending' : ''}`} aria-label={`Mastery level ${masteryLevel(s, c.id)}`}>
+                  <span
+                    class={`mastery-badge${masteryPending(s, c.id) ? ' pending' : ''}`}
+                    role="button"
+                    aria-label={`${c.name} mastery level ${masteryLevel(s, c.id)}${masteryPending(s, c.id) ? ', bonus to choose' : ''}`}
+                    onClick={(e) => {
+                      // the badge opens the mastery card instead of arming the seed
+                      e.stopPropagation();
+                      setMasteryCard(c.id);
+                    }}
+                  >
                     ★{masteryLevel(s, c.id)}
                   </span>
                 )}
@@ -973,7 +982,7 @@ function MasteryCard({ game, cropId, onClose }: { game: Game; cropId: string; on
             </div>
             <p class="muted small">Coins: crate, market, auto-ship and Fresh tips. XP: every harvest.</p>
             <button class="link-btn small" onClick={onClose}>
-              Decide later (in Town → Almanac)
+              Decide later (tap the ★ on the seed)
             </button>
           </>
         ) : (
