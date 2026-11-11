@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DAILY_ORDERS } from '../core/board';
 import { itemName, itemValue, shortName, type Content, type VillagerDef } from '../core/content';
-import { barnCapacity, barnUsed, cratePrice, hasFlag, hasItems, MASTERY, MASTERY_PERKS, masteryStars, nextReady, seedCost, unlockedCrops } from '../core/farm';
+import { barnCapacity, barnUsed, cratePrice, hasFlag, hasItems, MASTERY, MASTERY_PERKS, masteryStars, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
 import { xpToNext } from '../core/progression';
 import { fromSaveCode, toSaveCode } from '../core/save';
 import { canGiftToday, chatter, friends, heartProgress, hearts, pendingEvents, seenEvents, taste } from '../core/friendship';
@@ -61,6 +61,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
   const [coinBump, setCoinBump] = useState(0);
   const [levelCard, setLevelCard] = useState<number | null>(null);
   const [chapterCard, setChapterCard] = useState<number | null>(null);
+  const [cropInfo, setCropInfo] = useState<string | null>(null);
   const [gift, setGift] = useState<CalendarReward | null>(null);
   const [giftLater, setGiftLater] = useState(false);
   const coinRef = useRef<HTMLDivElement>(null);
@@ -103,6 +104,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
     const offScreen = game.onScreenFx((e) => {
       if (e.kind === 'coin-fly') fly(e.x, e.y, e.amount);
       if (e.kind === 'open-building') setSheet(`building:${e.id}`);
+      if (e.kind === 'open-crop') setCropInfo(e.key);
     });
     return () => {
       offFx();
@@ -339,6 +341,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       )}
       {sheet?.startsWith('building:') && <BuildingSheet game={game} id={sheet.slice(9)} now={now} onClose={() => setSheet(null)} />}
 
+      {cropInfo && <CropInfo game={game} plotKey={cropInfo} now={now} onClose={() => setCropInfo(null)} />}
       {levelCard !== null && <LevelCard content={game.content} level={levelCard} onClose={() => setLevelCard(null)} />}
       {chapterCard !== null && levelCard === null && <ChapterCard content={game.content} n={chapterCard} onClose={() => setChapterCard(null)} />}
 
@@ -1007,6 +1010,70 @@ function GiftCalendar({ game, claimed, onClaim, onClose }: { game: Game; claimed
             </button>
             <button class="btn green" onClick={onClaim}>
               Open gift
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const STAGE_NAMES: Record<string, string> = { seed: 'Just planted', sprout: 'Sprouting', growing: 'Growing', ripe: 'Ripe' };
+
+/** Tap a growing crop: what it is, how long is left, and the option to dig it up early. */
+function CropInfo({ game, plotKey, now, onClose }: { game: Game; plotKey: string; now: number; onClose: () => void }) {
+  const [confirm, setConfirm] = useState(false);
+  const plot = game.state.plots[plotKey];
+  const crop = plot?.crop ? game.content.cropById.get(plot.crop) : undefined;
+  // closes itself once the crop ripens or is gone
+  if (!plot || !crop || stageOf(plot, now) === 'ripe') {
+    queueMicrotask(onClose);
+    return null;
+  }
+  const left = remaining(plot, now);
+  const pct = Math.round(progress(plot, now) * 100);
+  const soil = game.content.economy.soil[plot.soil ?? 0];
+  return (
+    <div class="modal-back" onClick={onClose}>
+      <div class="card crop-info" role="dialog" aria-labelledby="crop-title" onClick={(e) => e.stopPropagation()}>
+        <div class="crop-head">
+          <ItemIcon id={crop.id} color={crop.color} size={52} />
+          <div>
+            <h2 id="crop-title">{crop.name}</h2>
+            <p class="muted small">{STAGE_NAMES[stageOf(plot, now)]}{plot.fertilized ? ' · Fertilized (double harvest)' : ''}{plot.soil ? ` · ${soil?.name ?? 'Better soil'}` : ''}</p>
+          </div>
+        </div>
+        <div class="grow-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+          <i style={{ width: `${pct}%` }} />
+        </div>
+        <p class="crop-left">
+          Ready in <b>{formatDuration(left)}</b>
+        </p>
+        {confirm ? (
+          <>
+            <p class="muted">Dig up this {crop.name.toLowerCase()}? The crop is destroyed and you won't get the seed cost back.</p>
+            <div class="row">
+              <button class="btn" onClick={() => setConfirm(false)}>
+                Keep it
+              </button>
+              <button
+                class="btn red"
+                onClick={() => {
+                  game.digUp(plotKey);
+                  onClose();
+                }}
+              >
+                Dig it up
+              </button>
+            </div>
+          </>
+        ) : (
+          <div class="row">
+            <button class="btn" onClick={() => setConfirm(true)}>
+              Dig up
+            </button>
+            <button class="btn green" onClick={onClose}>
+              OK
             </button>
           </div>
         )}

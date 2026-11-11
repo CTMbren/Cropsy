@@ -63,7 +63,7 @@ async function start() {
   game.onFx((e) => {
     if (e.kind === 'harvest') play('harvest');
     else if (e.kind === 'plant') play('plant');
-    else if (e.kind === 'clear') play('clear');
+    else if (e.kind === 'clear' || e.kind === 'dug') play('clear');
     else if (e.kind === 'coins') play('coin');
     else if (e.kind === 'levelup') play('levelup');
     else if (e.kind === 'quest' || e.kind === 'expand' || e.kind === 'chapter' || e.kind === 'star') play('quest');

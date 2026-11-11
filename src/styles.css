@@ -443,3 +443,13 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .nav-btn.coach-pulse { background: none; animation: none; }
 .nav-btn.coach-pulse .nav-medal { animation: medal-pulse 1.1s ease-in-out infinite; }
 @keyframes medal-pulse { 0%, 100% { box-shadow: 0 3px 0 var(--ink), 0 0 0 0 rgba(255, 255, 255, 0.95); } 50% { box-shadow: 0 3px 0 var(--ink), 0 0 0 8px rgba(255, 255, 255, 0); } }
+
+/* Crop info card */
+.btn.red { color: #fff; -webkit-text-stroke: 0.8px var(--ink); paint-order: stroke fill; background: linear-gradient(#f2826f, #d9483a 55%, #b23427); box-shadow: 0 4px 0 var(--ink), inset 0 3px 0 rgba(255, 255, 255, 0.45); }
+.crop-head { display: flex; align-items: center; gap: 12px; }
+.crop-head h2 { margin: 0; }
+.crop-head p { margin: 2px 0 0; }
+.seed-icon.big { width: 46px; height: 46px; flex: none; }
+.grow-bar { height: 16px; border: 3px solid var(--ink); border-radius: 10px; background: #fff; overflow: hidden; }
+.grow-bar i { display: block; height: 100%; background: linear-gradient(#8de25d, var(--green)); transition: width 1s linear; }
+.crop-left { margin: 0; text-align: center; font-size: 17px; }

@@ -3,6 +3,7 @@ import { loadContent, type Content } from './core/content';
 import {
   awaySummary,
   clearObstacle,
+  digUp,
   fertilize,
   harvest,
   upgradeSoil,
@@ -50,11 +51,12 @@ export type FxEvent =
   | { kind: 'star'; crop: string; stars: number }
   | { kind: 'moss'; find: MossFind }
   | { kind: 'decor'; spot: string; placed: boolean }
+  | { kind: 'dug'; key: string }
   | { kind: 'denied'; key: string; reason: string }
   | { kind: 'ui' };
 
 /** Screen-space effects the farm scene asks the HUD to draw (e.g. coins flying to the coin pill). */
-export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number } | { kind: 'open-building'; id: string };
+export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number } | { kind: 'open-building'; id: string } | { kind: 'open-crop'; key: string };
 
 /**
  * The single owner of game state. Phaser (the farm) and Preact (the HUD) both read from it and
@@ -375,6 +377,16 @@ export class Game {
   snoozeBackup(): void {
     snoozeBackup(this.state, this.now());
     this.changed();
+  }
+
+  /** Dig up a growing crop early (it's destroyed, no refund). */
+  digUp(key: string): boolean {
+    const r = digUp(this.state, key, this.now());
+    if (!r.ok) return false;
+    this.fx({ kind: 'dug', key });
+    log(this.state, this.now(), `dig up ${r.crop}`);
+    this.changed();
+    return true;
   }
 
   claimGift(): CalendarReward | null {
