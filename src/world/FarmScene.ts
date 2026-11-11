@@ -39,6 +39,8 @@ import {
 import { DIRT_SIDE_L, DIRT_SIDE_R, drawObstacleArt, drawOvergrown, drawSoil, OBSTACLE_BOUNDS, OVERGROWN_BOUNDS, SOIL_BOUNDS } from './tileArt';
 import { cellToScreen, screenToCell, TILE_H, TILE_W } from './iso';
 import { FxLayer } from './fx';
+import { queueArt, registerArt } from './artLoader';
+import { hideSplash, splashProgress } from '../splash';
 
 const INK = 0x4a2e1a; // thick dark-brown outline used on everything in the cartoon style
 const GRASS = 0x7cc94f;
@@ -159,6 +161,14 @@ export class FarmScene extends Phaser.Scene {
     this.game_ = data.game;
   }
 
+  preload(): void {
+    this.load.on('progress', (p: number) => {
+      // only worth showing once there are atlas pages to wait for, not just the index
+      if (this.load.totalToLoad > 1) splashProgress(p);
+    });
+    queueArt(this);
+  }
+
   create(): void {
     this.dpr = this.registry.get('dpr') ?? 1;
     this.cameras.main.setOrigin(0, 0).setZoom(this.dpr);
@@ -170,6 +180,8 @@ export class FarmScene extends Phaser.Scene {
     this.plotLayer = this.add.container(0, 0);
     // bake placeholders at device pixels for max zoom, so they stay as crisp as the vector drawing
     this.art = new ArtRegistry(this, Math.min(4, Math.ceil(this.dpr * MAX_ZOOM)));
+    const atlasFrames = registerArt(this, this.art);
+    if (this.registry.get('debug') && atlasFrames) console.info(`art: ${atlasFrames} atlas frames`);
     this.decoG = this.add.graphics();
     this.decorLayer = this.add.container(0, 0);
     this.coachG = this.add.graphics();
@@ -273,6 +285,8 @@ export class FarmScene extends Phaser.Scene {
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onMove(p));
     this.input.on('pointerup', () => this.onUp());
     this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => this.zoomBy(dy > 0 ? 0.9 : 1.1));
+    // the farm has its art and first layout: show it once a frame has drawn
+    requestAnimationFrame(() => requestAnimationFrame(hideSplash));
   }
 
   update(t: number, dt: number): void {

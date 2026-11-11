@@ -37,7 +37,18 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,webp,woff2,json}'],
+        // Art atlases: only the index and the core pages are installed up front. Other pages (crop
+        // tiers, buildings, seasons…) are cached the first time the game loads them. Their file names
+        // carry a content hash, so cache-first can never serve stale art.
+        globIgnores: ['art/!(index.json|core.*|core-*)'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: /\/art\/[^/]+\.[0-9a-f]{8}\.(?:webp|json)$/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'cropsy-art', expiration: { maxEntries: 80 } },
+          },
+        ],
       },
     }),
   ],

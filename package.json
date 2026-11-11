@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "validate": "vitest run tests/unit/content.test.ts",
-    "sim": "vitest run --config vitest.sim.ts --silent=false"
+    "sim": "vitest run --config vitest.sim.ts --silent=false",
+    "art:pack": "node --experimental-strip-types --no-warnings tools/art/pack.ts"
   },
   "dependencies": {
     "idb-keyval": "^6.3.0",
@@ -20,6 +21,8 @@
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",
+    "@types/node": "^22.20.5",
+    "sharp": "^0.35.5",
     "typescript": "^7.0.2",
     "vite": "^8.3.7",
     "vite-plugin-pwa": "^2.0.0",

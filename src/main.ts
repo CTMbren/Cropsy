@@ -8,6 +8,7 @@ import { initMusic, setMusic } from './platform/music';
 import { play, setMuted, unlockAudio, whenAudioReady } from './platform/sound';
 import { App } from './ui/App';
 import { FarmScene } from './world/FarmScene';
+import { hideSplash } from './splash';
 import './styles.css';
 
 const debug = new URLSearchParams(location.search).has('debug');
@@ -28,14 +29,6 @@ const TIPS = [
   'Ziggy swears everything on his cart is genuine.',
   'Rufus is smiling on the inside. Probably.',
 ];
-
-/** Fades out the loading screen once the farm has drawn its first frame. */
-function hideSplash(): void {
-  const el = document.getElementById('splash');
-  if (!el) return;
-  el.classList.add('gone');
-  window.setTimeout(() => el.remove(), 400);
-}
 
 async function start() {
   const tip = document.querySelector('#splash .tip');
@@ -97,7 +90,6 @@ async function start() {
         g.registry.set('dpr', dpr);
         g.registry.set('debug', debug);
         g.scene.add('farm', FarmScene, true, { game });
-        requestAnimationFrame(() => requestAnimationFrame(hideSplash));
       },
     },
   });
