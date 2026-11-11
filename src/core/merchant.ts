@@ -17,14 +17,16 @@ export type MerchantSlot =
 export const merchantUnlocked = (state: FarmState) => hasFlag(state, 'merchant_open');
 
 /** Is the cart in town on this local day? */
-export function merchantHere(content: Content, day: number): boolean {
+export function merchantHere(content: Content, day: number, state?: FarmState): boolean {
   const m = content.economy.merchant;
-  return (((day + m.first_day_offset) % m.every_days) + m.every_days) % m.every_days === 0;
+  // the stone bridge improvement brings him every other day
+  const every = state && hasFlag(state, 'imp:bridge') ? 2 : m.every_days;
+  return (((day + m.first_day_offset) % every) + every) % every === 0;
 }
 
 /** Days until the cart next arrives (0 = today). */
-export function daysUntilMerchant(content: Content, day: number): number {
-  for (let d = 0; d < content.economy.merchant.every_days; d++) if (merchantHere(content, day + d)) return d;
+export function daysUntilMerchant(content: Content, day: number, state?: FarmState): number {
+  for (let d = 0; d < content.economy.merchant.every_days; d++) if (merchantHere(content, day + d, state)) return d;
   return 0;
 }
 
@@ -42,7 +44,7 @@ export function merchantStock(state: FarmState, content: Content, day: number): 
 
 /** Records today's stock in the save when the cart is in town (call on each change). */
 export function syncMerchant(state: FarmState, content: Content, day: number): void {
-  if (!merchantUnlocked(state) || !merchantHere(content, day)) return;
+  if (!merchantUnlocked(state) || !merchantHere(content, day, state)) return;
   if (state.merchant?.day !== day || !state.merchant.stock) state.merchant = { day, bought: boughtToday(state, day), stock: rollStock(state, content, day) };
 }
 
@@ -82,7 +84,7 @@ export type MerchantResult = { ok: true; slot: MerchantSlot } | { ok: false; rea
 
 export function buyFromMerchant(state: FarmState, content: Content, index: number, day: number): MerchantResult {
   if (!merchantUnlocked(state)) return { ok: false, reason: 'locked' };
-  if (!merchantHere(content, day)) return { ok: false, reason: 'away' };
+  if (!merchantHere(content, day, state)) return { ok: false, reason: 'away' };
   syncMerchant(state, content, day);
   const slot = merchantStock(state, content, day)[index];
   if (!slot) return { ok: false, reason: 'unknown' };

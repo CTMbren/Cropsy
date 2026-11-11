@@ -22,6 +22,7 @@ import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, 
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
 import { markBackedUp, snoozeBackup } from './core/backup';
 import { coachHint, type CoachHint } from './core/coach';
+import { buildImprovement, deliverTownProject, raiseTownLevel, syncTownProject, townLevel } from './core/town';
 import { buyDecor, claimGift, pickUpDecor, placeDecor, type CalendarReward } from './core/decor';
 import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merchant';
 import { buyBarn, buyExpansion, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
@@ -329,6 +330,36 @@ export class Game {
     this.changed();
   }
 
+  buildImprovement(id: string): boolean {
+    const r = buildImprovement(this.state, this.content, id);
+    if (r.ok) {
+      this.fx({ kind: 'quest', title: `${this.content.economy.improvements?.find((x) => x.id === id)?.name ?? id} built`, done: true });
+      log(this.state, this.now(), `improve ${id}`);
+      this.changed();
+    }
+    return r.ok;
+  }
+
+  raiseTownLevel(): boolean {
+    const r = raiseTownLevel(this.state, this.content);
+    if (r.ok) {
+      this.fx({ kind: 'quest', title: `Bramblewick is now town level ${townLevel(this.state)}`, done: true });
+      log(this.state, this.now(), `town level ${townLevel(this.state)}`);
+      this.changed();
+    }
+    return r.ok;
+  }
+
+  deliverTownProject(): boolean {
+    const r = deliverTownProject(this.state, this.content, this.day());
+    if (r.ok) {
+      this.fx({ kind: 'ribbon', amount: r.project.ribbons, why: 'Town project complete!' });
+      log(this.state, this.now(), 'town project');
+      this.changed();
+    }
+    return r.ok;
+  }
+
   /** The guided first minutes: what to do next, or null once Chapter 1's tutorial part is over. */
   coach(): CoachHint | null {
     if (this.mode !== 'plant') return null;
@@ -542,6 +573,7 @@ export class Game {
   private changed(): void {
     // fix Ziggy's stock for the day when his cart is in town
     syncMerchant(this.state, this.content, this.day());
+    syncTownProject(this.state, this.content, this.day());
     // keep the active quest possible (places missing weeds, branches or rocks on free plots)
     ensureQuestMaterials(this.state, this.content);
     // quests measured from the farm (crops discovered, mastery) can finish without an event

@@ -92,6 +92,10 @@ export interface FarmState {
   calendar?: { claimed: number; lastDay: number };
   /** When the player last copied a backup code, and when we last reminded them. */
   backup?: { lastAt?: number; nudgedAt?: number };
+  /** Bramblewick's town level (late-game ladder; each level raises sell prices). */
+  townLevel?: number;
+  /** This week's town project and trophies earned so far. */
+  town?: { week: number; done: boolean; trophies: number; project?: import('./town').TownProject };
   /** Moss's digs today. */
   moss?: { day: number; digs: number };
   /** Harvests per crop, for Crop Mastery. */
@@ -261,6 +265,9 @@ export function seedCost(state: FarmState, crop: CropDef): number {
 
 export const isUnlocked = (state: FarmState, crop: CropDef) => crop.unlock_level <= state.level || state.flags.includes(`early:${crop.id}`);
 
+/** The golden scarecrow improvement (+10%) and Bramblewick's town level (+2% a level, up to +50%). */
+export const sellBonus = (state: FarmState) => (state.flags.includes('imp:scarecrow') ? 1.1 : 1) * (1 + 0.02 * Math.min(state.townLevel ?? 0, 25));
+
 /** Shipping crate pays 70% of an item's value (never less than 1 coin). */
 export const cratePrice = (item: { sell: number }) => Math.max(1, Math.round(item.sell * 0.7));
 
@@ -328,7 +335,8 @@ export function plant(state: FarmState, content: Content, k: string, cropId: str
   state.coins -= cost;
   const soil = plot.soil ?? 0;
   const speed = content.economy.soil[soil]?.speed ?? 1;
-  state.plots[k] = { crop: crop.id, plantedAt: now, growS: Math.max(1, Math.round(crop.grow_s * speed)), soil };
+  const greenhouse = state.flags.includes('imp:greenhouse') ? 0.9 : 1;
+  state.plots[k] = { crop: crop.id, plantedAt: now, growS: Math.max(1, Math.round(crop.grow_s * speed * greenhouse)), soil };
   state.lastCrop[k] = crop.id;
   return { ok: true, kind: 'planted', crop };
 }
@@ -380,7 +388,7 @@ export function sell(state: FarmState, content: Content, itemId: string, n: numb
   const have = state.inventory[itemId] ?? 0;
   const qty = Math.min(n, have);
   if (!item || qty <= 0) return 0;
-  const coins = cratePrice(item) * qty;
+  const coins = Math.round(cratePrice(item) * qty * sellBonus(state));
   addItem(state, itemId, -qty);
   state.coins += coins;
   return coins;
@@ -475,7 +483,7 @@ export function storeInBarn(state: FarmState, content: Content, id: string, n: n
   const shipped = n - stored;
   if (stored) addItem(state, id, stored);
   const item = content.cropById.get(id) ?? content.goods.get(id);
-  const coins = shipped && item ? cratePrice(item) * shipped : 0;
+  const coins = shipped && item ? Math.round(cratePrice(item) * shipped * sellBonus(state)) : 0;
   state.coins += coins;
   return { stored, shipped, coins };
 }

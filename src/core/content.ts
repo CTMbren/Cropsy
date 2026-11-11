@@ -96,6 +96,7 @@ export interface Economy {
   /** Bruno sells wood and stone in bundles, so building never dead-ends on materials. */
   lumber_yard: { id: string; qty: number; coins: number }[];
   xp_curve: { base: number; mult: number; exp: number };
+  improvements?: { id: string; name: string }[];
   /** Ziggy's traveling cart: visits every few days with rare seeds, materials and fertilizer. */
   merchant: {
     every_days: number;

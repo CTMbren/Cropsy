@@ -75,7 +75,8 @@ export function fulfilOrder(state: FarmState, content: Content, orderId: string)
   if (!order) return { ok: false, reason: 'unknown' };
   if (!hasItems(state, order.wants)) return { ok: false, reason: 'missing' };
   takeItems(state, order.wants);
-  state.coins += order.coins;
+  // the town clock improvement: orders pay 20% more
+  state.coins += state.flags.includes('imp:clock') ? Math.round(order.coins * 1.2) : order.coins;
   state.ribbons += order.ribbons ?? 0;
   const levelsGained = grantXp(state, order.xp);
   state.board.orders = state.board.orders.filter((o) => o.id !== orderId);

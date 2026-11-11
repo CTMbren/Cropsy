@@ -382,3 +382,4 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
   30% { opacity: 1; translate: 0 -120px; }
   100% { opacity: 0; translate: 0 260px; rotate: 540deg; }
 }
+.town-level { display: grid; place-items: center; flex: none; width: 44px; height: 44px; font-family: 'Lilita One', system-ui; font-size: 22px; color: #fff; -webkit-text-stroke: 1px var(--ink); paint-order: stroke fill; background: linear-gradient(#7cc4f5, #2a6fb0); border: 3px solid var(--ink); border-radius: 50%; }
