@@ -32,6 +32,12 @@ html, body {
 #farm { position: fixed; inset: 0; touch-action: none; background: linear-gradient(var(--sky) 0 22%, var(--grass) 22%); }
 #farm canvas { display: block; touch-action: none; }
 #ui { position: fixed; inset: 0; pointer-events: none; }
+/* Home-screen app: iOS reports the layout height minus the status bar, which left a strip of
+   background under the bottom bar. Size the layers to the whole screen instead. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  html, body { height: 100vh; height: 100lvh; }
+  #farm, #ui { bottom: auto; height: 100vh; height: 100lvh; }
+}
 .ui > * { pointer-events: auto; }
 
 button { font: inherit; color: inherit; cursor: pointer; }
