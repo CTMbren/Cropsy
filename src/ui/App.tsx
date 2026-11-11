@@ -136,7 +136,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
   };
 
   return (
-    <div class="ui">
+    <div class={`ui ts-${Math.round((s.settings.textScale ?? 1) * 100)}`}>
       <header class="hud">
         <div class="level" aria-label={`Level ${s.level}`}>
           <span class="star">{s.level}</span>
@@ -151,7 +151,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         </div>
         <div class={`pill coins bump${coinBump % 2}`} ref={coinRef} aria-label={`${s.coins} coins`}>
           <span class="coin" aria-hidden="true" />
-          {s.coins.toLocaleString()}
+          <Rolling value={s.coins} />
         </div>
         <div class="pill ribbons" aria-label={`${s.ribbons} Ribbons`}>
           <Icon name="ribbon" size={22} />
@@ -407,6 +407,30 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       </div>
     </div>
   );
+}
+
+/** A number that counts up or down to its new value instead of jumping. */
+function Rolling({ value }: { value: number }) {
+  const [shown, setShown] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    const start = performance.now();
+    const a = from.current;
+    const diff = value - a;
+    if (!diff) return;
+    const dur = Math.min(700, 250 + Math.abs(diff) * 4);
+    let raf = 0;
+    const step = (t: number) => {
+      const p = Math.min(1, (t - start) / dur);
+      const v = Math.round(a + diff * (1 - Math.pow(1 - p, 3)));
+      setShown(v);
+      from.current = v;
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{shown.toLocaleString()}</>;
 }
 
 /** 1440 → 1.4k, so the XP numbers fit beside the level at high levels. */
@@ -727,6 +751,20 @@ function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; d
         <input type="checkbox" checked={s.settings.music !== false} onChange={(e) => game.setMusic((e.target as HTMLInputElement).checked)} />
         <span>Music</span>
       </label>
+      <div class="field">
+        <span>Text size</span>
+        <div class="tabs" role="radiogroup" aria-label="Text size">
+          {[
+            [1, 'Normal'],
+            [1.15, 'Large'],
+            [1.3, 'Larger'],
+          ].map(([v, label]) => (
+            <button key={label} role="radio" aria-checked={(s.settings.textScale ?? 1) === v} class={`tab${(s.settings.textScale ?? 1) === v ? ' active' : ''}`} onClick={() => game.setTextScale(v as number)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
       <p class="muted">Last saved {saved ? new Date(saved).toLocaleTimeString() : 'not yet'}.</p>
       <label class="field">
         <span>Backup code</span>
@@ -842,10 +880,16 @@ function LevelCard({ content, level, onClose }: { content: Content; level: numbe
   for (const t of content.tools.values()) if (t.unlock_level === level) items.push(`New tool in Town: ${t.name}`);
   for (const e of content.economy.expansions) if (e.level === level) items.push(`Bruno can expand your farm to ${e.size}×${e.size}`);
   if (content.economy.market.unlock_level === level) items.push('The market stall is open in Town');
-  for (const q of content.quests) if (q.min_level === level) items.push(`A new chapter of the story begins`);
+  for (const q of content.quests) if (q.min_level === level && content.quests.find((x) => x.chapter === q.chapter && x.giver !== 'mail')?.id === q.id) items.push(`Chapter ${q.chapter} of the story can begin`);
+  for (const d of decorDefs(content)) if (!d.story && d.level === level) items.push(`New decoration: ${d.name}`);
   return (
     <div class="modal-back" onClick={onClose}>
       <div class="card level-card" role="dialog" aria-labelledby="lvl-title">
+        <div class="confetti" aria-hidden="true">
+          {Array.from({ length: 18 }, (_, i) => (
+            <i key={i} style={{ left: `${(i * 37) % 100}%`, background: ['#ffc531', '#e8506a', '#5cb83a', '#3a8fd6', '#b36ad6'][i % 5], animationDelay: `${(i % 6) * 0.07}s`, transform: `rotate(${i * 47}deg)` }} />
+          ))}
+        </div>
         <div class="big-star" aria-hidden="true">{level}</div>
         <h2 id="lvl-title">Level {level}!</h2>
         <p class="muted">+1 Ribbon</p>
@@ -998,7 +1042,12 @@ function ChapterCard({ content, n, onClose }: { content: Content; n: number; onC
 }
 
 function Need({ have, need, label }: { have: number; need: number; label: string }) {
-  return <span class={have >= need ? 'have' : 'need'}>{Math.min(have, need)}/{need} {label}</span>;
+  const ok = have >= need;
+  return (
+    <span class={ok ? 'have' : 'need'}>
+      <span aria-hidden="true">{ok ? '✓' : '✗'}</span> {Math.min(have, need)}/{need} {label}
+    </span>
+  );
 }
 
 type SceneFn = (v: VillagerDef, title: string, lines: string[]) => void;
