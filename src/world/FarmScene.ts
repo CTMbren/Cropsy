@@ -124,6 +124,8 @@ export class FarmScene extends Phaser.Scene {
   private downAt = { x: 0, y: 0 };
   private lastPan = { x: 0, y: 0 };
   private actedKeys = new Set<string>();
+  /** A plain tap on a growing crop opens its info card (decided on release, so drags don't). */
+  private infoKey: string | null = null;
   private pinchDist = 0;
   private sparkleT = 0;
   private drawnSize = '';
@@ -196,6 +198,7 @@ export class FarmScene extends Phaser.Scene {
         this.burst(e.key, 0x7a4626, 5);
         this.pops.set(e.key, this.time.now);
       }
+      if (e.kind === 'dug') this.burst(e.key, 0x7a4626, 9);
       if (e.kind === 'decor') {
         const c = spotCell(this.game_.state, e.spot);
         this.burst(`${c.x},${c.y}`, e.placed ? 0xffe14d : 0xffffff, e.placed ? 10 : 5);
@@ -1025,6 +1028,9 @@ export class FarmScene extends Phaser.Scene {
     }
     const k = this.plotAt(p);
     this.dragMode = k ? 'act' : 'pan';
+    const s = this.game_.state;
+    const plot = k ? s.plots[k] : undefined;
+    this.infoKey = k && this.game_.mode === 'plant' && !s.obstacles[k] && plot?.crop && stageOf(plot, this.game_.now()) !== 'ripe' ? k : null;
     if (k) this.act(k);
   }
 
@@ -1048,12 +1054,18 @@ export class FarmScene extends Phaser.Scene {
       this.lastPan = { x: q.x, y: q.y };
     } else if (this.dragMode === 'act') {
       if (Phaser.Math.Distance.Between(q.x, q.y, this.downAt.x, this.downAt.y) < TAP_SLOP) return;
+      this.infoKey = null;
       const k = this.plotAt(p);
-      if (k && !this.actedKeys.has(k)) this.act(k);
+      if (k && !this.actedKeys.has(k)) {
+        this.infoKey = null;
+        this.act(k);
+      }
     }
   }
 
   private onUp(): void {
+    if (this.infoKey && this.dragMode === 'act' && this.actedKeys.size === 1) this.game_.screenFx({ kind: 'open-crop', key: this.infoKey });
+    this.infoKey = null;
     if (this.pointersDown().length === 0) {
       this.dragMode = 'none';
       this.pinchDist = 0;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadContent } from '../../src/core/content';
-import { awaySummary, clearObstacle, cratePrice, expand, freshWindow, harvest, key, newFarm, nextReady, plant, replantAll, sell, stageOf } from '../../src/core/farm';
+import { awaySummary, clearObstacle, cratePrice, digUp, expand, freshWindow, harvest, key, newFarm, nextReady, plant, replantAll, sell, stageOf } from '../../src/core/farm';
 import { addXp, xpToNext } from '../../src/core/progression';
 import { dayIndex, gameNow, nextLocalMidnight } from '../../src/core/time';
 
@@ -168,5 +168,25 @@ describe('return hooks', () => {
     const sum = awaySummary(s, content, T0 + 60);
     expect(sum.ripe).toEqual([{ crop: 'Radish', count: 2 }]);
     expect(sum.newMail).toBe(1);
+  });
+});
+
+describe('digging up', () => {
+  it('destroys a growing crop without a refund and keeps the soil', () => {
+    const s = clearFarm();
+    plant(s, content, key(0, 0), 'carrot', T0);
+    s.plots[key(0, 0)].soil = 1;
+    const coins = s.coins;
+    expect(digUp(s, key(0, 0), T0 + 10)).toEqual({ ok: true, crop: 'carrot' });
+    expect(s.plots[key(0, 0)]).toMatchObject({ crop: null, soil: 1 });
+    expect(s.coins).toBe(coins);
+    expect(s.inventory.carrot).toBeUndefined();
+  });
+
+  it('refuses ripe crops (harvest those) and empty plots', () => {
+    const s = clearFarm();
+    plant(s, content, key(0, 0), 'radish', T0);
+    expect(digUp(s, key(0, 0), T0 + 30)).toMatchObject({ ok: false, reason: 'not-growing' });
+    expect(digUp(s, key(1, 0), T0)).toMatchObject({ ok: false, reason: 'none' });
   });
 });

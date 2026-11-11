@@ -224,6 +224,16 @@ export function remaining(p: PlotState, now: number): number {
   return p.crop ? Math.max(0, p.plantedAt + p.growS - now) : 0;
 }
 
+/** Digs up a crop that hasn't ripened yet. The crop and its seed cost are lost; the soil stays. */
+export function digUp(state: FarmState, k: string, now: number): { ok: true; crop: string } | { ok: false; reason: 'none' | 'not-growing' } {
+  const p = state.plots[k];
+  if (!p?.crop) return { ok: false, reason: 'none' };
+  if (stageOf(p, now) === 'ripe') return { ok: false, reason: 'not-growing' };
+  const crop = p.crop;
+  state.plots[k] = { crop: null, plantedAt: 0, growS: 0, soil: p.soil };
+  return { ok: true, crop };
+}
+
 /** Fresh Pick: harvesting within a window equal to the grow time (min 30 min, max 8 h) after ripening. */
 export function freshWindow(growS: number): number {
   return Math.min(8 * 3600, Math.max(30 * 60, growS));
