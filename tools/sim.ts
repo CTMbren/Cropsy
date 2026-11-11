@@ -60,6 +60,10 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
       // don't bake away what the current quest asks for (e.g. Pip's flour)
       const handIn: Record<string, number> = {};
       for (const o of activeQuest(s, c)?.objectives ?? []) if (o.type === 'hand_in') Object.assign(handIn, o.items);
+      for (const p of c.projects.values()) {
+        const st = p.stages[s.projects[p.id] ?? 0];
+        if (st && s.flags.includes(`${p.id}_project`)) for (const [k, n] of Object.entries(st.items ?? {})) handIn[k] = Math.max(handIn[k] ?? 0, n);
+      }
       const spare = () => Object.entries(r.inputs).every(([k, n]) => (s.inventory[k] ?? 0) - n >= (handIn[k] ?? 0));
       while (spare() && startRecipe(s, c, id, r.id, now).ok);
     }
@@ -146,6 +150,11 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
     .filter(([id]) => crops.some((x) => x.id === id))
     .map(([id, n]) => [id, Math.max(0, n - (s.inventory[id] ?? 0) - (growing[id] ?? 0))] as const)
     .filter(([, n]) => n > 0);
+  // quests that ask for a harvest of one crop (Hazel's golden melon)
+  const aq = s.story.active;
+  activeQuest(s, c)?.objectives.forEach((o, i) => {
+    if (o.type === 'harvest' && o.crop !== 'any' && !growing[o.crop]) need.push([o.crop, Math.max(0, o.n - (aq?.progress[i] ?? 0))]);
+  });
   // Hazel wants new species: plant one of each crop not yet discovered
   if (activeQuest(s, c)?.objectives.some((o) => o.type === 'discover')) for (const x of crops) if (!s.seen.includes(x.id) && !growing[x.id]) need.push([x.id, 1]);
   for (const k of Object.keys(s.plots)) {

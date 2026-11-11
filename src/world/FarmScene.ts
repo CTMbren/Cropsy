@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { hasFlag, isFresh, key, parseKey, stageOf, type ObstacleKind, type PlotState } from '../core/farm';
+import { decorSpots, placed, spotCell } from '../core/decor';
 import type { Game } from '../game';
 import { cellToScreen, screenToCell, TILE_H, TILE_W } from './iso';
 
@@ -34,6 +35,7 @@ export class FarmScene extends Phaser.Scene {
   private plotsG!: Phaser.GameObjects.Graphics;
   private buildG!: Phaser.GameObjects.Graphics;
   private cropsG!: Phaser.GameObjects.Graphics;
+  private decoG!: Phaser.GameObjects.Graphics;
   private highlight!: Phaser.GameObjects.Graphics;
   private dragMode: 'none' | 'act' | 'pan' = 'none';
   private downAt = { x: 0, y: 0 };
@@ -62,8 +64,9 @@ export class FarmScene extends Phaser.Scene {
     this.plotsG = this.add.graphics();
     this.buildG = this.add.graphics();
     this.cropsG = this.add.graphics();
+    this.decoG = this.add.graphics();
     this.highlight = this.add.graphics();
-    this.world.add([this.ground, this.buildG, this.plotsG, this.cropsG, this.highlight]);
+    this.world.add([this.ground, this.buildG, this.plotsG, this.cropsG, this.decoG, this.highlight]);
 
     this.layout();
     this.scale.on('resize', () => this.layout());
@@ -88,6 +91,10 @@ export class FarmScene extends Phaser.Scene {
         if (pos) this.burst(`${pos.x},${pos.y}`, 0xffe14d, 10);
       }
       if (e.kind === 'plant') this.burst(e.key, 0x7a4626, 5);
+      if (e.kind === 'decor') {
+        const c = spotCell(this.game_.state, e.spot);
+        this.burst(`${c.x},${c.y}`, e.placed ? 0xffe14d : 0xffffff, e.placed ? 10 : 5);
+      }
       if (e.kind === 'expand') {
         this.layout();
         this.cameras.main.shake(250, 0.004);
@@ -130,6 +137,7 @@ export class FarmScene extends Phaser.Scene {
       this.sparkleT = 0;
       this.drawCrops();
       this.drawBuildings();
+      this.drawDecor();
     }
   }
 
@@ -266,6 +274,7 @@ export class FarmScene extends Phaser.Scene {
     }
     this.drawPlots();
     this.drawCrops();
+    this.drawDecor();
   }
 
   private drawPlots(): void {
@@ -470,6 +479,226 @@ export class FarmScene extends Phaser.Scene {
     if (id === 'jam_maker') return { x: 1.0, y: -2.2 };
     if (id === 'bakery') return { x: 3.2, y: -2.2 };
     return null;
+  }
+
+  // ── decorations ─────────────────────────────────────────────────
+
+  private spotAt(p: Phaser.Input.Pointer): string | null {
+    const q = this.pt(p);
+    const s = this.game_.state;
+    let best: string | null = null;
+    let bestD = 46 * this.world.scale;
+    for (const spot of decorSpots(s)) {
+      const c = spotCell(s, spot);
+      const { sx, sy } = cellToScreen(c.x, c.y);
+      const d = Phaser.Math.Distance.Between(q.x, q.y, this.world.x + sx * this.world.scale, this.world.y + (sy - 12) * this.world.scale);
+      if (d < bestD) {
+        bestD = d;
+        best = spot;
+      }
+    }
+    return best;
+  }
+
+  private drawDecor(): void {
+    const g = this.decoG;
+    const s = this.game_.state;
+    g.clear();
+    const editing = this.game_.mode === 'decorate';
+    const spots = decorSpots(s);
+    const items = placed(s);
+    // back to front so nearer decorations overlap farther ones
+    const order = [...spots].sort((a, b) => {
+      const ca = spotCell(s, a);
+      const cb = spotCell(s, b);
+      return ca.x + ca.y - (cb.x + cb.y);
+    });
+    for (const spot of order) {
+      const c = spotCell(s, spot);
+      const { sx, sy } = cellToScreen(c.x, c.y);
+      if (editing) {
+        const d = this.diamond(sx, sy, TILE_W * 0.7, TILE_H * 0.7);
+        g.fillStyle(0xffffff, items[spot] ? 0.15 : 0.35);
+        g.fillPoints(d, true);
+        g.lineStyle(2.5, 0xffffff, 0.9);
+        g.strokePoints(d, true);
+      }
+      if (items[spot]) this.drawDecoration(g, items[spot], sx, sy);
+    }
+  }
+
+  /** Placeholder vector art for each decoration, in the thick-outline style. */
+  private drawDecoration(g: Phaser.GameObjects.Graphics, id: string, x: number, y: number): void {
+    const t = this.time.now;
+    g.lineStyle(3, INK, 1);
+    g.fillStyle(0x000000, 0.15);
+    g.fillEllipse(x, y + 2, 56, 16);
+    g.lineStyle(3, INK, 1);
+    switch (id) {
+      case 'flowerbed': {
+        g.fillStyle(0x7a4626, 1);
+        g.fillEllipse(x, y - 4, 54, 22);
+        g.strokeEllipse(x, y - 4, 54, 22);
+        const cols = [0xe8506a, 0xffd54f, 0xf2f2f2, 0xb36ad6, 0xe8506a];
+        cols.forEach((col, i) => {
+          const fx = x - 18 + i * 9;
+          const fy = y - 10 - (i % 2) * 5;
+          g.fillStyle(0x4caf50, 1);
+          g.fillRect(fx - 1, fy, 2, 8);
+          g.fillStyle(col, 1);
+          g.fillCircle(fx, fy, 5);
+          g.lineStyle(2, INK, 1);
+          g.strokeCircle(fx, fy, 5);
+        });
+        break;
+      }
+      case 'hay': {
+        for (const [dx, dy] of [[-14, 0], [14, 0], [0, -18]]) {
+          g.fillStyle(0xf2c230, 1);
+          g.fillRoundedRect(x + dx - 16, y + dy - 22, 32, 20, 5);
+          g.strokeRoundedRect(x + dx - 16, y + dy - 22, 32, 20, 5);
+          g.lineStyle(2, 0xc9a227, 1);
+          g.lineBetween(x + dx - 8, y + dy - 20, x + dx - 8, y + dy - 4);
+          g.lineBetween(x + dx + 8, y + dy - 20, x + dx + 8, y + dy - 4);
+          g.lineStyle(3, INK, 1);
+        }
+        break;
+      }
+      case 'bench': {
+        g.fillStyle(0x8b5a2b, 1);
+        g.fillRect(x - 22, y - 14, 5, 14);
+        g.strokeRect(x - 22, y - 14, 5, 14);
+        g.fillRect(x + 17, y - 14, 5, 14);
+        g.strokeRect(x + 17, y - 14, 5, 14);
+        g.fillStyle(0xc98a4b, 1);
+        g.fillRoundedRect(x - 28, y - 22, 56, 9, 3);
+        g.strokeRoundedRect(x - 28, y - 22, 56, 9, 3);
+        g.fillRoundedRect(x - 28, y - 40, 56, 9, 3);
+        g.strokeRoundedRect(x - 28, y - 40, 56, 9, 3);
+        break;
+      }
+      case 'scarecrow': {
+        const sway = Math.sin(t / 900) * 2;
+        g.lineStyle(5, INK, 1);
+        g.lineBetween(x, y, x, y - 56);
+        g.lineBetween(x - 24 + sway, y - 40, x + 24 + sway, y - 40);
+        g.lineStyle(3, INK, 1);
+        g.fillStyle(0x3f7fd0, 1);
+        g.fillRoundedRect(x - 12 + sway, y - 46, 24, 26, 4);
+        g.strokeRoundedRect(x - 12 + sway, y - 46, 24, 26, 4);
+        g.fillStyle(0xf2d29b, 1);
+        g.fillCircle(x + sway, y - 56, 10);
+        g.strokeCircle(x + sway, y - 56, 10);
+        g.fillStyle(0xc0562a, 1);
+        g.fillTriangle(x - 16 + sway, y - 62, x + 16 + sway, y - 62, x + sway, y - 80);
+        g.strokeTriangle(x - 16 + sway, y - 62, x + 16 + sway, y - 62, x + sway, y - 80);
+        break;
+      }
+      case 'lamp': {
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillRect(x - 3, y - 60, 6, 60);
+        g.strokeRect(x - 3, y - 60, 6, 60);
+        const glow = 0.25 + Math.sin(t / 600) * 0.1;
+        g.fillStyle(0xffe14d, glow);
+        g.fillCircle(x, y - 68, 22);
+        g.fillStyle(0xffd54f, 1);
+        g.fillRoundedRect(x - 9, y - 78, 18, 20, 4);
+        g.strokeRoundedRect(x - 9, y - 78, 18, 20, 4);
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillTriangle(x - 13, y - 78, x + 13, y - 78, x, y - 88);
+        g.strokeTriangle(x - 13, y - 78, x + 13, y - 78, x, y - 88);
+        break;
+      }
+      case 'beehive': {
+        g.fillStyle(0x8b5a2b, 1);
+        g.fillRect(x - 3, y - 18, 6, 18);
+        g.strokeRect(x - 3, y - 18, 6, 18);
+        for (let i = 0; i < 3; i++) {
+          const w = 34 - i * 8;
+          g.fillStyle(0xf5b32a, 1);
+          g.fillEllipse(x, y - 24 - i * 11, w, 14);
+          g.strokeEllipse(x, y - 24 - i * 11, w, 14);
+        }
+        g.fillStyle(INK, 1);
+        g.fillCircle(x, y - 24, 3);
+        const bx = x + Math.cos(t / 300) * 22;
+        const by = y - 48 + Math.sin(t / 200) * 8;
+        g.fillStyle(0xffd54f, 1);
+        g.fillCircle(bx, by, 3.5);
+        g.lineStyle(1.5, INK, 1);
+        g.strokeCircle(bx, by, 3.5);
+        break;
+      }
+      case 'pumpkins': {
+        for (const [dx, dy, r] of [[-14, 0, 14], [14, 0, 14], [0, -20, 12]]) {
+          g.fillStyle(0xf57c00, 1);
+          g.fillEllipse(x + dx, y + dy - 12, r * 2.2, r * 1.7);
+          g.strokeEllipse(x + dx, y + dy - 12, r * 2.2, r * 1.7);
+          g.lineStyle(2, 0xc45f00, 1);
+          g.lineBetween(x + dx, y + dy - 12 - r * 0.8, x + dx, y + dy - 12 + r * 0.8);
+          g.lineStyle(3, INK, 1);
+          g.fillStyle(0x558b2f, 1);
+          g.fillRect(x + dx - 2, y + dy - 12 - r * 0.85 - 6, 4, 7);
+        }
+        break;
+      }
+      case 'windmill': {
+        this.box(g, x, y, 18, 50, 0xf3ede0, 0xd9d1bf, 0xc9c0ab);
+        g.fillStyle(0xc9483a, 1);
+        g.fillTriangle(x - 20, y - 50, x + 20, y - 50, x, y - 74);
+        g.strokeTriangle(x - 20, y - 50, x + 20, y - 50, x, y - 74);
+        const a0 = t / 800;
+        for (let i = 0; i < 4; i++) {
+          const a = a0 + (i * Math.PI) / 2;
+          const ex = x + Math.cos(a) * 34;
+          const ey = y - 56 + Math.sin(a) * 34;
+          g.lineStyle(6, INK, 1);
+          g.lineBetween(x, y - 56, ex, ey);
+          g.lineStyle(3, 0xffffff, 1);
+          g.lineBetween(x, y - 56, ex, ey);
+        }
+        g.lineStyle(3, INK, 1);
+        g.fillStyle(0x8b5a2b, 1);
+        g.fillCircle(x, y - 56, 5);
+        g.strokeCircle(x, y - 56, 5);
+        break;
+      }
+      case 'fountain': {
+        g.fillStyle(0xb0a99a, 1);
+        g.fillEllipse(x, y - 8, 60, 26);
+        g.strokeEllipse(x, y - 8, 60, 26);
+        g.fillStyle(0x7cc4f5, 1);
+        g.fillEllipse(x, y - 11, 48, 17);
+        g.fillStyle(0xb0a99a, 1);
+        g.fillRect(x - 5, y - 40, 10, 30);
+        g.strokeRect(x - 5, y - 40, 10, 30);
+        g.fillEllipse(x, y - 42, 24, 9);
+        g.strokeEllipse(x, y - 42, 24, 9);
+        const ph = (t / 400) % 1;
+        g.fillStyle(0xbfe6ff, 0.9 - ph * 0.6);
+        for (const dx of [-12, 0, 12]) g.fillCircle(x + dx * (0.4 + ph), y - 50 - Math.sin(ph * Math.PI) * 14, 3.5);
+        break;
+      }
+      case 'statue': {
+        g.fillStyle(0xb0a99a, 1);
+        this.box(g, x, y, 22, 18, 0xc9c0ab, 0xb0a99a, 0xd9d1bf);
+        const shine = Math.sin(t / 500) > 0.6 ? 0xfff1a8 : 0xffc531;
+        g.fillStyle(0xffc531, 1);
+        g.fillRoundedRect(x - 12, y - 52, 24, 34, 8);
+        g.strokeRoundedRect(x - 12, y - 52, 24, 34, 8);
+        g.fillCircle(x, y - 62, 11);
+        g.strokeCircle(x, y - 62, 11);
+        g.fillStyle(shine, 1);
+        g.fillCircle(x - 4, y - 66, 3);
+        // Tobias's hat
+        g.fillStyle(0xd9a521, 1);
+        g.fillEllipse(x, y - 70, 30, 8);
+        g.strokeEllipse(x, y - 70, 30, 8);
+        g.fillRoundedRect(x - 8, y - 82, 16, 12, 3);
+        g.strokeRoundedRect(x - 8, y - 82, 16, 12, 3);
+        break;
+      }
+    }
   }
 
   /** Moss naps just outside the fence, on the left. */
@@ -751,6 +980,15 @@ export class FarmScene extends Phaser.Scene {
     this.downAt = { x: q.x, y: q.y };
     this.lastPan = { x: q.x, y: q.y };
     this.actedKeys.clear();
+    if (this.game_.mode === 'decorate') {
+      this.dragMode = 'pan';
+      const spot = this.spotAt(p);
+      if (spot) {
+        this.dragMode = 'none';
+        this.game_.tapSpot(spot);
+      }
+      return;
+    }
     if (this.mossAt(p)) {
       this.dragMode = 'none';
       this.game_.patMoss();

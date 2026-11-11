@@ -138,7 +138,7 @@ export interface LetterDef {
   from: string;
   subject: string;
   body: string;
-  effects?: { expand?: boolean; coins?: number; flags?: string[] };
+  effects?: { expand?: boolean; coins?: number; flags?: string[]; decor?: string };
 }
 
 export interface OrderDef {

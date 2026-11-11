@@ -7,17 +7,29 @@ sell, and slowly bring the village of Bramblewick back to life. No avatar, no wa
 
 ## Status
 
-**Phase 2 complete: mechanics.** Chapters 1 and 2 of the story are playable:
+**Phase 3 complete: the story.** All five chapters are playable, from Tobias's letter to his homecoming:
 
 - **Chapter 1:** Tobias's letter, Goldie's visits, six quests ending with Bruno rebuilding the gate overnight
 - **Chapter 2 (from level 6):** grumpy Rufus, a saw for the old stumps, a 3-stage project to restore the
   mill (it turns overnight), then your first flour
+- **Chapter 3 · Market Day (from level 9):** Pip the baker, rebuilding the market square, opening-day
+  pastries, and Ziggy's traveling cart (every third day: early seeds, cheap materials, gold, fertilizer)
+- **Chapter 4 · The Almanac (from level 12):** Dr. Hazel Quill and her Almanac, Juniper & Moss, a first
+  mastery star and Tobias's heirloom
+- **Chapter 5 · The Golden Harvest (from level 17):** the harvest festival, a golden melon and Tobias's
+  homecoming
+- Chapter title cards, and a Story tab in Mail to re-read every quest and letter
+- Crop Mastery: stars at 50 / 200 / 600 harvests of a crop (cheaper seeds, bonus XP, an extra crop)
+- Heart events: two short scenes with each villager at 3 and 6 hearts; portraits react to what they say
+- Moss naps by the fence and digs up a find every day
+- Decorations beside the field (Farm Beauty raises Fresh Pick tips) and a 7-day gift calendar that never
+  resets when you miss a day
 - 15 crops from 30 seconds to 48 hours, levels to 30 with a level-up card showing what unlocked
 - Processing buildings with queues that keep working while the game is closed: the Mill (flour),
   Jam Maker and Bakery; extra queue slots cost Ribbons
 - Goldie's store (saw, pickaxe, fertilizer, buildings), Bruno's land expansions up to 9×9, his lumber
   yard and barn upgrades, and a market stall with daily prices and a featured crop
-- Friends: 0–10 hearts with Goldie, Bruno and Rufus from daily gifts, orders and quests; chatter that
+- Friends: 0–10 hearts with seven villagers from daily gifts, orders and quests; chatter that
   warms up as you get closer; a perk from each at 5 hearts
 - Soil upgrades (faster growth, bonus crops) and fertilizer (doubles a harvest)
 - A barn that never blocks a harvest: when it's full, extra crops ship automatically
@@ -30,7 +42,7 @@ Art is placeholder vector drawing until the art pipeline lands.
 
 `npm run sim` plays a simulated casual player (one 30-minute first session, then four check-ins a day)
 through the real game logic and prints how long each level takes. Current tuning: level 5 in the first
-session, level 10 around day 5, level 20 around day 16, level 30 around day 41. `tests/unit/pacing.test.ts`
+session, level 10 around day 3, level 20 around day 13, level 30 around day 35. `tests/unit/pacing.test.ts`
 keeps those targets and checks the story never dead-ends.
 
 ## Stack

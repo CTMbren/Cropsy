@@ -574,5 +574,115 @@
         }
       ]
     }
+  },
+  {
+    "id": "ch5_letter",
+    "chapter": 5,
+    "giver": "mail",
+    "title": "Tobias is coming home",
+    "objectives": [
+      {
+        "type": "read_mail",
+        "id": "tobias_4"
+      }
+    ],
+    "rewards": {
+      "flags": [
+        "festival_project"
+      ]
+    }
+  },
+  {
+    "id": "ch5_festival",
+    "chapter": 5,
+    "giver": "goldie",
+    "title": "The harvest festival",
+    "min_level": 17,
+    "intro": [
+      "Tobias is coming home! Tobias! I haven't slept. I've made a list. The list has lists.",
+      "We're throwing the first harvest festival in twenty years, and the whole valley's invited.",
+      "Bunting and tables, a proper feast, and a prize table worth the name. Find the festival in Town projects."
+    ],
+    "outro": [
+      "Look at it. The square's full. Bruno's crying. He says it's sawdust. There's no sawdust.",
+      "Hazel wants a word. Something about seeds. She looks almost excited, which is frightening."
+    ],
+    "objectives": [
+      {
+        "type": "project",
+        "id": "festival",
+        "n": 3
+      }
+    ],
+    "rewards": {
+      "xp": 120,
+      "ribbons": 3,
+      "flags": [
+        "early:golden_melon"
+      ]
+    }
+  },
+  {
+    "id": "ch5_golden",
+    "chapter": 5,
+    "giver": "hazel",
+    "title": "Something golden",
+    "min_level": 18,
+    "intro": [
+      "These are Tobias's golden melon seeds. Forty years old. I've kept them in a tin marked 'DO NOT EAT', mostly for Juniper.",
+      "The soil's ready, thanks to you. Plant one and grow it. It takes two whole days. Patience was always Tobias's best crop."
+    ],
+    "outro": [
+      "Gold. Actually gold. I'm drawing it on the first page of the Almanac, as promised.",
+      "Hold on to it. I believe someone's coming up the road."
+    ],
+    "objectives": [
+      {
+        "type": "harvest",
+        "crop": "golden_melon",
+        "n": 1
+      }
+    ],
+    "rewards": {
+      "xp": 150
+    }
+  },
+  {
+    "id": "ch5_tobias",
+    "chapter": 5,
+    "giver": "tobias",
+    "title": "The golden harvest",
+    "intro": [
+      "Well now. Look at this place.",
+      "I left a field of weeds and a valley with its lights off. And here's a mill turning, and a market, and bunting, and a dog asleep in my carrots.",
+      "Hazel tells me you grew something golden. May I see it?"
+    ],
+    "outro": [
+      "Forty years I told them golden melons would grow here. Forty years, and you did it in one season.",
+      "This farm was never mine to keep, sprout. It was mine to hand on. And I couldn't have handed it to better hands.",
+      "Now. Goldie promised me a pie, and I intend to collect. Come on, the whole valley's waiting."
+    ],
+    "objectives": [
+      {
+        "type": "hand_in",
+        "items": {
+          "golden_melon": 1
+        }
+      }
+    ],
+    "rewards": {
+      "xp": 200,
+      "coins": 10000,
+      "ribbons": 10,
+      "flags": [
+        "story_complete"
+      ],
+      "mail": [
+        {
+          "id": "tobias_5",
+          "delay": "next_day"
+        }
+      ]
+    }
   }
 ]
