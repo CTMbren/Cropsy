@@ -33,6 +33,8 @@ export interface ArtFrame {
 interface Placeholder {
   draw: DrawFn;
   bounds: Bounds;
+  /** Shown this much larger than drawn, around the anchor. */
+  scale: number;
 }
 
 /** Atlas frames carry their pivot in the atlas JSON (`pivot`), so real art needs no bounds here. */
@@ -62,8 +64,8 @@ export class ArtRegistry {
   }
 
   /** Registers the vector fallback for a key. Cheap: nothing is drawn until the key is first used. */
-  placeholder(key: string, bounds: Bounds, draw: DrawFn): void {
-    if (!this.placeholders.has(key)) this.placeholders.set(key, { draw, bounds });
+  placeholder(key: string, bounds: Bounds, draw: DrawFn, scale = 1): void {
+    if (!this.placeholders.has(key)) this.placeholders.set(key, { draw, bounds, scale });
   }
 
   /** Registers a frame from a loaded atlas. Atlas art always wins over a placeholder. */
@@ -112,7 +114,8 @@ export class ArtRegistry {
     const { left, top, right, bottom } = p.bounds;
     const w = right - left;
     const h = bottom - top;
-    const s = this.bakeScale;
+    // bake bigger when the sprite is shown bigger, so it stays crisp
+    const s = this.bakeScale * p.scale;
     if (!this.scene.textures.exists(tex)) {
       const g = this.bakeG;
       g.clear();
@@ -122,6 +125,6 @@ export class ArtRegistry {
       g.generateTexture(tex, Math.ceil(w * s), Math.ceil(h * s));
       g.clear();
     }
-    return { texture: tex, originX: -left / w, originY: -top / h, scale: 1 / s };
+    return { texture: tex, originX: -left / w, originY: -top / h, scale: p.scale / s };
   }
 }
