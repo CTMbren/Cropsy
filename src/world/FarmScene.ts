@@ -36,6 +36,9 @@ export class FarmScene extends Phaser.Scene {
   private buildG!: Phaser.GameObjects.Graphics;
   private cropsG!: Phaser.GameObjects.Graphics;
   private decoG!: Phaser.GameObjects.Graphics;
+  /** Per-plot pop-in animations (planting), keyed by cell, with their start time. */
+  private pops = new Map<string, number>();
+  private combo = { n: 0, at: 0 };
   private coachG!: Phaser.GameObjects.Graphics;
   private highlight!: Phaser.GameObjects.Graphics;
   private dragMode: 'none' | 'act' | 'pan' = 'none';
@@ -81,6 +84,11 @@ export class FarmScene extends Phaser.Scene {
         this.burst(e.key, crop ? hex(crop.color) : 0xffffff);
         this.popText(e.key, `+${e.qty} ${crop?.name ?? ''}`, e.qty > 1 ? '#ffe14d' : '#ffffff');
         if (e.tip) this.coinFly(e.key, e.tip);
+        // drag-harvest combos
+        const t = this.time.now;
+        this.combo = t - this.combo.at < 700 ? { n: this.combo.n + 1, at: t } : { n: 1, at: t };
+        if (this.combo.n >= 3 && [3, 5, 8, 12, 16, 20, 25, 30].includes(this.combo.n)) this.popCombo(e.key, this.combo.n);
+        navigator.vibrate?.(8);
       }
       if (e.kind === 'clear') {
         const rocky = e.obstacle === 'rock' || e.obstacle === 'boulder';
@@ -92,7 +100,10 @@ export class FarmScene extends Phaser.Scene {
         const pos = this.buildingCell(e.building);
         if (pos) this.burst(`${pos.x},${pos.y}`, 0xffe14d, 10);
       }
-      if (e.kind === 'plant') this.burst(e.key, 0x7a4626, 5);
+      if (e.kind === 'plant') {
+        this.burst(e.key, 0x7a4626, 5);
+        this.pops.set(e.key, this.time.now);
+      }
       if (e.kind === 'decor') {
         const c = spotCell(this.game_.state, e.spot);
         this.burst(`${c.x},${c.y}`, e.placed ? 0xffe14d : 0xffffff, e.placed ? 10 : 5);
@@ -362,7 +373,7 @@ export class FarmScene extends Phaser.Scene {
       const { sx, sy } = cellToScreen(x, y);
       const ob = s.obstacles[k];
       if (ob) this.drawObstacle(g, ob, sx, sy, x * 7 + y * 13);
-      else if (s.plots[k]?.crop) this.drawCrop(g, s.plots[k], sx, sy, now);
+      else if (s.plots[k]?.crop) this.drawCrop(g, s.plots[k], sx, sy, now, this.popScale(k));
     }
   }
 
@@ -434,7 +445,21 @@ export class FarmScene extends Phaser.Scene {
     }
   }
 
-  private drawCrop(g: Phaser.GameObjects.Graphics, plot: PlotState, sx: number, sy: number, now: number): void {
+  /** Squash-and-stretch for a freshly planted plot: grows from small with a little overshoot. */
+  private popScale(k: string): number {
+    const start = this.pops.get(k);
+    if (start === undefined) return 1;
+    const t = (this.time.now - start) / 380;
+    if (t >= 1) {
+      this.pops.delete(k);
+      return 1;
+    }
+    const back = 1.70158;
+    const u = t - 1;
+    return 0.3 + 0.7 * (1 + (back + 1) * u * u * u + back * u * u);
+  }
+
+  private drawCrop(g: Phaser.GameObjects.Graphics, plot: PlotState, sx: number, sy: number, now: number, k = 1): void {
     const def = this.game_.content.cropById.get(plot.crop!);
     if (!def) return;
     const stage = stageOf(plot, now);
@@ -448,26 +473,27 @@ export class FarmScene extends Phaser.Scene {
       [0, -14],
     ];
     for (const [dx, dy] of spots) {
-      const cx = sx + dx + sway;
-      const cy = sy + dy;
+      const cx = sx + (dx + sway) * k;
+      const cy = sy + dy * k;
       if (stage === 'seed') {
         g.fillStyle(0x5b3418, 1);
-        g.fillEllipse(cx, cy, 10, 6);
+        g.fillEllipse(cx, cy, 10 * k, 6 * k);
         continue;
       }
-      const h = stage === 'sprout' ? 10 : stage === 'growing' ? 18 : 22;
+      const h = (stage === 'sprout' ? 10 : stage === 'growing' ? 18 : 22) * k;
+      const w = 9 * k;
       g.lineStyle(2.5, INK, 1);
       g.fillStyle(leaf, 1);
-      g.fillEllipse(cx - 5, cy - h / 2, 9, h);
-      g.strokeEllipse(cx - 5, cy - h / 2, 9, h);
-      g.fillEllipse(cx + 5, cy - h / 2, 9, h);
-      g.strokeEllipse(cx + 5, cy - h / 2, 9, h);
+      g.fillEllipse(cx - 5 * k, cy - h / 2, w, h);
+      g.strokeEllipse(cx - 5 * k, cy - h / 2, w, h);
+      g.fillEllipse(cx + 5 * k, cy - h / 2, w, h);
+      g.strokeEllipse(cx + 5 * k, cy - h / 2, w, h);
       if (stage === 'ripe') {
         g.fillStyle(fruit, 1);
-        g.fillCircle(cx, cy - 2, 9);
-        g.strokeCircle(cx, cy - 2, 9);
+        g.fillCircle(cx, cy - 2, 9 * k);
+        g.strokeCircle(cx, cy - 2, 9 * k);
         g.fillStyle(0xffffff, 0.7);
-        g.fillCircle(cx - 3, cy - 5, 2.5);
+        g.fillCircle(cx - 3 * k, cy - 5 * k, 2.5 * k);
       }
     }
     if (plot.fertilized && stage !== 'ripe') {
@@ -488,6 +514,22 @@ export class FarmScene extends Phaser.Scene {
       g.strokeCircle(sx, sy - 44 + bob, 10);
       g.fillStyle(fruit, 1);
       g.fillCircle(sx, sy - 44 + bob, 5);
+      if (fresh) {
+        // a star on the bubble marks a Fresh Pick, so it doesn't rely on the yellow alone
+        g.fillStyle(0xffffff, 1);
+        g.lineStyle(1.5, INK, 1);
+        const st = (cx: number, cy: number, r: number) => {
+          const pts: Phaser.Math.Vector2[] = [];
+          for (let i = 0; i < 10; i++) {
+            const a = -Math.PI / 2 + (i * Math.PI) / 5;
+            const rr = i % 2 ? r * 0.45 : r;
+            pts.push(V(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr));
+          }
+          g.fillPoints(pts, true);
+          g.strokePoints(pts, true);
+        };
+        st(sx + 9, sy - 53 + bob, 6);
+      }
       if (fresh && Math.floor(this.time.now / 400) % 2 === 0) {
         g.fillStyle(0xffffff, 1);
         g.fillTriangle(sx + 20, sy - 50, sx + 23, sy - 44, sx + 26, sy - 50);
@@ -931,6 +973,19 @@ export class FarmScene extends Phaser.Scene {
   }
 
   // ── juice ───────────────────────────────────────────────────────
+
+  private popCombo(k: string, n: number): void {
+    const [x, y] = parseKey(k);
+    const { sx, sy } = cellToScreen(x, y);
+    const t = this.add
+      .text(sx, sy - 70, `Combo ×${n}!`, { fontFamily: 'Lilita One, Fredoka, system-ui', fontSize: n >= 10 ? '34px' : '28px', color: '#ffe14d', stroke: '#4a2e1a', strokeThickness: 7, resolution: this.dpr })
+      .setOrigin(0.5)
+      .setAngle(-6);
+    this.world.add(t);
+    this.tweens.add({ targets: t, scale: { from: 0.4, to: 1 }, duration: 260, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: t, y: sy - 120, alpha: 0, delay: 500, duration: 600, ease: 'Cubic.easeIn', onComplete: () => t.destroy() });
+    if (n >= 8) this.cameras.main.shake(120, 0.002);
+  }
 
   private popText(k: string, text: string, color: string): void {
     const [x, y] = parseKey(k);

@@ -460,6 +460,11 @@ export class Game {
     this.changed();
   }
 
+  setTextScale(scale: number): void {
+    this.state.settings.textScale = scale;
+    this.changed();
+  }
+
   setMuted(muted: boolean): void {
     this.state.settings.muted = muted;
     this.changed();

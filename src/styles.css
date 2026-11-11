@@ -370,3 +370,15 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .version { opacity: 0.7; }
 .visitor.coach-pulse { animation: visitor-bob 0.9s ease-in-out infinite; }
 @keyframes visitor-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+
+/* Phase 4 part 2: text size, confetti */
+.ts-115 :is(.sheet-body, .dialogue-body, .card, .tracker, .coach, .toast) { zoom: 1.15; }
+.ts-130 :is(.sheet-body, .dialogue-body, .card, .tracker, .coach, .toast) { zoom: 1.3; }
+.level-card { position: relative; overflow: visible; }
+.confetti { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.confetti i { position: absolute; top: 20%; width: 9px; height: 14px; border: 2px solid var(--ink); border-radius: 2px; opacity: 0; animation: confetti 1.3s cubic-bezier(0.2, 0.6, 0.4, 1) forwards; }
+@keyframes confetti {
+  0% { opacity: 1; translate: 0 0; }
+  30% { opacity: 1; translate: 0 -120px; }
+  100% { opacity: 0; translate: 0 260px; rotate: 540deg; }
+}

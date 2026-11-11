@@ -80,7 +80,7 @@ export interface FarmState {
   story: StoryState;
   mail: MailState[];
   board: { day: number; orders: OrderState[] };
-  settings: { muted: boolean; music: boolean };
+  settings: { muted: boolean; music: boolean; /** Text size multiplier: 1, 1.15 or 1.3. */ textScale?: number };
   villagers: Record<string, FriendState>;
   /** Barn upgrade tier (index into economy.barn). */
   barnLevel: number;
