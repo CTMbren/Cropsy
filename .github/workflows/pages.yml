@@ -29,6 +29,9 @@ jobs:
         run: npm test
       - name: Type-check and build
         run: npm run build
+        env:
+          # optional: set a repository variable GOATCOUNTER_CODE to turn on the visit counter
+          VITE_GOATCOUNTER: ${{ vars.GOATCOUNTER_CODE }}
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:

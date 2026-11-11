@@ -441,5 +441,65 @@
       "deco": "flowerbed",
       "ribbons": 2
     }
-  ]
+  ],
+  "improvements": [
+    {
+      "id": "bridge",
+      "name": "Stone bridge",
+      "by": "bruno",
+      "level": 12,
+      "coins": 15000,
+      "items": {
+        "stone": 40,
+        "wood": 20
+      },
+      "perk": "Ziggy's cart visits every 2 days instead of 3",
+      "blurb": "A proper bridge over the river, so Ziggy's cart stops getting stuck."
+    },
+    {
+      "id": "greenhouse",
+      "name": "Greenhouse",
+      "by": "hazel",
+      "level": 16,
+      "coins": 60000,
+      "items": {
+        "wood": 50,
+        "stone": 30
+      },
+      "perk": "Every crop grows 10% faster",
+      "blurb": "Hazel's design. She insists the glass is load-bearing. It is not."
+    },
+    {
+      "id": "clock",
+      "name": "Town clock",
+      "by": "rufus",
+      "level": 20,
+      "coins": 150000,
+      "items": {
+        "stone": 60,
+        "gold": 2
+      },
+      "perk": "Board orders pay 20% more",
+      "blurb": "Rufus says a town with a clock is a town that means business."
+    },
+    {
+      "id": "scarecrow",
+      "name": "Golden scarecrow",
+      "by": "juniper",
+      "level": 25,
+      "coins": 400000,
+      "items": {
+        "gold": 5
+      },
+      "perk": "Everything sells for 10% more at the crate and market",
+      "blurb": "Juniper's masterpiece. Moss is terrified of it."
+    }
+  ],
+  "town_project": {
+    "unlock_level": 10,
+    "ribbons": 5,
+    "coins_per_level": 3500,
+    "crops": 2,
+    "qty_per_level": 3
+  }
 }

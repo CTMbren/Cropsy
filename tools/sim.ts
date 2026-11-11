@@ -9,10 +9,12 @@
  */
 import { fulfilOrder, refreshBoard } from '../src/core/board';
 import { loadContent, type Content } from '../src/core/content';
-import { barnCapacity, barnUsed, clearObstacle, harvest, newFarm, OBSTACLES, plant, sell, stageOf, unlockedCrops, type FarmState } from '../src/core/farm';
+import { barnCapacity, barnUsed, upgradeSoil, clearObstacle, harvest, newFarm, OBSTACLES, plant, sell, stageOf, unlockedCrops, type FarmState } from '../src/core/farm';
 import { buyBuilding, collect, startRecipe } from '../src/core/processing';
 import { buyBarn, buyExpansion, buyMaterial, buyTool, deliverStage, nextBarn, nextExpansion } from '../src/core/shop';
 import { buyFromMerchant, merchantStock } from '../src/core/merchant';
+import { buildImprovement, deliverTownProject, hasImprovement, improvements, nextTownLevel, raiseTownLevel, syncTownProject, townProjectOpen } from '../src/core/town';
+import { buyDecor, decorDefs } from '../src/core/decor';
 import { activeQuest, advance, inbox, onEvent, readMail, talk } from '../src/core/story';
 import { dayIndex } from '../src/core/time';
 
@@ -43,6 +45,8 @@ function reserve(s: FarmState, c: Content): Record<string, number> {
   const next = c.quests.find((x) => !s.story.done.includes(x.id) && x.id !== q?.id);
   for (const o of next?.objectives ?? []) if (o.type === 'hand_in') want(o.items);
   for (const o of s.board.orders) want(o.wants);
+  if (townProjectOpen(s, c)) want(nextTownLevel(s, c).wants);
+  if (s.town?.project && !s.town.done) want(s.town.project.wants);
   // recipe inputs for buildings we own
   for (const id of Object.keys(s.buildings)) for (const r of c.buildings.get(id)?.recipes ?? []) want(Object.fromEntries(Object.entries(r.inputs).map(([k, n]) => [k, n * 2])));
   return keep;
@@ -125,6 +129,25 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
   }
   if (sold) ev({ type: 'sell', n: sold });
   talk(s, c, now, TZ);
+  // the weekly town project, Bramblewick improvements and the odd decoration
+  const day = dayIndex(now, TZ);
+  if (townProjectOpen(s, c)) {
+    syncTownProject(s, c, day);
+    if (deliverTownProject(s, c, day).ok) log('town project');
+  }
+  for (const d of improvements(c)) {
+    if (hasImprovement(s, d.id) || d.level > s.level || s.coins < d.coins * 1.2) continue;
+    for (const [id, n] of Object.entries(d.items ?? {})) if (id !== 'gold') while ((s.inventory[id] ?? 0) < n && buyMaterial(s, c, id).ok);
+    if (buildImprovement(s, c, d.id).ok) log(`improved: ${d.id}`);
+  }
+  // grow the town when there's plenty in the bank (keeps a cushion for everything else)
+  if (townProjectOpen(s, c)) {
+    const next = nextTownLevel(s, c);
+    if (s.coins > next.coins * 2 && raiseTownLevel(s, c).ok) log(`town level ${next.level}`);
+  }
+  for (const d of decorDefs(c)) if (!d.story && d.level <= s.level && s.coins > d.coins * 4 && (s.decorStore?.[d.id] ?? 0) + Object.values(s.decor ?? {}).filter((x) => x === d.id).length < 2) buyDecor(s, c, d.id);
+  // soil upgrades once there's money to spare
+  for (const k of Object.keys(s.plots)) if (s.coins > 15000) for (const id of ['stone']) { while ((s.inventory[id] ?? 0) < 2 && buyMaterial(s, c, id).ok); upgradeSoil(s, c, k); }
   // tools, buildings, land, barn (keep a cushion for seeds)
   for (const t of c.tools.values()) if (!t.consumable && !s.tools.includes(t.id) && s.coins > t.coins + 100 && buyTool(s, c, t.id).ok) log(`bought ${t.id}`);
   for (const b of c.buildings.values()) if (b.where === 'farm' && s.coins > (b.cost?.coins ?? 0) + 150 && buyBuilding(s, c, b.id)) log(`built ${b.id}`);

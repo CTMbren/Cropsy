@@ -3,6 +3,7 @@ import { h, render } from 'preact';
 import { registerSW } from 'virtual:pwa-register';
 import { Game } from './game';
 import { installErrorLog } from './platform/errors';
+import { countVisit } from './platform/visits';
 import { initMusic, setMusic } from './platform/music';
 import { play, setMuted, unlockAudio, whenAudioReady } from './platform/sound';
 import { App } from './ui/App';
@@ -42,6 +43,7 @@ async function start() {
   await document.fonts.load('26px "Lilita One"').catch(() => undefined);
   const game = new Game();
   await game.init();
+  countVisit();
   if (debug) (window as unknown as { cropsy: Game }).cropsy = game;
 
   // Sound: iOS only allows audio after a user gesture.

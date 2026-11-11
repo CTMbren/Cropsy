@@ -7,7 +7,8 @@ sell, and slowly bring the village of Bramblewick back to life. No avatar, no wa
 
 ## Status
 
-**Phase 3 complete: the story.** All five chapters are playable, from Tobias's letter to his homecoming:
+**Phase 4 complete: polish and release prep.** All five chapters are playable, from Tobias's letter to
+his homecoming:
 
 - **Chapter 1:** Tobias's letter, Goldie's visits, six quests ending with Bruno rebuilding the gate overnight
 - **Chapter 2 (from level 6):** grumpy Rufus, a saw for the old stumps, a 3-stage project to restore the
@@ -36,13 +37,20 @@ sell, and slowly bring the village of Bramblewick back to life. No avatar, no wa
 - Ribbons from level-ups, first harvests, some orders and the story; never sold for money
 - Gentle synthesized background music and sound effects, each with its own toggle
 
+- First impressions: a loading screen, a hint bubble that guides the first few minutes, a backup-code
+  reminder at level 5 and weekly after, and a local error log with "Copy problem report" in Settings
+- Comfort: three text sizes, ✓/✗ marks beside green/red, a star on Fresh Pick crops
+- Juice: crops pop in, drag-harvest combos, a rolling coin counter, level-up confetti
+- Late game: Bramblewick improvements (stone bridge, greenhouse, town clock, golden scarecrow), a weekly
+  town project for Ribbons and trophies, and an open-ended town level that raises sell prices
+
 Art is placeholder vector drawing until the art pipeline lands.
 
 ## Pacing
 
 `npm run sim` plays a simulated casual player (one 30-minute first session, then four check-ins a day)
 through the real game logic and prints how long each level takes. Current tuning: level 5 in the first
-session, level 10 around day 3, level 20 around day 13, level 30 around day 35. `tests/unit/pacing.test.ts`
+session, level 10 around day 3, level 20 around day 17, level 30 around day 40. `tests/unit/pacing.test.ts`
 keeps those targets and checks the story never dead-ends.
 
 ## Stack
@@ -86,6 +94,25 @@ and offers a copyable backup code under Settings.
 
 Every push to `main` runs the tests, builds, and publishes to GitHub Pages
 (`.github/workflows/pages.yml`). One-time setup: repo **Settings → Pages → Source: GitHub Actions**.
+
+### Optional visit counter
+
+The game can count launches with [GoatCounter](https://www.goatcounter.com) (free, no cookies, no
+personal data). It's off by default. To turn it on, create a GoatCounter site, then add a repository
+variable **Settings → Secrets and variables → Actions → Variables → `GOATCOUNTER_CODE`** set to the site
+code (the `mycode` in `mycode.goatcounter.com`) and push. Settings in the game then mentions the counting.
+
+### Custom domain
+
+Add the domain under **Settings → Pages → Custom domain** and point a `CNAME` DNS record at
+`ctmbren.github.io`. The build uses relative paths, so nothing in the code needs to change except the
+`og:url` and `og:image` addresses in `index.html` and the share link in Settings.
+
+## Privacy
+
+Saves stay on the device (IndexedDB, plus any backup code the player copies). The error log stays in the
+browser and only leaves it if the player copies a problem report and sends it. Nothing else is sent,
+unless the optional visit counter above is turned on.
 
 ## Licences
 

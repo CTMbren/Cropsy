@@ -9,6 +9,7 @@ import { buildingPrice, canAffordBuilding, queueView, readyCount, slotUpgradeCos
 import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, nextExpansion, priceFactor, toolPrice } from '../core/shop';
 import { activeQuest, canHandIn, inbox, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
 import { beauty, calendarRewards, canClaim, decorDef, decorDefs, nextGift, placed, stored, tipBonus, type CalendarReward } from '../core/decor';
+import { hasImprovement, improvements, nextTownLevel, TOWN_BONUS_LEVELS, TOWN_BONUS_PER_LEVEL, townLevel, townProject, townProjectOpen, weekOf } from '../core/town';
 import { boughtToday, daysUntilMerchant, merchantHere, merchantStock, merchantUnlocked } from '../core/merchant';
 import { needsBackupNudge } from '../core/backup';
 import { formatDuration } from '../core/time';
@@ -315,7 +316,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         <NavBtn icon="farm" label="Farm" active={sheet === null} onClick={() => setSheet(null)} />
         <NavBtn icon="barn" label="Barn" badge={barnCount} pulse={coach?.target === 'barn'} active={sheet === 'barn'} onClick={() => setSheet('barn')} />
         <NavBtn icon="board" label="Board" pulse={coach?.target === 'board'} badge={boardOpen ? fillable : 0} locked={!boardOpen} active={sheet === 'board'} onClick={() => boardOpen && setSheet('board')} />
-        <NavBtn icon="town" label="Town" badge={merchantUnlocked(s) && merchantHere(game.content, game.day()) && !boughtToday(s, game.day()).length ? 1 : 0} active={sheet === 'town'} onClick={() => setSheet('town')} />
+        <NavBtn icon="town" label="Town" badge={merchantUnlocked(s) && merchantHere(game.content, game.day(), s) && !boughtToday(s, game.day()).length ? 1 : 0} active={sheet === 'town'} onClick={() => setSheet('town')} />
         <NavBtn icon="mail" label="Mail" pulse={coach?.target === 'mail'} badge={mailUnread} active={sheet === 'mail'} onClick={() => setSheet('mail')} />
       </nav>
 
@@ -806,6 +807,30 @@ function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; d
           {msg}
         </p>
       )}
+      <h3>About Cropsy</h3>
+      <p class="muted small">
+        Free, no ads, nothing to buy. Your farm is saved only on this phone; nothing about it is sent anywhere.
+        {import.meta.env.VITE_GOATCOUNTER ? ' The game counts launches anonymously (no cookies, no farm data) so its maker knows people are playing.' : ''}
+      </p>
+      <div class="row">
+        <button
+          class="btn"
+          onClick={async () => {
+            const url = 'https://ctmbren.github.io/Cropsy/';
+            try {
+              if (navigator.share) await navigator.share({ title: 'Cropsy', text: 'A cozy farming game you can play on your phone.', url });
+              else {
+                await navigator.clipboard.writeText(url);
+                setMsg('Link copied!');
+              }
+            } catch {
+              /* share sheet dismissed */
+            }
+          }}
+        >
+          Share Cropsy
+        </button>
+      </div>
       <h3>Something not right?</h3>
       <p class="muted small">
         Copy a problem report and send it to the developer. It includes your level, quest and any recent errors, but not your backup code.
@@ -1045,7 +1070,7 @@ function Need({ have, need, label }: { have: number; need: number; label: string
   const ok = have >= need;
   return (
     <span class={ok ? 'have' : 'need'}>
-      <span aria-hidden="true">{ok ? '✓' : '✗'}</span> {Math.min(have, need)}/{need} {label}
+      <span aria-hidden="true">{ok ? '✓' : '✗'}</span> {Math.min(have, need).toLocaleString()}/{need.toLocaleString()} {label}
     </span>
   );
 }
@@ -1061,8 +1086,9 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
   const cart = merchantUnlocked(s);
   const almanac = hasFlag(s, 'almanac_open');
   const scenes = pendingEvents(s, c).length > 0;
-  const tabs = ['store', ...(cart ? ['cart'] : []), ...(friends(s, c).length ? ['friends'] : []), ...(almanac ? ['almanac'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(projects.length ? ['projects'] : [])];
-  const [tab, setTab] = useState<string>(projectDue ? 'projects' : scenes ? 'friends' : cart && merchantHere(c, day) && !boughtToday(s, day).length ? 'cart' : 'store');
+  const townOpen = townProjectOpen(s, c);
+  const tabs = ['store', ...(cart ? ['cart'] : []), ...(friends(s, c).length ? ['friends'] : []), ...(almanac ? ['almanac'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(projects.length || townOpen ? ['projects'] : [])];
+  const [tab, setTab] = useState<string>(projectDue ? 'projects' : scenes ? 'friends' : cart && merchantHere(c, day, s) && !boughtToday(s, day).length ? 'cart' : 'store');
   const exp = nextExpansion(s, c);
   return (
     <Sheet title="Bramblewick" onClose={onClose}>
@@ -1279,9 +1305,108 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
               </div>
             );
           })}
+          {townOpen && <TownProjects game={game} day={day} />}
         </div>
       )}
     </Sheet>
+  );
+}
+
+function TownProjects({ game, day }: { game: Game; day: number }) {
+  const s = game.state;
+  const c = game.content;
+  const p = townProject(s, c, day);
+  const done = s.town?.week === weekOf(day) && s.town.done;
+  const daysLeft = 7 - (day % 7);
+  const can = Object.entries(p.wants).every(([id, n]) => (s.inventory[id] ?? 0) >= n) && s.coins >= p.coins;
+  return (
+    <>
+      <h3>This week's town project</h3>
+      <div class="order">
+        <Icon name="town" size={40} />
+        <div class="order-body">
+          <div class="order-who">
+            {done ? 'Done this week!' : 'The whole town is pitching in'} <span class="chip story">🏆 {s.town?.trophies ?? 0}</span>
+          </div>
+          {done ? (
+            <p class="muted small">A new project starts {daysLeft === 1 ? 'tomorrow' : `in ${daysLeft} days`}.</p>
+          ) : (
+            <div class="order-wants">
+              {Object.entries(p.wants).map(([id, n]) => (
+                <Need key={id} have={s.inventory[id] ?? 0} need={n} label={itemName(c, id)} />
+              ))}
+              <Need have={s.coins} need={p.coins} label="coins" />
+            </div>
+          )}
+          {!done && <p class="muted small">Pays {p.ribbons} Ribbons and a trophy · {daysLeft === 1 ? 'last day' : `${daysLeft} days left`}</p>}
+        </div>
+        {!done && (
+          <button class="btn small green" disabled={!can} onClick={() => game.deliverTownProject()}>
+            Give
+          </button>
+        )}
+      </div>
+      <h3>Grow Bramblewick</h3>
+      {(() => {
+        const n = townLevel(s);
+        const next = nextTownLevel(s, c);
+        const ok = s.coins >= next.coins && Object.entries(next.wants).every(([id, q]) => (s.inventory[id] ?? 0) >= q);
+        const bonus = Math.round(Math.min(n, TOWN_BONUS_LEVELS) * TOWN_BONUS_PER_LEVEL * 100);
+        return (
+          <div class="order">
+            <span class="town-level" aria-label={`Town level ${n}`}>{n}</span>
+            <div class="order-body">
+              <div class="order-who">Town level {n} → {next.level}</div>
+              <div class="order-wants">
+                <Need have={s.coins} need={next.coins} label="coins" />
+                {Object.entries(next.wants).map(([id, q]) => (
+                  <Need key={id} have={s.inventory[id] ?? 0} need={q} label={itemName(c, id)} />
+                ))}
+              </div>
+              <p class="muted small">
+                Each level adds {TOWN_BONUS_PER_LEVEL * 100}% to everything you sell{n ? ` (now +${bonus}%)` : ''}, up to +{TOWN_BONUS_LEVELS * TOWN_BONUS_PER_LEVEL * 100}%.
+              </p>
+            </div>
+            <button class="btn small green" disabled={!ok} onClick={() => game.raiseTownLevel()}>
+              Grow
+            </button>
+          </div>
+        );
+      })()}
+      <h3>Improve Bramblewick</h3>
+      <ul class="rows">
+        {improvements(c).map((d) => {
+          const owned = hasImprovement(s, d.id);
+          const locked = d.level > s.level;
+          const v = c.villagers.get(d.by);
+          const ok = s.coins >= d.coins && Object.entries(d.items ?? {}).every(([id, n]) => (s.inventory[id] ?? 0) >= n);
+          return (
+            <li key={d.id} class="row-item improvement">
+              {v ? <Portrait v={v} size={36} /> : <Icon name="building" size={30} />}
+              <span class="row-name">
+                {d.name}
+                <small>{owned ? `✓ ${d.perk}` : locked ? `Unlocks at level ${d.level}` : d.perk}</small>
+                {!owned && !locked && (
+                  <small class="needs">
+                    <Need have={s.coins} need={d.coins} label="coins" />
+                    {Object.entries(d.items ?? {}).map(([id, n]) => (
+                      <Need key={id} have={s.inventory[id] ?? 0} need={n} label={itemName(c, id)} />
+                    ))}
+                  </small>
+                )}
+              </span>
+              {owned ? (
+                <span class="chip owned">Built</span>
+              ) : (
+                <button class="btn small green" disabled={locked || !ok} onClick={() => game.buildImprovement(d.id)}>
+                  Build
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
@@ -1290,8 +1415,8 @@ function CartTab({ game, day }: { game: Game; day: number }) {
   const c = game.content;
   const ziggy = c.villagers.get('ziggy')!;
   const [msg, setMsg] = useState<string | null>(null);
-  if (!merchantHere(c, day)) {
-    const d = daysUntilMerchant(c, day);
+  if (!merchantHere(c, day, s)) {
+    const d = daysUntilMerchant(c, day, s);
     return (
       <div class="order">
         <Portrait v={ziggy} size={48} />
