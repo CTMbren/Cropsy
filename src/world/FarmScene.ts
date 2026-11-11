@@ -136,6 +136,10 @@ export class FarmScene extends Phaser.Scene {
   private actedKeys = new Set<string>();
   /** A plain tap on a growing crop opens its info card (decided on release, so drags don't). */
   private infoKey: string | null = null;
+  /** The plot under a fresh press, acted on at release (tap) or when the drag reaches another plot. */
+  private pendingKey: string | null = null;
+  /** The finger has wandered past TAP_SLOP, so releasing is no longer a tap. */
+  private moved = false;
   private pinchDist = 0;
   private sparkleT = 0;
   private drawnSize = '';
@@ -210,6 +214,10 @@ export class FarmScene extends Phaser.Scene {
         this.pops.set(e.key, this.time.now);
       }
       if (e.kind === 'dug') this.burst(e.key, 0x7a4626, 9);
+      if (e.kind === 'unplant') {
+        this.burst(e.key, 0x7a4626, 4);
+        if (e.refund) this.popText(e.key, `Undo +${e.refund}`, '#ffe14d');
+      }
       if (e.kind === 'clearing') this.burst(e.cell, WOOD, 8);
       if (e.kind === 'land') {
         this.burst(e.cell, 0xffe14d, 14);
@@ -1128,16 +1136,19 @@ export class FarmScene extends Phaser.Scene {
     return [this.input.pointer1, this.input.pointer2].filter((p) => p && p.isDown);
   }
 
-  private act(k: string): void {
+  private act(k: string, drag: boolean): void {
     this.actedKeys.add(k);
-    this.game_.tapPlot(k);
+    this.game_.tapPlot(k, drag);
     this.flash(k);
   }
 
   private onDown(p: Phaser.Input.Pointer): void {
     const downs = this.pointersDown().map((d) => this.pt(d));
     if (downs.length >= 2) {
+      // a second finger means pinch/pan: whatever the first finger was about to do is cancelled
       this.dragMode = 'pan';
+      this.pendingKey = null;
+      this.infoKey = null;
       this.pinchDist = Phaser.Math.Distance.Between(downs[0].x, downs[0].y, downs[1].x, downs[1].y);
       this.lastPan = { x: (downs[0].x + downs[1].x) / 2, y: (downs[0].y + downs[1].y) / 2 };
       return;
@@ -1146,6 +1157,8 @@ export class FarmScene extends Phaser.Scene {
     this.downAt = { x: q.x, y: q.y };
     this.lastPan = { x: q.x, y: q.y };
     this.actedKeys.clear();
+    this.pendingKey = null;
+    this.moved = false;
     if (this.game_.mode === 'decorate') {
       this.dragMode = 'pan';
       const spot = this.spotAt(p);
@@ -1185,7 +1198,8 @@ export class FarmScene extends Phaser.Scene {
     const s = this.game_.state;
     const plot = k ? s.plots[k] : undefined;
     this.infoKey = k && this.game_.mode === 'plant' && !s.obstacles[k] && plot?.crop && stageOf(plot, this.game_.now()) !== 'ripe' ? k : null;
-    if (k) this.act(k);
+    // Nothing happens on press: a tap acts on release, a drag once it reaches a second plot.
+    this.pendingKey = k;
   }
 
   private onMove(p: Phaser.Input.Pointer): void {
@@ -1208,17 +1222,28 @@ export class FarmScene extends Phaser.Scene {
       this.lastPan = { x: q.x, y: q.y };
     } else if (this.dragMode === 'act') {
       if (Phaser.Math.Distance.Between(q.x, q.y, this.downAt.x, this.downAt.y) < TAP_SLOP) return;
-      this.infoKey = null;
+      this.moved = true;
       const k = this.plotAt(p);
-      if (k && !this.actedKeys.has(k)) {
-        this.infoKey = null;
-        this.act(k);
+      if (!k || k === this.pendingKey || this.actedKeys.has(k)) return;
+      this.infoKey = null;
+      if (this.pendingKey) {
+        this.act(this.pendingKey, true);
+        this.pendingKey = null;
       }
+      this.act(k, true);
     }
   }
 
   private onUp(): void {
-    if (this.infoKey && this.dragMode === 'act' && this.actedKeys.size === 1) this.game_.screenFx({ kind: 'open-crop', key: this.infoKey });
+    if (this.pendingKey && this.dragMode === 'act' && this.actedKeys.size === 0 && !this.moved) {
+      const k = this.pendingKey;
+      const plot = this.game_.state.plots[k];
+      const before = plot?.crop;
+      this.act(k, false);
+      // a plain tap on a growing crop opens its info card (unless the tap just undid a planting)
+      if (this.infoKey === k && this.game_.state.plots[k]?.crop === before) this.game_.screenFx({ kind: 'open-crop', key: k });
+    }
+    this.pendingKey = null;
     this.infoKey = null;
     if (this.pointersDown().length === 0) {
       this.dragMode = 'none';

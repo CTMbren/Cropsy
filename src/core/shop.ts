@@ -75,7 +75,7 @@ export function marketSell(state: FarmState, content: Content, itemId: string, n
   const price = marketPrice(state, content, itemId, day);
   if (qty <= 0 || !price) return 0;
   addItem(state, itemId, -qty);
-  const coins = Math.round(price * qty * sellBonus(state));
+  const coins = Math.round(price * qty * sellBonus(state, itemId));
   state.coins += coins;
   return coins;
 }

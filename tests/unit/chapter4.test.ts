@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadContent } from '../../src/core/content';
-import { harvest, key, masteryStars, newFarm, plant, seedCost, setFlag, type FarmState } from '../../src/core/farm';
+import { chooseMastery, harvest, key, lifetimeHarvests, masteryLevel, masteryMult, masteryPending, masteryThreshold, masteryToChoose, newFarm, plant, setFlag, unplant, type FarmState } from '../../src/core/farm';
 import { addFriendship, mossDigsLeft, patMoss, pendingEvents, seenEvents, watchEvent } from '../../src/core/friendship';
 import { advance, onEvent, readMail, refreshQuest, sendMail, talk } from '../../src/core/story';
 
@@ -19,25 +19,45 @@ function afterCh3(level = 15): FarmState {
 }
 
 describe('Crop Mastery', () => {
-  it('earns stars at 50, 200 and 600 harvests, with Ribbons and perks', () => {
+  it('levels forever on a formula, with a coin or XP choice each level', () => {
     const s = afterCh3();
-    const radish = content.cropById.get('radish')!;
-    s.harvests = { radish: 49 };
+    expect([1, 2, 3, 4, 5].map(masteryThreshold)).toEqual([75, 250, 525, 850, 1250]);
+    expect(masteryThreshold(10)).toBeGreaterThan(masteryThreshold(9));
+    s.harvests = { radish: 74 };
     s.seen = ['radish', 'carrot'];
-    expect(masteryStars(s, 'radish')).toBe(0);
-    expect(seedCost(s, radish)).toBe(radish.seed_cost);
+    expect(masteryLevel(s, 'radish')).toBe(0);
     plant(s, content, key(0, 0), 'radish', T0);
     const ribbons = s.ribbons;
     const r = harvest(s, content, key(0, 0), T0 + 30);
     expect(r).toMatchObject({ ok: true, star: 1 });
     expect(s.ribbons).toBe(ribbons + 1);
+    expect(masteryPending(s, 'radish')).toBe(1);
+    expect(masteryToChoose(s)).toEqual(['radish']);
+    // coin pick: +5% crate value for radish only
+    expect(chooseMastery(s, 'radish', 'coin')).toBe(true);
+    expect(chooseMastery(s, 'radish', 'xp')).toBe(false);
+    expect(masteryMult(s, 'radish', 'coin')).toBeCloseTo(1.05);
+    expect(masteryMult(s, 'carrot', 'coin')).toBe(1);
+    // xp pick raises harvest XP
+    s.harvests.carrot = 75;
+    chooseMastery(s, 'carrot', 'xp');
     const carrot = content.cropById.get('carrot')!;
-    s.harvests.carrot = 50;
-    expect(seedCost(s, carrot)).toBe(Math.round(carrot.seed_cost * 0.8));
-    // 3 stars: an extra crop every harvest
-    s.harvests.carrot = 600;
+    s.harvests.carrot = 76;
+    s.flags = s.flags.filter((f) => f !== 'perk:hazel');
     plant(s, content, key(1, 0), 'carrot', T0);
-    expect(harvest(s, content, key(1, 0), T0 + 120)).toMatchObject({ ok: true, qty: 2 });
+    const h = harvest(s, content, key(1, 0), T0 + carrot.grow_s);
+    expect(h.ok && h.kind === 'harvested' && h.xp).toBe(Math.round(carrot.xp * 1.5 * 1.05));
+    expect(lifetimeHarvests(s)).toBe(75 + 77);
+  });
+
+  it('undoes a planting tapped again within a few seconds, with a refund', () => {
+    const s = afterCh3();
+    const coins = s.coins;
+    plant(s, content, key(0, 0), 'carrot', T0);
+    expect(unplant(s, content, key(0, 0), T0 + 5)).toMatchObject({ ok: false });
+    expect(unplant(s, content, key(0, 0), T0 + 2)).toMatchObject({ ok: true });
+    expect(s.coins).toBe(coins);
+    expect(s.plots[key(0, 0)].crop).toBeNull();
   });
 
   it("Ziggy's early seeds can be planted", () => {

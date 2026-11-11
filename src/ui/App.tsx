@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DAILY_ORDERS } from '../core/board';
 import { itemName, itemValue, shortName, type Content, type VillagerDef } from '../core/content';
-import { barnCapacity, barnUsed, cratePrice, hasFlag, hasItems, MASTERY, MASTERY_PERKS, masteryStars, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
+import { barnCapacity, barnUsed, cratePrice, hasFlag, hasItems, lifetimeHarvests, MASTERY_STEP, masteryLevel, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
 import { xpToNext } from '../core/progression';
 import { fromSaveCode, toSaveCode } from '../core/save';
 import { canGiftToday, chatter, friends, heartProgress, hearts, pendingEvents, seenEvents, taste } from '../core/friendship';
@@ -63,6 +63,8 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
   const [flyers, setFlyers] = useState<Flyer[]>([]);
   const [coinBump, setCoinBump] = useState(0);
   const [levelCard, setLevelCard] = useState<number | null>(null);
+  const [seedPick, setSeedPick] = useState<string | null>(null);
+  const [masteryCard, setMasteryCard] = useState<string | null>(null);
   const [chapterCard, setChapterCard] = useState<number | null>(null);
   const [cropInfo, setCropInfo] = useState<string | null>(null);
   const [landCell, setLandCell] = useState<string | null>(null);
@@ -86,7 +88,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
     const offFx = game.onFx((e) => {
       if (e.kind === 'levelup') setLevelCard(e.level);
       if (e.kind === 'chapter') setChapterCard(e.n);
-      if (e.kind === 'star') setToast(`${'★'.repeat(e.stars)} ${e.crop} mastery! +${e.stars} Ribbon${e.stars > 1 ? 's' : ''} · ${MASTERY_PERKS[e.stars - 1]}`);
+      if (e.kind === 'star') setMasteryCard(e.id);
       if (e.kind === 'critter' && e.result.pageDone) setToast(`Sketchbook page ${e.result.pageDone} complete! +1 Ribbon`);
       else if (e.kind === 'critter' && e.result.firstTime) setToast(`Sketched the ${e.result.species.name}! See it in Town → Sketchbook`);
       if (e.kind === 'moss') setToast('coins' in e.find ? `Moss dug up ${e.find.coins} coins!` : `Moss dug up ${e.find.qty} ${itemName(game.content, e.find.item).toLowerCase()}!`);
@@ -113,6 +115,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       if (e.kind === 'open-building') setSheet(`building:${e.id}`);
       if (e.kind === 'open-crop') setCropInfo(e.key);
       if (e.kind === 'open-land') setLandCell(e.cell);
+      if (e.kind === 'pick-seed') setSeedPick(e.key);
     });
     return () => {
       offFx();
@@ -244,7 +247,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         </div>
       )}
 
-      {coach && (
+      {coach && !seedPick && !masteryCard && (
         <div class={`coach coach-${coach.target}`} role="status">
           {coach.text}
         </div>
@@ -282,6 +285,11 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
               <button key={c.id} class={`seed${selected ? ' selected' : ''}${locked ? ' locked' : ''}${coach?.target === 'seed' && coach.seed === c.id ? ' coach-pulse' : ''}`} disabled={locked} aria-pressed={selected} aria-label={`${c.name}${locked ? `, unlocks at level ${c.unlock_level}` : ''}`} onClick={() => game.selectCrop(c.id)}>
                 <ItemIcon id={c.id} color={c.color} />
                 <span class="seed-name">{c.name}</span>
+                {masteryLevel(s, c.id) > 0 && (
+                  <span class={`mastery-badge${masteryPending(s, c.id) ? ' pending' : ''}`} aria-label={`Mastery level ${masteryLevel(s, c.id)}`}>
+                    ★{masteryLevel(s, c.id)}
+                  </span>
+                )}
                 {locked ? (
                   <span class="chip lock">Lv {c.unlock_level}</span>
                 ) : (
@@ -351,6 +359,8 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
 
       {landCell && <LandCard game={game} cell={landCell} now={now} onClose={() => setLandCell(null)} />}
       {cropInfo && <CropInfo game={game} plotKey={cropInfo} now={now} onClose={() => setCropInfo(null)} />}
+      {seedPick && <SeedPicker game={game} plotKey={seedPick} onClose={() => setSeedPick(null)} />}
+      {masteryCard && levelCard === null && <MasteryCard game={game} cropId={masteryCard} onClose={() => setMasteryCard(masteryToChoose(game.state).find((id) => id !== masteryCard) ?? null)} />}
       {levelCard !== null && <LevelCard content={game.content} level={levelCard} onClose={() => setLevelCard(null)} />}
       {chapterCard !== null && levelCard === null && <ChapterCard content={game.content} n={chapterCard} onClose={() => setChapterCard(null)} />}
 
@@ -371,7 +381,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         </div>
       )}
 
-      {(gift || (!giftLater && canClaim(s, game.day()))) && !game.away && levelCard === null && chapterCard === null && !dialogue && sheet === null && (
+      {(gift || (!giftLater && canClaim(s, game.day()))) && !game.away && levelCard === null && chapterCard === null && !dialogue && sheet === null && !seedPick && !masteryCard && (
         <GiftCalendar
           game={game}
           claimed={gift}
@@ -383,7 +393,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         />
       )}
 
-      {!backupLater && needsBackupNudge(s, now) && !game.away && !canClaim(s, game.day()) && levelCard === null && chapterCard === null && !dialogue && sheet === null && (
+      {!backupLater && needsBackupNudge(s, now) && !game.away && !canClaim(s, game.day()) && levelCard === null && chapterCard === null && !dialogue && sheet === null && !seedPick && !masteryCard && (
         <BackupCard
           game={game}
           onClose={() => {
@@ -873,6 +883,106 @@ function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; d
         </>
       )}
     </Sheet>
+  );
+}
+
+/** Opens when an empty plot is tapped with no seed armed: pick one to plant there. */
+function SeedPicker({ game, plotKey, onClose }: { game: Game; plotKey: string; onClose: () => void }) {
+  const s = game.state;
+  const crops = unlockedCrops(s, game.content);
+  return (
+    <div class="modal-back" onClick={onClose}>
+      <div class="card seed-picker" role="dialog" aria-labelledby="pick-title" onClick={(e) => e.stopPropagation()}>
+        <h2 id="pick-title">Plant a seed</h2>
+        <div class="seed-grid">
+          {crops.map((c) => {
+            const cost = seedCost(s, c);
+            const poor = s.coins < cost;
+            return (
+              <button
+                key={c.id}
+                class={`seed${game.selectedCrop === c.id ? ' selected' : ''}`}
+                disabled={poor}
+                onClick={() => {
+                  game.plantPicked(plotKey, c.id);
+                  onClose();
+                }}
+              >
+                <ItemIcon id={c.id} color={c.color} />
+                <span class="seed-name">{c.name}</span>
+                <span class="seed-meta">
+                  <span class="chip time">{formatDuration(c.grow_s)}</span>
+                  <span class="cost">
+                    <span class="coin sm" aria-hidden="true" />
+                    {cost}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p class="muted small">The seed stays picked, so you can drag across more plots. Tap it in the tray to put it away.</p>
+        <button class="btn" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** A crop's mastery: progress, bonuses so far, and the coin-or-XP choice for any unspent level. */
+function MasteryCard({ game, cropId, onClose }: { game: Game; cropId: string; onClose: () => void }) {
+  const s = game.state;
+  const crop = game.content.cropById.get(cropId);
+  if (!crop) return null;
+  const n = s.harvests?.[cropId] ?? 0;
+  const lv = masteryLevel(s, cropId);
+  const picks = masteryPicks(s, cropId);
+  const pending = masteryPending(s, cropId);
+  const pct = Math.round(MASTERY_STEP * 100);
+  const coins = picks.filter((p) => p === 'coin').length * pct;
+  const xp = picks.filter((p) => p === 'xp').length * pct;
+  return (
+    <div class="modal-back" onClick={pending ? undefined : onClose}>
+      <div class="card level-card mastery-card" role="dialog" aria-labelledby="mastery-title" onClick={(e) => e.stopPropagation()}>
+        <ItemIcon id={crop.id} color={crop.color} size={56} />
+        <h2 id="mastery-title">
+          {crop.name} mastery {lv > 0 ? `★ ${lv}` : ''}
+        </h2>
+        <p class="muted small">
+          {n.toLocaleString()} grown · next level at {masteryThreshold(lv + 1).toLocaleString()}
+        </p>
+        {(coins > 0 || xp > 0) && (
+          <p class="small">
+            Bonuses: <b>+{coins}% coins</b> · <b>+{xp}% XP</b>
+          </p>
+        )}
+        {pending > 0 ? (
+          <>
+            <p>
+              <b>Level up!</b> +1 Ribbon. Pick a bonus for {crop.name.toLowerCase()}
+              {pending > 1 ? ` (${pending} to choose)` : ''}:
+            </p>
+            <div class="row">
+              <button class="btn gold" onClick={() => game.chooseMastery(cropId, 'coin')}>
+                +{pct}% coins
+              </button>
+              <button class="btn green" onClick={() => game.chooseMastery(cropId, 'xp')}>
+                +{pct}% XP
+              </button>
+            </div>
+            <p class="muted small">Coins: crate, market, auto-ship and Fresh tips. XP: every harvest.</p>
+            <button class="link-btn small" onClick={onClose}>
+              Decide later (in Town → Almanac)
+            </button>
+          </>
+        ) : (
+          <button class="btn green" onClick={onClose}>
+            OK
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1672,41 +1782,37 @@ function AlmanacTab({ game }: { game: Game }) {
   const s = game.state;
   const c = game.content;
   const found = c.crops.filter((x) => s.seen.includes(x.id)).length;
+  const [open, setOpen] = useState<string | null>(null);
+  const pct = Math.round(MASTERY_STEP * 100);
   return (
     <>
       <p class="muted small">
-        Hazel's Almanac · <b>{found}/{c.crops.length}</b> crops recorded. Harvest a crop {MASTERY.join(', ')} times to earn mastery stars.
+        Hazel's Almanac · <b>{found}/{c.crops.length}</b> crops recorded · <b>{lifetimeHarvests(s).toLocaleString()}</b> crops grown. Each mastery level earns a Ribbon and lets you pick +{pct}% coins or +{pct}% XP for that crop. Tap a crop to see its mastery.
       </p>
       <ul class="almanac">
         {c.crops.map((x) => {
           const seen = s.seen.includes(x.id);
           const n = s.harvests?.[x.id] ?? 0;
-          const stars = masteryStars(s, x.id);
-          const next = MASTERY[stars];
+          const lv = masteryLevel(s, x.id);
+          const next = masteryThreshold(lv + 1);
+          const prev = lv ? masteryThreshold(lv) : 0;
+          const pending = masteryPending(s, x.id);
           return (
-            <li key={x.id} class={`almanac-card${seen ? '' : ' unknown'}`}>
+            <li key={x.id} class={`almanac-card${seen ? '' : ' unknown'}${pending ? ' pending' : ''}`} onClick={() => seen && setOpen(x.id)}>
               {seen ? <ItemIcon id={x.id} color={x.color} /> : <span class="seed-icon" style={{ background: '#cfc4b0' }} aria-hidden="true" />}
               <span class="almanac-name">{seen ? x.name : '???'}</span>
-              <span class="stars" aria-label={`${stars} of 3 mastery stars`}>
-                {[0, 1, 2].map((i) => (
-                  <span key={i} class={i < stars ? 'on' : ''}>
-                    ★
-                  </span>
-                ))}
-              </span>
-              <small>{seen ? (next ? `${n}/${next} harvests` : 'Mastered!') : `Level ${x.unlock_level}`}</small>
+              {seen && <span class="stars">{lv ? <span class="on">★ {lv}</span> : '★ 0'}</span>}
+              {seen && (
+                <span class="mini-bar" aria-hidden="true">
+                  <i style={{ width: `${Math.round(((n - prev) / (next - prev)) * 100)}%` }} />
+                </span>
+              )}
+              <small>{seen ? (pending ? 'Choose a bonus!' : `${n}/${next} harvests`) : `Level ${x.unlock_level}`}</small>
             </li>
           );
         })}
       </ul>
-      <h3>Mastery rewards</h3>
-      <ul class="away-list small">
-        {MASTERY_PERKS.map((p, i) => (
-          <li key={i}>
-            {'★'.repeat(i + 1)} {MASTERY[i]} harvests: {p} (+{i + 1} Ribbon{i ? 's' : ''})
-          </li>
-        ))}
-      </ul>
+      {open && <MasteryCard game={game} cropId={open} onClose={() => setOpen(null)} />}
     </>
   );
 }

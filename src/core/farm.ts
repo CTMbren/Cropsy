@@ -104,6 +104,8 @@ export interface FarmState {
   moss?: { day: number; digs: number };
   /** Harvests per crop, for Crop Mastery. */
   harvests?: Record<string, number>;
+  /** Bonus chosen at each mastery level, per crop. */
+  masteryPicks?: Record<string, MasteryPick[]>;
   merchant?: { day: number; bought: number[]; stock?: import('./merchant').MerchantSlot[] };
   /** Local-only event log for playtests (capped). */
   log: { t: number; e: string }[];
@@ -238,6 +240,20 @@ export function digUp(state: FarmState, k: string, now: number): { ok: true; cro
   return { ok: true, crop };
 }
 
+/** Seconds after planting during which a tap undoes it with a full refund. */
+export const OOPS_S = 3;
+
+/** Undo a just-planted seed: the plot is emptied and the seed cost refunded. */
+export function unplant(state: FarmState, content: Content, k: string, now: number): { ok: true; crop: string; refund: number } | { ok: false } {
+  const p = state.plots[k];
+  if (!p?.crop || now - p.plantedAt > OOPS_S || now < p.plantedAt) return { ok: false };
+  const crop = content.cropById.get(p.crop);
+  const refund = crop ? seedCost(state, crop) : 0;
+  state.coins += refund;
+  state.plots[k] = { crop: null, plantedAt: 0, growS: 0, soil: p.soil };
+  return { ok: true, crop: p.crop, refund };
+}
+
 /** Fresh Pick: harvesting within a window equal to the grow time (min 30 min, max 8 h) after ripening. */
 export function freshWindow(growS: number): number {
   return Math.min(8 * 3600, Math.max(30 * 60, growS));
@@ -263,24 +279,56 @@ function beautyBonus(state: FarmState, content: Content): number {
 }
 
 // ── Crop Mastery ────────────────────────────────────────────────
-/** Harvests of one crop that earn its 1st, 2nd and 3rd mastery star. */
-export const MASTERY = [50, 200, 600];
-export const MASTERY_PERKS = ['Seeds 20% cheaper', '+2 XP every harvest', '+1 crop every harvest'];
+/**
+ * Mastery levels never end. Level n needs 75·n^1.75 harvests of that crop (rounded to 25):
+ * 75, 250, 525, 850, 1250, 1725, 2250… Each level the player picks +5% coins or +5% XP for that crop.
+ */
+export const MASTERY_STEP = 0.05;
+export type MasteryPick = 'coin' | 'xp';
 
-export function masteryStars(state: FarmState, cropId: string): number {
-  const n = state.harvests?.[cropId] ?? 0;
-  return MASTERY.filter((m) => n >= m).length;
+export function masteryThreshold(level: number): number {
+  return Math.max(25, Math.round((75 * Math.pow(level, 1.75)) / 25) * 25);
 }
 
-/** Seed price after a 1-star mastery discount. */
-export function seedCost(state: FarmState, crop: CropDef): number {
-  return masteryStars(state, crop.id) >= 1 ? Math.max(1, Math.round(crop.seed_cost * 0.8)) : crop.seed_cost;
+export function masteryLevel(state: FarmState, cropId: string): number {
+  const n = state.harvests?.[cropId] ?? 0;
+  let lv = 0;
+  while (n >= masteryThreshold(lv + 1)) lv++;
+  return lv;
+}
+
+/** Bonus choices already made for a crop. */
+export const masteryPicks = (state: FarmState, cropId: string): MasteryPick[] => state.masteryPicks?.[cropId] ?? [];
+
+/** Levels reached but not yet spent on a bonus. */
+export const masteryPending = (state: FarmState, cropId: string) => Math.max(0, masteryLevel(state, cropId) - masteryPicks(state, cropId).length);
+
+/** Crops with an unspent mastery choice. */
+export const masteryToChoose = (state: FarmState) => Object.keys(state.harvests ?? {}).filter((id) => masteryPending(state, id) > 0);
+
+export function chooseMastery(state: FarmState, cropId: string, pick: MasteryPick): boolean {
+  if (masteryPending(state, cropId) <= 0) return false;
+  state.masteryPicks ??= {};
+  state.masteryPicks[cropId] = [...masteryPicks(state, cropId), pick];
+  return true;
+}
+
+/** Multiplier on coins (crate, market, auto-ship, Fresh tip) or harvest XP for one crop. */
+export function masteryMult(state: FarmState, cropId: string, kind: MasteryPick): number {
+  return 1 + MASTERY_STEP * masteryPicks(state, cropId).filter((p) => p === kind).length;
+}
+
+/** Every crop harvested, all time. */
+export const lifetimeHarvests = (state: FarmState) => Object.values(state.harvests ?? {}).reduce((a, n) => a + n, 0);
+
+export function seedCost(_state: FarmState, crop: CropDef): number {
+  return crop.seed_cost;
 }
 
 export const isUnlocked = (state: FarmState, crop: CropDef) => crop.unlock_level <= state.level || state.flags.includes(`early:${crop.id}`);
 
-/** The golden scarecrow improvement (+10%) and Bramblewick's town level (+2% a level, up to +50%). */
-export const sellBonus = (state: FarmState) => (state.flags.includes('imp:scarecrow') ? 1.1 : 1) * (1 + 0.02 * Math.min(state.townLevel ?? 0, 25));
+/** The golden scarecrow (+10%), Bramblewick's town level (+2% a level, up to +50%) and the crop's coin mastery. */
+export const sellBonus = (state: FarmState, itemId?: string) => (itemId ? masteryMult(state, itemId, 'coin') : 1) * (state.flags.includes('imp:scarecrow') ? 1.1 : 1) * (1 + 0.02 * Math.min(state.townLevel ?? 0, 25));
 
 /** Shipping crate pays 70% of an item's value (never less than 1 coin). */
 export const cratePrice = (item: { sell: number }) => Math.max(1, Math.round(item.sell * 0.7));
@@ -363,18 +411,19 @@ export function harvest(state: FarmState, content: Content, k: string, now: numb
   const crop = content.cropById.get(plot.crop);
   if (!crop) return { ok: false, reason: 'unknown-crop' };
   const fresh = isFresh(plot, now);
-  const tip = fresh ? Math.max(1, Math.round(crop.sell * 0.2 * (1 + beautyBonus(state, content)))) : 0;
-  const stars = masteryStars(state, crop.id);
+  const coinMult = masteryMult(state, crop.id, 'coin');
+  const tip = fresh ? Math.max(1, Math.round(crop.sell * 0.2 * (1 + beautyBonus(state, content)) * coinMult)) : 0;
+  const level = masteryLevel(state, crop.id);
   // Hazel's 5-heart perk: +10% harvest XP
-  const xp = Math.round(crop.xp * (fresh ? 1.5 : 1) * (state.flags.includes('perk:hazel') ? 1.1 : 1)) + (stars >= 2 ? 2 : 0);
+  const xp = Math.round(crop.xp * (fresh ? 1.5 : 1) * (state.flags.includes('perk:hazel') ? 1.1 : 1) * masteryMult(state, crop.id, 'xp'));
   state.coins += tip;
   const soil = plot.soil ?? 0;
   const bonusChance = content.economy.soil[soil]?.bonus ?? 0;
-  const qty = 1 + (plot.fertilized ? 1 : 0) + (bonusChance > 0 && luck(`${k}:${plot.plantedAt}`) < bonusChance ? 1 : 0) + (stars >= 3 ? 1 : 0);
+  const qty = 1 + (plot.fertilized ? 1 : 0) + (bonusChance > 0 && luck(`${k}:${plot.plantedAt}`) < bonusChance ? 1 : 0);
   state.harvests ??= {};
   state.harvests[crop.id] = (state.harvests[crop.id] ?? 0) + 1;
-  const star = masteryStars(state, crop.id) > stars ? stars + 1 : undefined;
-  if (star) state.ribbons += star;
+  const star = masteryLevel(state, crop.id) > level ? level + 1 : undefined;
+  if (star) state.ribbons += 1;
   const stored = storeInBarn(state, content, crop.id, qty);
   const firstTime = !state.seen.includes(crop.id);
   if (firstTime) {
@@ -402,7 +451,7 @@ export function sell(state: FarmState, content: Content, itemId: string, n: numb
   const have = state.inventory[itemId] ?? 0;
   const qty = Math.min(n, have);
   if (!item || qty <= 0) return 0;
-  const coins = Math.round(cratePrice(item) * qty * sellBonus(state));
+  const coins = Math.round(cratePrice(item) * qty * sellBonus(state, itemId));
   addItem(state, itemId, -qty);
   state.coins += coins;
   return coins;
@@ -497,7 +546,7 @@ export function storeInBarn(state: FarmState, content: Content, id: string, n: n
   const shipped = n - stored;
   if (stored) addItem(state, id, stored);
   const item = content.cropById.get(id) ?? content.goods.get(id);
-  const coins = shipped && item ? Math.round(cratePrice(item) * shipped * sellBonus(state)) : 0;
+  const coins = shipped && item ? Math.round(cratePrice(item) * shipped * sellBonus(state, id)) : 0;
   state.coins += coins;
   return { stored, shipped, coins };
 }
