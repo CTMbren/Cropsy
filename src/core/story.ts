@@ -2,6 +2,7 @@ import { itemName, type Content, type Objective, type QuestDef, type Rewards } f
 import { pinOrder } from './board';
 import { addFriendship, type FriendshipChange } from './friendship';
 import { grantBuilding } from './processing';
+import { grantDecor } from './decor';
 import { expand, grantXp, hasFlag, hasItems, setFlag, spawnObstacles, takeItems, type FarmState, type ObstacleKind } from './farm';
 import { nextLocalMidnight } from './time';
 
@@ -152,6 +153,7 @@ export function readMail(state: FarmState, content: Content, id: string, now: nu
       out.expanded = true;
     }
     if (letter.effects.coins) state.coins += letter.effects.coins;
+    if (letter.effects.decor) grantDecor(state, letter.effects.decor);
     for (const f of letter.effects.flags ?? []) {
       setFlag(state, f);
       // "<building>_built" flags hand the player that building (e.g. the mill)
@@ -189,6 +191,8 @@ function matches(o: Objective, e: GameEvent): number {
 function derived(state: FarmState, content: Content, o: Objective): number | null {
   if (o.type === 'discover') return state.seen.filter((id) => content.cropById.has(id)).length;
   if (o.type === 'mastery') return Math.max(0, ...Object.values(state.harvests ?? {}));
+  // project stages count whenever they were delivered (e.g. before the quest was offered)
+  if (o.type === 'project') return state.projects[o.id] ?? 0;
   return null;
 }
 
@@ -302,7 +306,7 @@ export function objectiveText(o: Objective, content: Content): string {
       return `Bring ${parts.join(', ')}`;
     }
     case 'project':
-      return `Restore the ${content.projects.get(o.id)?.name ?? o.id} (in Town)`;
+      return `Finish the ${content.projects.get(o.id)?.name ?? o.id} project (in Town)`;
     case 'merchant_buy':
       return o.n === 1 ? "Buy something from Ziggy's cart (in Town)" : `Buy ${o.n} things from Ziggy's cart`;
     case 'discover':

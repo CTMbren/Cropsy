@@ -20,6 +20,7 @@ import {
 } from './core/farm';
 import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, type MossFind } from './core/friendship';
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
+import { buyDecor, claimGift, pickUpDecor, placeDecor, type CalendarReward } from './core/decor';
 import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merchant';
 import { buyBarn, buyExpansion, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
 import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
@@ -45,6 +46,7 @@ export type FxEvent =
   | { kind: 'chapter'; n: number }
   | { kind: 'star'; crop: string; stars: number }
   | { kind: 'moss'; find: MossFind }
+  | { kind: 'decor'; spot: string; placed: boolean }
   | { kind: 'denied'; key: string; reason: string }
   | { kind: 'ui' };
 
@@ -60,7 +62,9 @@ export class Game {
   state: FarmState = newFarm(systemNow());
   selectedCrop = 'radish';
   /** What a tap on an empty or growing plot does: plant the selected seed, fertilize, or upgrade soil. */
-  mode: 'plant' | 'fertilize' | 'soil' = 'plant';
+  mode: 'plant' | 'fertilize' | 'soil' | 'decorate' = 'plant';
+  /** In decorate mode: the decoration a tap on an empty spot places. */
+  selectedDecor: string | null = null;
   away: AwaySummary | null = null;
   private listeners = new Set<Listener>();
   private fxListeners = new Set<(e: FxEvent) => void>();
@@ -123,7 +127,7 @@ export class Game {
   /** Tap on a plot: clear an obstacle, harvest if ripe, or plant the selected seed. */
   tapPlot(key: string): ActionResult | null {
     const plot = this.state.plots[key];
-    if (!plot) return null;
+    if (!plot || this.mode === 'decorate') return null;
     const now = this.now();
     if (this.mode === 'soil') {
       const r = upgradeSoil(this.state, this.content, key);
@@ -291,6 +295,48 @@ export class Game {
     return true;
   }
 
+  buyDecor(id: string): boolean {
+    const r = buyDecor(this.state, this.content, id);
+    if (r.ok) {
+      this.fx({ kind: 'ui' });
+      log(this.state, this.now(), `decor ${id}`);
+      this.changed();
+    }
+    return r.ok;
+  }
+
+  selectDecor(id: string | null): void {
+    this.selectedDecor = id;
+    this.mode = 'decorate';
+    this.fx({ kind: 'ui' });
+    this.emit();
+  }
+
+  /** Tap a decoration spot in decorate mode: pick up what's there, or place the selected one. */
+  tapSpot(spot: string): void {
+    if (this.mode !== 'decorate') return;
+    if (this.state.decor?.[spot]) {
+      pickUpDecor(this.state, spot);
+      this.fx({ kind: 'decor', spot, placed: false });
+    } else if (this.selectedDecor) {
+      const r = placeDecor(this.state, this.selectedDecor, spot);
+      if (!r.ok) return;
+      this.fx({ kind: 'decor', spot, placed: true });
+      if (!this.state.decorStore?.[this.selectedDecor]) this.selectedDecor = Object.keys(this.state.decorStore ?? {})[0] ?? null;
+    } else return;
+    this.changed();
+  }
+
+  claimGift(): CalendarReward | null {
+    const r = claimGift(this.state, this.content, this.day());
+    if (r) {
+      this.fx({ kind: 'ui' });
+      log(this.state, this.now(), 'calendar');
+      this.changed();
+    }
+    return r;
+  }
+
   /** Watch a heart event; returns its scene for the dialogue box. */
   watchEvent(villager: string, hearts: number): HeartEvent | null {
     const r = watchEvent(this.state, this.content, villager, hearts);
@@ -343,7 +389,7 @@ export class Game {
     return r;
   }
 
-  setMode(mode: 'plant' | 'fertilize' | 'soil'): void {
+  setMode(mode: 'plant' | 'fertilize' | 'soil' | 'decorate'): void {
     this.mode = mode;
     this.fx({ kind: 'ui' });
     this.emit();

@@ -66,5 +66,14 @@
     "from": "tobias",
     "subject": "I'm coming home",
     "body": "My dear sprout,\n\nHazel wrote to me. Hazel, who has not admitted I was right about anything since 1981, wrote to say I was right about the golden melons.\n\nI'm coming home for the harvest. My knees and I have agreed on one last trip up the valley.\n\nGrow me something golden, and we'll throw a festival the whole of Bramblewick will remember.\n\nWith all my love,\nTobias"
+  },
+  {
+    "id": "tobias_5",
+    "from": "tobias",
+    "subject": "Thank you",
+    "body": "My dear sprout,\n\nWhat a festival. Rufus danced. Rufus! Pip baked forty pies and sold forty-one, which she says is a mystery. Ziggy gave a speech nobody asked for. Moss ate a whole melon rind and looked very pleased with himself.\n\nBruno and Juniper made you something. It's waiting by your fence. Please don't make me look at it too often; I'm told it looks just like me.\n\nThe farm is yours, and so is the valley, in a way. Keep growing things.\n\nWith all my love, always,\nTobias",
+    "effects": {
+      "decor": "statue"
+    }
   }
 ]

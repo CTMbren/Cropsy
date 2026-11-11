@@ -327,5 +327,119 @@
       "qty": 10,
       "coins": 180
     }
-  }
+  },
+  "decorations": [
+    {
+      "id": "flowerbed",
+      "name": "Flower bed",
+      "coins": 300,
+      "level": 3,
+      "beauty": 2,
+      "color": "#e8506a"
+    },
+    {
+      "id": "hay",
+      "name": "Hay bales",
+      "coins": 500,
+      "level": 5,
+      "beauty": 2,
+      "color": "#f2c230"
+    },
+    {
+      "id": "bench",
+      "name": "Bruno's bench",
+      "coins": 1200,
+      "level": 8,
+      "beauty": 4,
+      "color": "#c98a4b"
+    },
+    {
+      "id": "scarecrow",
+      "name": "Scarecrow",
+      "coins": 2000,
+      "level": 10,
+      "beauty": 5,
+      "color": "#e0a35e"
+    },
+    {
+      "id": "lamp",
+      "name": "Lantern post",
+      "coins": 3500,
+      "level": 12,
+      "beauty": 6,
+      "color": "#ffd54f"
+    },
+    {
+      "id": "beehive",
+      "name": "Beehive",
+      "coins": 6000,
+      "level": 14,
+      "beauty": 8,
+      "color": "#f5b32a"
+    },
+    {
+      "id": "pumpkins",
+      "name": "Pumpkin stack",
+      "coins": 9000,
+      "level": 16,
+      "beauty": 10,
+      "color": "#f57c00"
+    },
+    {
+      "id": "windmill",
+      "name": "Little windmill",
+      "coins": 15000,
+      "level": 19,
+      "beauty": 14,
+      "color": "#f3ede0"
+    },
+    {
+      "id": "fountain",
+      "name": "Fountain",
+      "coins": 30000,
+      "level": 22,
+      "beauty": 20,
+      "color": "#7cc4f5"
+    },
+    {
+      "id": "statue",
+      "name": "Golden Tobias statue",
+      "coins": 0,
+      "level": 1,
+      "beauty": 30,
+      "color": "#ffc531",
+      "story": true
+    }
+  ],
+  "beauty": {
+    "tip_bonus_per_point": 0.01,
+    "max_bonus": 0.5
+  },
+  "calendar": [
+    {
+      "coins": 50
+    },
+    {
+      "item": "fertilizer",
+      "qty": 2
+    },
+    {
+      "item": "wood",
+      "qty": 6
+    },
+    {
+      "coins": 120
+    },
+    {
+      "item": "stone",
+      "qty": 4
+    },
+    {
+      "ribbons": 1
+    },
+    {
+      "deco": "flowerbed",
+      "ribbons": 2
+    }
+  ]
 }

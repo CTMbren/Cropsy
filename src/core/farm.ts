@@ -85,6 +85,11 @@ export interface FarmState {
   /** Barn upgrade tier (index into economy.barn). */
   barnLevel: number;
   /** Ziggy's cart: the visit (local day) and which of its slots you've bought from. */
+  /** Placed decorations by spot, and ones waiting in storage. */
+  decor?: Record<string, string>;
+  decorStore?: Record<string, number>;
+  /** Daily gift calendar: gifts claimed so far and the local day of the last one. */
+  calendar?: { claimed: number; lastDay: number };
   /** Moss's digs today. */
   moss?: { day: number; digs: number };
   /** Harvests per crop, for Crop Mastery. */
@@ -229,6 +234,14 @@ export function unlockedCrops(state: FarmState, content: Content): CropDef[] {
   return content.crops.filter((c) => isUnlocked(state, c));
 }
 
+/** Farm Beauty's Fresh Pick bonus (decorations): +1% per point, capped. Kept here to avoid an import cycle. */
+function beautyBonus(state: FarmState, content: Content): number {
+  const e = content.economy as unknown as { decorations?: { id: string; beauty: number }[]; beauty?: { tip_bonus_per_point: number; max_bonus: number } };
+  if (!state.decor || !e.beauty) return 0;
+  const total = Object.values(state.decor).reduce((a, id) => a + (e.decorations?.find((d) => d.id === id)?.beauty ?? 0), 0);
+  return Math.min(e.beauty.max_bonus, total * e.beauty.tip_bonus_per_point);
+}
+
 // ── Crop Mastery ────────────────────────────────────────────────
 /** Harvests of one crop that earn its 1st, 2nd and 3rd mastery star. */
 export const MASTERY = [50, 200, 600];
@@ -326,7 +339,7 @@ export function harvest(state: FarmState, content: Content, k: string, now: numb
   const crop = content.cropById.get(plot.crop);
   if (!crop) return { ok: false, reason: 'unknown-crop' };
   const fresh = isFresh(plot, now);
-  const tip = fresh ? Math.max(1, Math.round(crop.sell * 0.2)) : 0;
+  const tip = fresh ? Math.max(1, Math.round(crop.sell * 0.2 * (1 + beautyBonus(state, content)))) : 0;
   const stars = masteryStars(state, crop.id);
   // Hazel's 5-heart perk: +10% harvest XP
   const xp = Math.round(crop.xp * (fresh ? 1.5 : 1) * (state.flags.includes('perk:hazel') ? 1.1 : 1)) + (stars >= 2 ? 2 : 0);

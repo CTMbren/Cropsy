@@ -54,5 +54,35 @@
         "coins": 1200
       }
     ]
+  },
+  {
+    "id": "festival",
+    "name": "Harvest Festival",
+    "giver": "goldie",
+    "stages": [
+      {
+        "label": "Bunting and long tables",
+        "items": {
+          "wood": 30,
+          "stone": 15
+        }
+      },
+      {
+        "label": "A proper feast",
+        "items": {
+          "pastry": 4,
+          "flour": 8,
+          "jam": 4
+        }
+      },
+      {
+        "label": "The prize table",
+        "items": {
+          "pumpkin": 15,
+          "sunflower": 15
+        },
+        "coins": 5000
+      }
+    ]
   }
 ]

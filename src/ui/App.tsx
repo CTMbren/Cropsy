@@ -8,6 +8,7 @@ import { canGiftToday, chatter, friends, heartProgress, hearts, pendingEvents, s
 import { buildingPrice, canAffordBuilding, queueView, readyCount, slotUpgradeCost } from '../core/processing';
 import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, nextExpansion, priceFactor, toolPrice } from '../core/shop';
 import { activeQuest, canHandIn, inbox, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
+import { beauty, calendarRewards, canClaim, decorDef, decorDefs, nextGift, placed, stored, tipBonus, type CalendarReward } from '../core/decor';
 import { boughtToday, daysUntilMerchant, merchantHere, merchantStock, merchantUnlocked } from '../core/merchant';
 import { formatDuration } from '../core/time';
 import type { Game } from '../game';
@@ -54,6 +55,8 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
   const [coinBump, setCoinBump] = useState(0);
   const [levelCard, setLevelCard] = useState<number | null>(null);
   const [chapterCard, setChapterCard] = useState<number | null>(null);
+  const [gift, setGift] = useState<CalendarReward | null>(null);
+  const [giftLater, setGiftLater] = useState(false);
   const coinRef = useRef<HTMLDivElement>(null);
 
   const fly = (x: number, y: number, n: number) => {
@@ -223,6 +226,29 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         </div>
       )}
 
+      {game.mode === 'decorate' ? (
+        <section class="tray" aria-label="Decorations">
+          <div class="deco-hint">Tap a spot by the field to place · tap a decoration to pick it up</div>
+          <div class="seeds">
+            {Object.entries(stored(s)).map(([id, n]) => {
+              const d = decorDef(game.content, id);
+              const sel = game.selectedDecor === id;
+              return (
+                <button key={id} class={`seed${sel ? ' selected' : ''}`} aria-pressed={sel} onClick={() => game.selectDecor(id)}>
+                  <span class="seed-icon" style={{ background: d?.color }} aria-hidden="true" />
+                  <span class="seed-name">{d?.name}</span>
+                  <span class="chip time">×{n}</span>
+                </button>
+              );
+            })}
+            {!Object.keys(stored(s)).length && <p class="muted deco-empty">Everything's placed. Buy more at Goldie's store.</p>}
+            <button class="seed replant" onClick={() => game.setMode('plant')}>
+              <Icon name="farm" size={30} />
+              <span class="seed-name">Done</span>
+            </button>
+          </div>
+        </section>
+      ) : (
       <section class="tray" aria-label="Seeds">
         <div class="seeds">
           {game.content.crops.map((c) => {
@@ -260,12 +286,20 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
               <span class="chip time">Upgrade</span>
             </button>
           )}
+          {(Object.keys(stored(s)).length > 0 || Object.keys(placed(s)).length > 0) && (
+            <button class="seed tool" onClick={() => game.selectDecor(Object.keys(stored(s))[0] ?? null)}>
+              <Icon name="decor" size={30} />
+              <span class="seed-name">Decorate</span>
+              <span class="chip time">♥ {beauty(s, game.content)}</span>
+            </button>
+          )}
           <button class="seed replant" disabled={!canReplant} onClick={() => game.replantAll()}>
             <Icon name="replant" size={30} />
             <span class="seed-name">Replant all</span>
           </button>
         </div>
       </section>
+      )}
 
       <nav class="nav" aria-label="Farm menu">
         <NavBtn icon="farm" label="Farm" active={sheet === null} onClick={() => setSheet(null)} />
@@ -297,7 +331,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       {dialogue && (
         <div class="dialogue-back" onClick={() => (dialogue.index < dialogue.lines.length - 1 ? setDialogue({ ...dialogue, index: dialogue.index + 1 }) : setDialogue(null))}>
           <div class="dialogue" role="dialog" aria-label={`${dialogue.villager.name} says`}>
-            <Portrait v={dialogue.villager} size={72} />
+            <Portrait v={dialogue.villager} size={72} mood={moodOf(dialogue.lines[dialogue.index] ?? '')} />
             <div class="dialogue-body">
               <div class="dialogue-name">
                 {dialogue.villager.name}
@@ -309,6 +343,18 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
             </div>
           </div>
         </div>
+      )}
+
+      {(gift || (!giftLater && canClaim(s, game.day()))) && !game.away && levelCard === null && chapterCard === null && !dialogue && sheet === null && (
+        <GiftCalendar
+          game={game}
+          claimed={gift}
+          onClaim={() => setGift(game.claimGift())}
+          onClose={() => {
+            setGift(null);
+            setGiftLater(true);
+          }}
+        />
       )}
 
       {game.away && (
@@ -357,16 +403,52 @@ function NavBtn({ icon, label, badge, active, locked, onClick }: { icon: string;
   );
 }
 
-export function Portrait({ v, size }: { v: VillagerDef; size: number }) {
+export type Mood = 'neutral' | 'happy' | 'surprised' | 'sad';
+
+/** Reads a mood from a line of dialogue: excited lines smile, questions look surprised, trailing-off lines look wistful. */
+export function moodOf(line: string): Mood {
+  const l = line.trim();
+  if (l.startsWith('...') || l.endsWith('...') || /sorry|miss|passed|cold|crying/i.test(l)) return 'sad';
+  if (l.endsWith('?')) return 'surprised';
+  if (l.includes('!')) return 'happy';
+  return 'neutral';
+}
+
+export function Portrait({ v, size, mood = 'neutral' }: { v: VillagerDef; size: number; mood?: Mood }) {
   return (
     <svg class="portrait" width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={v.name}>
       <circle cx="32" cy="32" r="30" fill={v.color} stroke="#4a2e1a" stroke-width="3" />
       <path d="M12 60c2-12 10-18 20-18s18 6 20 18" fill="#fff8e6" stroke="#4a2e1a" stroke-width="3" />
       <circle cx="32" cy="28" r="13" fill="#f6c9a0" stroke="#4a2e1a" stroke-width="3" />
       <path d="M19 26c0-9 6-14 13-14s13 5 13 14c-4-4-9-6-13-6s-9 2-13 6z" fill={v.hair} stroke="#4a2e1a" stroke-width="2.5" />
-      <circle cx="27" cy="29" r="1.8" fill="#4a2e1a" />
-      <circle cx="37" cy="29" r="1.8" fill="#4a2e1a" />
-      <path d="M28 34c2 2 6 2 8 0" fill="none" stroke="#4a2e1a" stroke-width="2" stroke-linecap="round" />
+      {mood === 'happy' ? (
+        <>
+          <path d="M25 29.5q2-2.5 4 0M35 29.5q2-2.5 4 0" fill="none" stroke="#4a2e1a" stroke-width="2" stroke-linecap="round" />
+          <path d="M27 33.5c2 3.5 8 3.5 10 0z" fill="#c0392b" stroke="#4a2e1a" stroke-width="1.8" stroke-linejoin="round" />
+          <circle cx="23.5" cy="32.5" r="2" fill="#f29b9b" opacity="0.8" />
+          <circle cx="40.5" cy="32.5" r="2" fill="#f29b9b" opacity="0.8" />
+        </>
+      ) : mood === 'surprised' ? (
+        <>
+          <path d="M24.5 24.5l4-1M35.5 23.5l4 1" stroke="#4a2e1a" stroke-width="1.8" stroke-linecap="round" />
+          <circle cx="27" cy="29" r="2.2" fill="#4a2e1a" />
+          <circle cx="37" cy="29" r="2.2" fill="#4a2e1a" />
+          <ellipse cx="32" cy="35" rx="2.2" ry="2.6" fill="#7a2e22" stroke="#4a2e1a" stroke-width="1.6" />
+        </>
+      ) : mood === 'sad' ? (
+        <>
+          <path d="M24.5 25.5l4 1.2M35.5 26.7l4-1.2" stroke="#4a2e1a" stroke-width="1.8" stroke-linecap="round" />
+          <circle cx="27" cy="29.5" r="1.8" fill="#4a2e1a" />
+          <circle cx="37" cy="29.5" r="1.8" fill="#4a2e1a" />
+          <path d="M28.5 35.5c2-1.5 5-1.5 7 0" fill="none" stroke="#4a2e1a" stroke-width="2" stroke-linecap="round" />
+        </>
+      ) : (
+        <>
+          <circle cx="27" cy="29" r="1.8" fill="#4a2e1a" />
+          <circle cx="37" cy="29" r="1.8" fill="#4a2e1a" />
+          <path d="M28 34c2 2 6 2 8 0" fill="none" stroke="#4a2e1a" stroke-width="2" stroke-linecap="round" />
+        </>
+      )}
     </svg>
   );
 }
@@ -712,6 +794,60 @@ function LevelCard({ content, level, onClose }: { content: Content; level: numbe
   );
 }
 
+function rewardText(content: Content, r: CalendarReward): string {
+  const parts: string[] = [];
+  if (r.coins) parts.push(`${r.coins} coins`);
+  if (r.item) parts.push(`${r.qty ?? 1} ${itemName(content, r.item).toLowerCase()}`);
+  if (r.deco) parts.push(decorDef(content, r.deco)?.name ?? r.deco);
+  if (r.ribbons) parts.push(`${r.ribbons} Ribbon${r.ribbons > 1 ? 's' : ''}`);
+  return parts.join(' + ');
+}
+
+/** The daily gift: seven gifts in a row. Missing a day never resets it. */
+function GiftCalendar({ game, claimed, onClaim, onClose }: { game: Game; claimed: CalendarReward | null; onClaim: () => void; onClose: () => void }) {
+  const c = game.content;
+  const rewards = calendarRewards(c);
+  const total = game.state.calendar?.claimed ?? 0;
+  const next = nextGift(game.state, c);
+  // after claiming, highlight the one just opened
+  const current = claimed ? (next + rewards.length - 1) % rewards.length : next;
+  const round = claimed ? total - 1 : total;
+  return (
+    <div class="modal-back">
+      <div class="card gift-card" role="dialog" aria-labelledby="gift-title">
+        <h2 id="gift-title">{claimed ? 'Opened!' : 'Daily gift'}</h2>
+        <div class="gift-days">
+          {rewards.map((r, i) => {
+            const done = Math.floor(round / rewards.length) * rewards.length + i < round || (claimed && i === current);
+            return (
+              <div key={i} class={`gift-day${i === current ? ' today' : ''}${done ? ' done' : ''}`}>
+                <span class="gift-n">Day {i + 1}</span>
+                <Icon name={r.deco ? 'decor' : r.ribbons ? 'ribbon' : r.item ?? 'coin'} size={24} />
+                <small>{r.coins ? r.coins : r.qty ? `×${r.qty}` : r.ribbons && !r.deco ? `×${r.ribbons}` : '★'}</small>
+              </div>
+            );
+          })}
+        </div>
+        <p class="muted">{claimed ? `You got ${rewardText(c, claimed)}. Come back tomorrow for day ${(current + 1) % rewards.length + 1}.` : `Today: ${rewardText(c, rewards[current])}. Missed a day? No problem: your next gift just waits.`}</p>
+        {claimed ? (
+          <button class="btn green" onClick={onClose}>
+            Lovely!
+          </button>
+        ) : (
+          <div class="row">
+            <button class="btn" onClick={onClose}>
+              Later
+            </button>
+            <button class="btn green" onClick={onClaim}>
+              Open gift
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ChapterCard({ content, n, onClose }: { content: Content; n: number; onClose: () => void }) {
   const ch = content.chapters.find((x) => x.n === n);
   if (!ch) return null;
@@ -799,6 +935,30 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
                 </li>
               );
             })}
+          </ul>
+          <h3>Decorations</h3>
+          <p class="muted small">
+            Farm Beauty <b>{beauty(s, c)}</b> · Fresh Pick tips +{Math.round(tipBonus(s, c) * 100)}% (up to +50%). Place them with <b>Decorate</b> in the seed tray.
+          </p>
+          <ul class="rows">
+            {decorDefs(c)
+              .filter((d) => !d.story)
+              .map((d) => {
+                const locked = d.level > s.level;
+                const own = (stored(s)[d.id] ?? 0) + Object.values(placed(s)).filter((x) => x === d.id).length;
+                return (
+                  <li key={d.id} class="row-item">
+                    <span class="seed-icon" style={{ background: d.color }} aria-hidden="true" />
+                    <span class="row-name">
+                      {d.name} {own > 0 && <b>×{own}</b>}
+                      <small>{locked ? `Unlocks at level ${d.level}` : `Beauty +${d.beauty}`}</small>
+                    </span>
+                    <button class="btn small" disabled={locked || s.coins < d.coins} onClick={() => game.buyDecor(d.id)}>
+                      <span class="coin sm" aria-hidden="true" /> {d.coins.toLocaleString()}
+                    </button>
+                  </li>
+                );
+              })}
           </ul>
           <h3>Buildings</h3>
           <ul class="rows">

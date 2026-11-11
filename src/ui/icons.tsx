@@ -154,6 +154,24 @@ export function Icon({ name, size = 22 }: { name: string; size?: number }) {
           <path d="M22 4v8m-4-4h8" stroke={INK} stroke-width="1" stroke-linecap="round" />
         </svg>
       );
+    case 'decor':
+      return (
+        <svg {...common}>
+          <path d="M5 26c3-2 19-2 22 0" fill="none" stroke={INK} stroke-width="2.4" stroke-linecap="round" />
+          <path d="M11 25v-9m10 9v-7" stroke="#3fa34d" stroke-width="2.4" stroke-linecap="round" />
+          <circle cx="11" cy="12" r="5" fill="#e8506a" stroke={INK} stroke-width="2.2" />
+          <circle cx="11" cy="12" r="1.8" fill="#ffd54f" />
+          <circle cx="21" cy="15" r="4" fill="#b36ad6" stroke={INK} stroke-width="2.2" />
+          <circle cx="21" cy="15" r="1.4" fill="#ffd54f" />
+        </svg>
+      );
+    case 'coin':
+      return (
+        <svg {...common}>
+          <circle cx="16" cy="16" r="10" fill="#ffc531" stroke={INK} stroke-width="2.4" />
+          <circle cx="16" cy="16" r="5.5" fill="none" stroke="#e09b0e" stroke-width="2" />
+        </svg>
+      );
     default:
       return null;
   }
