@@ -43,5 +43,22 @@
     "from": "tobias",
     "subject": "I heard about the mill",
     "body": "My dear sprout,\n\nNews travels up the valley faster than the river. The mill is turning again! Rufus wrote to me himself, and he hasn't written to anyone since 1998.\n\nNext, the market square. Bramblewick used to fill it every Saturday. Someone there still bakes the best bread in the valley, if only she had the flour.\n\nProud of you,\nTobias"
+  },
+  {
+    "id": "pip_market",
+    "from": "pip",
+    "subject": "THE MARKET IS OPEN",
+    "body": "Dear farmer,\n\nI walked through the square at sunrise and every stall was standing. There's bunting! Bruno even painted my stall pink. I didn't ask for pink. I love the pink.\n\nOpening day is today. I have absolutely nothing ready. Please come by.\n\nPip\n\nP.S. Sorry about the capital letters in the subject.",
+    "effects": {
+      "flags": [
+        "market_built"
+      ]
+    }
+  },
+  {
+    "id": "tobias_3",
+    "from": "tobias",
+    "subject": "About my seed collection",
+    "body": "My dear sprout,\n\nA market again! Pip wrote to me in three colours of ink.\n\nZiggy tells me Dr. Hazel Quill is coming to Bramblewick. She and I traded seeds for forty years, and I left her my whole collection: every crop I ever grew, written down in a battered old almanac.\n\nHelp her finish it. She'll pretend she doesn't need help. She does.\n\nWith love,\nTobias"
   }
 ]

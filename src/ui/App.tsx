@@ -8,6 +8,7 @@ import { canGiftToday, chatter, friends, heartProgress, hearts, taste } from '..
 import { buildingPrice, canAffordBuilding, queueView, readyCount, slotUpgradeCost } from '../core/processing';
 import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, nextExpansion, priceFactor, toolPrice } from '../core/shop';
 import { activeQuest, canHandIn, inbox, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
+import { boughtToday, daysUntilMerchant, merchantHere, merchantStock, merchantUnlocked } from '../core/merchant';
 import { formatDuration } from '../core/time';
 import type { Game } from '../game';
 import { lastSavedAt } from '../platform/storage';
@@ -52,6 +53,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
   const [flyers, setFlyers] = useState<Flyer[]>([]);
   const [coinBump, setCoinBump] = useState(0);
   const [levelCard, setLevelCard] = useState<number | null>(null);
+  const [chapterCard, setChapterCard] = useState<number | null>(null);
   const coinRef = useRef<HTMLDivElement>(null);
 
   const fly = (x: number, y: number, n: number) => {
@@ -69,6 +71,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
   useEffect(() => {
     const offFx = game.onFx((e) => {
       if (e.kind === 'levelup') setLevelCard(e.level);
+      if (e.kind === 'chapter') setChapterCard(e.n);
       if (e.kind === 'ribbon') setToast(`+${e.amount} Ribbon · ${e.why}`);
       if (e.kind === 'heart') {
         const v = game.content.villagers.get(e.villager);
@@ -130,7 +133,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
           <span class="star">{s.level}</span>
           <div class="xp">
             <div class="xp-label">
-              LV {s.level} <small>{s.xp}/{need}</small>
+              LV {s.level} <small>{compact(s.xp)}/{compact(need)}</small>
             </div>
             <div class="xp-bar">
               <div style={{ width: `${Math.min(100, (s.xp / need) * 100)}%` }} />
@@ -266,7 +269,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         <NavBtn icon="farm" label="Farm" active={sheet === null} onClick={() => setSheet(null)} />
         <NavBtn icon="barn" label="Barn" badge={barnCount} active={sheet === 'barn'} onClick={() => setSheet('barn')} />
         <NavBtn icon="board" label="Board" badge={boardOpen ? fillable : 0} locked={!boardOpen} active={sheet === 'board'} onClick={() => boardOpen && setSheet('board')} />
-        <NavBtn icon="town" label="Town" active={sheet === 'town'} onClick={() => setSheet('town')} />
+        <NavBtn icon="town" label="Town" badge={merchantUnlocked(s) && merchantHere(game.content, game.day()) && !boughtToday(s, game.day()).length ? 1 : 0} active={sheet === 'town'} onClick={() => setSheet('town')} />
         <NavBtn icon="mail" label="Mail" badge={mailUnread} active={sheet === 'mail'} onClick={() => setSheet('mail')} />
       </nav>
 
@@ -278,6 +281,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       {sheet?.startsWith('building:') && <BuildingSheet game={game} id={sheet.slice(9)} now={now} onClose={() => setSheet(null)} />}
 
       {levelCard !== null && <LevelCard content={game.content} level={levelCard} onClose={() => setLevelCard(null)} />}
+      {chapterCard !== null && levelCard === null && <ChapterCard content={game.content} n={chapterCard} onClose={() => setChapterCard(null)} />}
 
       {dialogue && (
         <div class="dialogue-back" onClick={() => (dialogue.index < dialogue.lines.length - 1 ? setDialogue({ ...dialogue, index: dialogue.index + 1 }) : setDialogue(null))}>
@@ -325,6 +329,9 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
     </div>
   );
 }
+
+/** 1440 → 1.4k, so the XP numbers fit beside the level at high levels. */
+const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
 
 function NavBtn({ icon, label, badge, active, locked, onClick }: { icon: string; label: string; badge?: number; active?: boolean; locked?: boolean; onClick: () => void }) {
   return (
@@ -468,6 +475,7 @@ function MailSheet({ game, now, onClose }: { game: Game; now: number; onClose: (
   const mail = inbox(game.state, now);
   const [open, setOpen] = useState<string | null>(mail.find((m) => !m.read)?.id ?? null);
   const letter = open ? game.content.letters.get(open) : null;
+  const [tab, setTab] = useState<'letters' | 'story'>('letters');
   useEffect(() => {
     if (open) game.readMail(open);
   }, [open]);
@@ -490,9 +498,17 @@ function MailSheet({ game, now, onClose }: { game: Game; now: number; onClose: (
     );
   }
   return (
-    <Sheet title="Mailbox" onClose={onClose}>
-      {!mail.length && <p class="muted">No letters yet.</p>}
-      <ul class="rows">
+    <Sheet title={tab === 'story' ? 'Story so far' : 'Mailbox'} onClose={onClose}>
+      <div class="tabs" role="tablist">
+        {(['letters', 'story'] as const).map((x) => (
+          <button key={x} role="tab" aria-selected={tab === x} class={`tab${tab === x ? ' active' : ''}`} onClick={() => setTab(x)}>
+            {x === 'letters' ? 'Letters' : 'Story'}
+          </button>
+        ))}
+      </div>
+      {tab === 'story' && <StoryLog game={game} />}
+      {tab === 'letters' && !mail.length && <p class="muted">No letters yet.</p>}
+      {tab === 'letters' && <ul class="rows">
         {mail.map((m) => {
           const l = game.content.letters.get(m.id);
           const from = l ? game.content.villagers.get(l.from) : undefined;
@@ -509,8 +525,59 @@ function MailSheet({ game, now, onClose }: { game: Game; now: number; onClose: (
             </li>
           );
         })}
-      </ul>
+      </ul>}
     </Sheet>
+  );
+}
+
+/** Every finished quest, chapter by chapter; tap one to re-read what was said. */
+function StoryLog({ game }: { game: Game }) {
+  const c = game.content;
+  const s = game.state;
+  const [open, setOpen] = useState<string | null>(null);
+  const seen = new Set([...s.story.done, ...(s.story.active ? [s.story.active.id] : [])]);
+  const chapters = c.chapters.filter((ch) => c.quests.some((q) => q.chapter === ch.n && seen.has(q.id)));
+  return (
+    <div class="story-log">
+      {chapters.map((ch) => (
+        <section key={ch.n}>
+          <h3>
+            Chapter {ch.n} · {ch.title}
+          </h3>
+          <ul class="rows">
+            {c.quests
+              .filter((q) => q.chapter === ch.n && seen.has(q.id))
+              .map((q) => {
+                const v = q.giver === 'mail' ? undefined : c.villagers.get(q.giver);
+                const done = s.story.done.includes(q.id);
+                const letterId = q.objectives.find((o) => o.type === 'read_mail');
+                const letter = letterId?.type === 'read_mail' ? c.letters.get(letterId.id) : undefined;
+                const lines = letter ? [letter.body] : [...(q.intro ?? []), ...(done ? (q.outro ?? []) : [])];
+                return (
+                  <li key={q.id} class="story-entry">
+                    <button class="row-item" onClick={() => setOpen(open === q.id ? null : q.id)} disabled={!lines.length}>
+                      {v ? <Portrait v={v} size={34} /> : <Icon name="mail" size={26} />}
+                      <span class="row-name">
+                        {q.title}
+                        <small>{done ? (v ? v.name : 'A letter') : 'In progress'}</small>
+                      </span>
+                      {done && <span class="chip owned">Done</span>}
+                    </button>
+                    {open === q.id && (
+                      <div class="story-lines">
+                        {lines.map((l, i) => (
+                          <p key={i}>{l}</p>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+          </ul>
+        </section>
+      ))}
+      {c.chapters.length > chapters.length && <p class="muted small">More of the story unlocks as Bramblewick comes back to life.</p>}
+    </div>
   );
 }
 
@@ -631,6 +698,23 @@ function LevelCard({ content, level, onClose }: { content: Content; level: numbe
   );
 }
 
+function ChapterCard({ content, n, onClose }: { content: Content; n: number; onClose: () => void }) {
+  const ch = content.chapters.find((x) => x.n === n);
+  if (!ch) return null;
+  return (
+    <div class="modal-back chapter-back" onClick={onClose}>
+      <div class="card chapter-card" role="dialog" aria-labelledby="chapter-title">
+        <div class="chapter-num">Chapter {n}</div>
+        <h2 id="chapter-title">{ch.title}</h2>
+        <p class="muted">{ch.blurb}</p>
+        <button class="btn green" onClick={onClose}>
+          Begin
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Need({ have, need, label }: { have: number; need: number; label: string }) {
   return <span class={have >= need ? 'have' : 'need'}>{Math.min(have, need)}/{need} {label}</span>;
 }
@@ -638,16 +722,19 @@ function Need({ have, need, label }: { have: number; need: number; label: string
 function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
   const s = game.state;
   const c = game.content;
-  const tabs = ['store', ...(friends(s, c).length ? ['friends'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(s.flags.includes('mill_project') ? ['projects'] : [])];
-  const [tab, setTab] = useState<string>(tabs.includes('projects') && (s.projects.mill ?? 0) < 3 ? 'projects' : 'store');
   const day = game.day();
+  const projects = [...c.projects.values()].filter((p) => s.flags.includes(`${p.id}_project`));
+  const projectDue = projects.some((p) => (s.projects[p.id] ?? 0) < p.stages.length);
+  const cart = merchantUnlocked(s);
+  const tabs = ['store', ...(cart ? ['cart'] : []), ...(friends(s, c).length ? ['friends'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(projects.length ? ['projects'] : [])];
+  const [tab, setTab] = useState<string>(projectDue ? 'projects' : cart && merchantHere(c, day) && !boughtToday(s, day).length ? 'cart' : 'store');
   const exp = nextExpansion(s, c);
   return (
     <Sheet title="Bramblewick" onClose={onClose}>
       <div class="tabs" role="tablist">
         {tabs.map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} class={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'store' ? "Goldie's store" : t === 'friends' ? 'Friends' : t === 'land' ? 'Land' : t === 'market' ? 'Market' : 'Projects'}
+            {t === 'store' ? "Goldie's store" : t === 'cart' ? "Ziggy's cart" : t === 'friends' ? 'Friends' : t === 'land' ? 'Land' : t === 'market' ? 'Market' : 'Projects'}
           </button>
         ))}
       </div>
@@ -784,11 +871,12 @@ function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
       )}
 
       {tab === 'market' && <MarketTab game={game} day={day} />}
+      {tab === 'cart' && <CartTab game={game} day={day} />}
       {tab === 'friends' && <FriendsTab game={game} day={day} />}
 
       {tab === 'projects' && (
         <div class="projects">
-          {[...c.projects.values()].map((p) => {
+          {[...projects].sort((a, b) => Number((s.projects[a.id] ?? 0) >= a.stages.length) - Number((s.projects[b.id] ?? 0) >= b.stages.length)).map((p) => {
             const done = s.projects[p.id] ?? 0;
             const st = p.stages[done];
             return (
@@ -834,6 +922,67 @@ function TownSheet({ game, onClose }: { game: Game; onClose: () => void }) {
         </div>
       )}
     </Sheet>
+  );
+}
+
+function CartTab({ game, day }: { game: Game; day: number }) {
+  const s = game.state;
+  const c = game.content;
+  const ziggy = c.villagers.get('ziggy')!;
+  const [msg, setMsg] = useState<string | null>(null);
+  if (!merchantHere(c, day)) {
+    const d = daysUntilMerchant(c, day);
+    return (
+      <div class="order">
+        <Portrait v={ziggy} size={48} />
+        <div class="order-body">
+          <div class="order-who">Ziggy is on the road</div>
+          <p class="muted small">His cart rolls back into Bramblewick {d === 1 ? 'tomorrow' : `in ${d} days`}, with new stock.</p>
+        </div>
+      </div>
+    );
+  }
+  const stock = merchantStock(s, c, day);
+  const sold = boughtToday(s, day);
+  return (
+    <>
+      <div class="order">
+        <Portrait v={ziggy} size={48} />
+        <div class="order-body">
+          <div class="order-who">Ziggy's cart is in town!</div>
+          <p class="muted small">{msg ?? 'Only one of each, and only until midnight. New stock every visit.'}</p>
+        </div>
+      </div>
+      <ul class="rows">
+        {stock.map((slot, i) => {
+          const isSold = sold.includes(i);
+          const crop = slot.kind === 'seed' ? c.cropById.get(slot.crop) : undefined;
+          return (
+            <li key={i} class={`row-item${isSold ? ' sold' : ''}`}>
+              {crop ? <span class="seed-icon" style={{ background: crop.color }} aria-hidden="true" /> : <Icon name={slot.kind === 'item' ? slot.id : 'ribbon'} size={30} />}
+              <span class="row-name">
+                {slot.label}
+                <small>{slot.detail}</small>
+              </span>
+              {isSold ? (
+                <span class="chip owned">Sold</span>
+              ) : (
+                <button
+                  class="btn small"
+                  disabled={s.coins < slot.coins}
+                  onClick={() => {
+                    const r = game.buyMerchant(i);
+                    if (r.ok) setMsg(slot.kind === 'seed' ? `"${crop?.name} seeds! Plant them anywhere. I insist."` : '"A pleasure, as always!"');
+                  }}
+                >
+                  <span class="coin sm" aria-hidden="true" /> {slot.coins.toLocaleString()}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 

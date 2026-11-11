@@ -12,7 +12,9 @@ import { loadContent, type Content } from '../src/core/content';
 import { barnCapacity, barnUsed, clearObstacle, harvest, newFarm, OBSTACLES, plant, sell, stageOf, unlockedCrops, type FarmState } from '../src/core/farm';
 import { buyBuilding, collect, startRecipe } from '../src/core/processing';
 import { buyBarn, buyExpansion, buyMaterial, buyTool, deliverStage, nextBarn, nextExpansion } from '../src/core/shop';
+import { buyFromMerchant, merchantStock } from '../src/core/merchant';
 import { activeQuest, advance, inbox, onEvent, readMail, talk } from '../src/core/story';
+import { dayIndex } from '../src/core/time';
 
 const TZ = 0;
 const T0 = Date.UTC(2027, 0, 4, 9, 0, 0) / 1000; // a Monday, 9:00
@@ -54,7 +56,13 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
   // collect and restart buildings
   for (const id of Object.keys(s.buildings)) {
     collect(s, c, id, now);
-    for (const r of c.buildings.get(id)!.recipes) while (startRecipe(s, c, id, r.id, now).ok);
+    for (const r of c.buildings.get(id)!.recipes) {
+      // don't bake away what the current quest asks for (e.g. Pip's flour)
+      const handIn: Record<string, number> = {};
+      for (const o of activeQuest(s, c)?.objectives ?? []) if (o.type === 'hand_in') Object.assign(handIn, o.items);
+      const spare = () => Object.entries(r.inputs).every(([k, n]) => (s.inventory[k] ?? 0) - n >= (handIn[k] ?? 0));
+      while (spare() && startRecipe(s, c, id, r.id, now).ok);
+    }
   }
   // harvest
   for (const k of Object.keys(s.plots)) {
@@ -74,11 +82,24 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
   const mats = reserve(s, c);
   const exp = nextExpansion(s, c);
   if (exp && !exp.story && (exp.level ?? 1) <= s.level) for (const [id, n] of Object.entries(exp.items ?? {})) mats[id] = Math.max(mats[id] ?? 0, n);
+  // materials for the next farm building we can unlock
+  for (const bd of c.buildings.values()) if (bd.where === 'farm' && !s.buildings[bd.id] && (bd.unlock_level ?? 1) <= s.level) for (const [id, n] of Object.entries(bd.cost?.items ?? {})) mats[id] = Math.max(mats[id] ?? 0, n);
   for (const id of ['wood', 'stone']) while ((s.inventory[id] ?? 0) < (mats[id] ?? 0) && s.coins > 400 && buyMaterial(s, c, id).ok);
   for (const p of c.projects.values()) {
     const d = deliverStage(s, c, p.id);
     if (d.ok) {
       ev({ type: 'project', id: p.id, stage: d.stage });
+      talk(s, c, now, TZ);
+    }
+  }
+  // Ziggy's cart: buy the cheapest thing when the story asks
+  if (activeQuest(s, c)?.objectives.some((o) => o.type === 'merchant_buy')) {
+    const day = dayIndex(now, TZ);
+    const stock = merchantStock(s, c, day);
+    const i = stock.map((x, j) => [x.coins, j]).sort((a, b) => a[0] - b[0])[0]?.[1];
+    if (i !== undefined && buyFromMerchant(s, c, i, day).ok) {
+      ev({ type: 'merchant_buy' });
+      log('bought from Ziggy');
       talk(s, c, now, TZ);
     }
   }

@@ -84,6 +84,8 @@ export interface FarmState {
   villagers: Record<string, FriendState>;
   /** Barn upgrade tier (index into economy.barn). */
   barnLevel: number;
+  /** Ziggy's cart: the visit (local day) and which of its slots you've bought from. */
+  merchant?: { day: number; bought: number[]; stock?: import('./merchant').MerchantSlot[] };
   /** Local-only event log for playtests (capped). */
   log: { t: number; e: string }[];
   time: TimeState;
@@ -218,8 +220,9 @@ export function isFresh(p: PlotState, now: number): boolean {
   return now >= ripeAt && now <= ripeAt + freshWindow(p.growS);
 }
 
+/** Crops at or below your level, plus any Ziggy sold you early. */
 export function unlockedCrops(state: FarmState, content: Content): CropDef[] {
-  return content.crops.filter((c) => c.unlock_level <= state.level);
+  return content.crops.filter((c) => c.unlock_level <= state.level || state.flags.includes(`early:${c.id}`));
 }
 
 /** Shipping crate pays 70% of an item's value (never less than 1 coin). */

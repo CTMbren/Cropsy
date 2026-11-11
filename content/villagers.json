@@ -122,6 +122,88 @@
     ]
   },
   {
+    "id": "pip",
+    "name": "Pip Rowan",
+    "role": "Baker",
+    "color": "#f28fb0",
+    "hair": "#e0b04a",
+    "loves": [
+      "wheat",
+      "blueberry",
+      "pastry"
+    ],
+    "likes": [
+      "flour",
+      "strawberry",
+      "jam",
+      "pumpkin"
+    ],
+    "dislikes": [
+      "potato",
+      "stone"
+    ],
+    "perk": "Pip shares her tricks: your bakery works 25% faster",
+    "lines": [
+      [
+        "Sorry! I mean, hello. I always start with sorry.",
+        "Is it too early to be thinking about pie? It's never too early."
+      ],
+      [
+        "I tried a new recipe and only burned half of it. Progress!",
+        "Your wheat smells like summer. Is that weird to say? It's weird."
+      ],
+      [
+        "I saved you the crispy end. Everyone wants the crispy end. You get it.",
+        "Goldie says I worry too much. I worry that's true."
+      ],
+      [
+        "You're my favourite customer. Don't tell the others. Actually, they know.",
+        "When I'm nervous now, I think about your farm. All those neat little rows."
+      ]
+    ]
+  },
+  {
+    "id": "ziggy",
+    "name": "Ziggy Marlowe",
+    "role": "Traveling merchant",
+    "color": "#7a4fc4",
+    "hair": "#3a2a6a",
+    "loves": [
+      "golden_melon",
+      "grapes",
+      "coffee"
+    ],
+    "likes": [
+      "pumpkin",
+      "sunflower",
+      "jam",
+      "gold"
+    ],
+    "dislikes": [
+      "radish",
+      "lettuce"
+    ],
+    "perk": "Ziggy gives you a friend's price: 10% off his cart",
+    "lines": [
+      [
+        "Everything on this cart has a story. Some of them are even true!",
+        "Rare seeds, dear farmer. Rarer than an honest merchant. Present company excepted."
+      ],
+      [
+        "You again! My favourite face in the valley. Don't tell Goldie.",
+        "I once sold a pumpkin to a king. A small king. A king of a very small hill."
+      ],
+      [
+        "Between you and me, the gold nuggets come from a river. A very specific river. I'll never tell.",
+        "Bramblewick was a ghost town when I first rolled through. Look at it now."
+      ],
+      [
+        "I don't usually stay anywhere long. I might make an exception for this place.",
+        "For you, the secret stock. There is no secret stock. Or is there."
+      ]
+    ]
+  },
+  {
     "id": "tobias",
     "name": "Old Tobias",
     "role": "Your great-uncle",

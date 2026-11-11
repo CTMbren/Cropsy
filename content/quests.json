@@ -300,5 +300,142 @@
       ]
     },
     "requires_flag": "mill_built"
+  },
+  {
+    "id": "ch3_letter",
+    "chapter": 3,
+    "giver": "mail",
+    "title": "News from Tobias",
+    "objectives": [
+      {
+        "type": "read_mail",
+        "id": "tobias_2"
+      }
+    ],
+    "rewards": {
+      "flags": [
+        "met_pip"
+      ]
+    }
+  },
+  {
+    "id": "ch3_pip",
+    "chapter": 3,
+    "giver": "pip",
+    "title": "The nervous baker",
+    "min_level": 9,
+    "intro": [
+      "Oh! Hello. Sorry. I'm Pip. I run the bakery. Well, I used to. Well, I still do, just... without flour.",
+      "Rufus says your flour is the real thing. Could you bring me 6 bags? I'll pay. I'll overpay. Is overpaying weird?"
+    ],
+    "outro": [
+      "It's perfect. It's so perfect I might cry. I'm not crying. It's flour in my eyes.",
+      "Now if only the market square wasn't such a ruin. Bruno says the stalls could be saved..."
+    ],
+    "objectives": [
+      {
+        "type": "hand_in",
+        "items": {
+          "flour": 6
+        }
+      }
+    ],
+    "rewards": {
+      "coins": 300,
+      "xp": 40,
+      "flags": [
+        "market_project"
+      ]
+    }
+  },
+  {
+    "id": "ch3_market",
+    "chapter": 3,
+    "giver": "bruno",
+    "title": "Rebuild the market square",
+    "intro": [
+      "The old market square! I've been waiting years for someone to ask.",
+      "Mend the stalls, fill them for opening day, then string up some bunting. You'll find the project in Town."
+    ],
+    "outro": [
+      "Stalls are up, bunting's flying. I'll put the finishing touches on tonight.",
+      "Bramblewick has a market again. Check your mail in the morning."
+    ],
+    "objectives": [
+      {
+        "type": "project",
+        "id": "market",
+        "n": 3
+      }
+    ],
+    "rewards": {
+      "xp": 80,
+      "mail": [
+        {
+          "id": "pip_market",
+          "delay": "next_day"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ch3_pastry",
+    "chapter": 3,
+    "giver": "pip",
+    "title": "Opening day",
+    "requires_flag": "market_built",
+    "intro": [
+      "Opening day! Opening day! Everyone's coming and I have nothing on my table.",
+      "Berry pastries. Two of them. Flour and jam from your bakery. You do have a bakery? Bruno can build one. Please hurry. Not too much. Some hurry."
+    ],
+    "outro": [
+      "They sold out in four minutes. FOUR. Goldie bought one and then bought the other one.",
+      "Oh, and some strange man with a cart asked about you. Very big hat. Very big smile."
+    ],
+    "objectives": [
+      {
+        "type": "hand_in",
+        "items": {
+          "pastry": 2
+        }
+      }
+    ],
+    "rewards": {
+      "xp": 60,
+      "ribbons": 3,
+      "flags": [
+        "met_ziggy",
+        "merchant_open"
+      ]
+    }
+  },
+  {
+    "id": "ch3_ziggy",
+    "chapter": 3,
+    "giver": "ziggy",
+    "title": "A most remarkable cart",
+    "intro": [
+      "Ziggy Marlowe, purveyor of the rare, the wondrous and the very slightly questionable! At your service.",
+      "My cart rolls into Bramblewick every third day. Seeds from beyond the mountains, gold from who-knows-where. Have a browse in Town. Buy just one thing and we're friends for life."
+    ],
+    "outro": [
+      "A customer of taste! I knew it the moment I saw your boots.",
+      "Do you know a Dr. Quill? Botanist. Terribly clever. She's been asking about Tobias's old seed collection..."
+    ],
+    "objectives": [
+      {
+        "type": "merchant_buy",
+        "n": 1
+      }
+    ],
+    "rewards": {
+      "xp": 40,
+      "mail": [
+        {
+          "id": "tobias_3",
+          "delay": "next_day"
+        }
+      ]
+    }
   }
 ]
