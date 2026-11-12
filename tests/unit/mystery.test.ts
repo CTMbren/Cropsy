@@ -83,3 +83,27 @@ describe('Mystery seeds from Ziggy', () => {
     expect(counts.rainbow_rose).toBeLessThan(counts.moonpetal);
   });
 });
+
+describe('a cart visit that started before mystery seeds', () => {
+  it('gets the mystery seed added, without moving the other slots or what was bought', async () => {
+    const { syncMerchant } = await import('../../src/core/merchant');
+    const s = newFarm(T0);
+    s.level = 12;
+    s.coins = 10_000;
+    setFlag(s, 'merchant_open');
+    const day = [...Array(10).keys()].find((d) => merchantHere(content, d, s))!;
+    syncMerchant(s, content, day);
+    // simulate an old save: four slots, the first already bought
+    s.merchant!.stock = s.merchant!.stock!.slice(0, 4);
+    s.merchant!.bought = [0];
+    const old = JSON.stringify(s.merchant!.stock);
+    syncMerchant(s, content, day);
+    expect(JSON.stringify(s.merchant!.stock.slice(0, 4))).toBe(old);
+    expect(s.merchant!.stock[4]).toMatchObject({ id: MYSTERY_SEED });
+    expect(s.merchant!.bought).toEqual([0]);
+    expect(buyFromMerchant(s, content, 4, day).ok).toBe(true);
+    expect(s.inventory[MYSTERY_SEED]).toBe(1);
+    syncMerchant(s, content, day);
+    expect(s.merchant!.stock).toHaveLength(5);
+  });
+});
