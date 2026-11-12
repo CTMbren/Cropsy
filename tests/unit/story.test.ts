@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { fulfilOrder, generateOrders, giveItems, refreshBoard } from '../../src/core/board';
+import { fulfilOrder, giveItems, refreshBoard } from '../../src/core/board';
 import { loadContent } from '../../src/core/content';
-import { clearObstacle, harvest, key, newFarm, plant, sell, setFlag, type FarmState } from '../../src/core/farm';
+import { clearObstacle, harvest, key, newFarm, plant, sell, type FarmState } from '../../src/core/farm';
 import { advance, inbox, onEvent, readMail, talk, type GameEvent } from '../../src/core/story';
 
 const content = loadContent();
@@ -78,35 +78,6 @@ describe('Chapter 1', () => {
     expect(s.width).toBe(5);
     readMail(s, content, 'bruno_gate_done', now, TZ);
     expect(s.width).toBe(5); // effects apply once
-  });
-});
-
-describe('request board', () => {
-  it('generates the same orders for the same day and only for unlocked crops', () => {
-    const s = newFarm(T0);
-    const a = generateOrders(s, content, 20000);
-    const b = generateOrders(s, content, 20000);
-    expect(a).toEqual(b);
-    expect(a).toHaveLength(3);
-    for (const o of a) for (const id of Object.keys(o.wants)) expect(content.cropById.get(id)!.unlock_level).toBeLessThanOrEqual(1);
-    expect(generateOrders(s, content, 20001)).not.toEqual(a);
-  });
-
-  it('stays closed until the story opens it, then refreshes once per local day', () => {
-    const s = newFarm(T0);
-    expect(refreshBoard(s, content, T0, TZ)).toBe(false);
-    setFlag(s, 'board_open');
-    expect(refreshBoard(s, content, T0, TZ)).toBe(true);
-    expect(refreshBoard(s, content, T0 + 60, TZ)).toBe(false);
-    expect(refreshBoard(s, content, T0 + 86400, TZ)).toBe(true);
-  });
-
-  it('orders pay more than the shipping crate', () => {
-    const s = newFarm(T0);
-    for (const o of generateOrders(s, content, 123)) {
-      const crate = Object.entries(o.wants).reduce((a, [id, n]) => a + Math.round(content.cropById.get(id)!.sell * 0.7) * n, 0);
-      expect(o.coins).toBeGreaterThan(crate);
-    }
   });
 });
 

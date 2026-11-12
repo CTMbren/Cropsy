@@ -36,7 +36,10 @@ his homecoming:
   warms up as you get closer; a perk from each at 5 hearts
 - Soil upgrades (faster growth, bonus crops) and fertilizer (doubles a harvest)
 - A barn that never blocks a harvest: when it's full, extra crops ship automatically
-- Ribbons from level-ups, first harvests, some orders and the story; never sold for money
+- A request board: every villager you've met posts a request every 2 hours (up to 5, time away
+  counts, nothing expires, pass any for free), in Easy and Medium, plus one gold Daily Special from
+  level 6, handed in a line at a time; written Specials give keepsakes
+- Ribbons from level-ups, first harvests, Daily Specials and the story; never sold for money
 - Gentle synthesized background music and sound effects, each with its own toggle
 
 - First impressions: a loading screen, a hint bubble that guides the first few minutes, a backup-code

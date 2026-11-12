@@ -531,3 +531,29 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .text-input { flex: 1; min-width: 0; min-height: 40px; padding: 4px 10px; font: inherit; border: 2.5px solid var(--ink); border-radius: 12px; background: #fff; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .seed.mystery { background: linear-gradient(#fff, #efe4ff); }
+
+/* Request board tiers */
+.order.tier-easy { border-left: 8px solid #5cb83a; }
+.order.tier-medium { border-left: 8px solid #2f7fc4; }
+.order.tier-special { align-items: flex-start; background: linear-gradient(#fff8dc, #fff1b8); border-color: var(--gold-dark); box-shadow: 0 0 0 3px var(--gold) inset; }
+.chip.tier { margin-left: 6px; }
+.chip.tier.easy { background: #3b8f26; }
+.chip.tier.medium { background: #2f7fc4; }
+.chip.tier.special { background: var(--gold-dark); }
+.order-note { font-size: 13px; font-style: italic; color: #5a4a3a; }
+.order-from { color: #7a5a1a; }
+.order-actions { display: grid; gap: 6px; }
+.btn.small.pass { min-height: 30px; padding: 2px 10px; font-size: 12px; background: #f2ece0; box-shadow: 0 2px 0 var(--ink); }
+.special-lines .btn.small { min-height: 32px; padding: 2px 12px; }
+.order-reward { flex-wrap: wrap; }
+.order-reward .nowrap { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.order-bonus { color: #7a5a1a; font-weight: 600; }
+.special-lines { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.special-lines li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.special-lines .line-done { opacity: 0.75; }
+.special-lines .have { color: var(--green-dark); }
+.special-lines .need { color: #b0262f; }
+.board-status { margin: 0 0 8px; }
+.keepsakes { margin-top: 12px; }
+.keepsakes summary { font-family: 'Lilita One', system-ui; font-size: 16px; cursor: pointer; padding: 6px 0; }
+.keepsake { display: flex; gap: 10px; align-items: flex-start; padding: 8px; background: #fff; border: 2px solid var(--ink); border-radius: 12px; }

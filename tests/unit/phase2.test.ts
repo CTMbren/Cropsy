@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateOrders, giveItems } from '../../src/core/board';
+import { generateOrder, giveItems } from '../../src/core/board';
 import { loadContent } from '../../src/core/content';
 import { clearObstacle, expand, key, newFarm, setFlag, spawnObstacles } from '../../src/core/farm';
 import { buyBuilding, collect, grantBuilding, queueView, startRecipe, upgradeSlots } from '../../src/core/processing';
@@ -140,13 +140,14 @@ describe('orders with goods', () => {
   it('ask for goods only once you can make them, and only from villagers you have met', () => {
     const s = newFarm(T0);
     s.level = 10;
-    const before = Array.from({ length: 40 }, (_, d) => generateOrders(s, content, d)).flat();
-    expect(before.every((o) => Object.keys(o.wants).every((id) => content.cropById.has(id)))).toBe(true);
+    const before = Array.from({ length: 120 }, (_, t) => generateOrder(s, content, t, 0)!);
+    // honey comes from the meadow visitors, not a building
+    expect(before.every((o) => Object.keys(o.wants).every((id) => content.cropById.has(id) || id === 'honey'))).toBe(true);
     expect(before.every((o) => o.villager === 'goldie')).toBe(true);
     grantBuilding(s, content, 'mill');
     setFlag(s, 'mill_built');
     setFlag(s, 'met_bruno');
-    const after = Array.from({ length: 40 }, (_, d) => generateOrders(s, content, d)).flat();
+    const after = Array.from({ length: 120 }, (_, t) => generateOrder(s, content, t, 0)!);
     expect(after.some((o) => o.wants.flour)).toBe(true);
     expect(after.some((o) => o.villager === 'bruno')).toBe(true);
   });

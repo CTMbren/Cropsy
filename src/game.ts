@@ -1,4 +1,4 @@
-import { fulfilOrder, refreshBoard } from './core/board';
+import { fulfilOrder, handInLine, passOrder, refreshBoard, type FulfilResult } from './core/board';
 import { loadContent, type Content } from './core/content';
 import {
   awaySummary,
@@ -50,6 +50,7 @@ export type FxEvent =
   | { kind: 'clear'; key: string; obstacle: string; item: string | null; qty: number; gold: boolean }
   | { kind: 'coins'; amount: number }
   | { kind: 'ribbon'; amount: number; why: string }
+  | { kind: 'keepsake'; villager: string; name: string }
   | { kind: 'heart'; villager: string; hearts: number; perk?: string }
   | { kind: 'gift'; villager: string; taste: string }
   | { kind: 'shipped'; n: number; coins: number }
@@ -168,7 +169,9 @@ export class Game {
       syncCritters(this.state, this.content, this.now());
       const bites = syncBites(this.state, this.content, this.now());
       const cleared = this.state.clearing && this.now() >= this.state.clearing.endsAt;
-      if (cleared || bites || JSON.stringify(this.state.critters?.out ?? []) !== before) this.changed();
+      // a new request goes up on the board every couple of hours, while you play too
+      const posted = refreshBoard(this.state, this.content, this.now(), this.tz());
+      if (posted || cleared || bites || JSON.stringify(this.state.critters?.out ?? []) !== before) this.changed();
     }, 5000);
     this.emit();
   }
@@ -316,13 +319,38 @@ export class Game {
   fulfilOrder(id: string): boolean {
     const r = fulfilOrder(this.state, this.content, id);
     if (!r.ok) return false;
-    this.fx({ kind: 'coins', amount: r.order.coins });
+    this.orderPaid(r);
+    return true;
+  }
+
+  /** Hands in one line of the Daily Special; pays out when it's the last one. */
+  handInLine(orderId: string, itemId: string): boolean {
+    const r = handInLine(this.state, this.content, orderId, itemId);
+    if (!r.ok) return false;
+    log(this.state, this.now(), `special line ${orderId} ${itemId}`);
+    if (r.paid) this.orderPaid(r.paid);
+    else this.changed();
+    return true;
+  }
+
+  passOrder(id: string): boolean {
+    if (!passOrder(this.state, id)) return false;
+    log(this.state, this.now(), `order passed ${id}`);
+    this.changed();
+    return true;
+  }
+
+  private orderPaid(r: FulfilResult): void {
+    if (!r.ok) return;
+    const id = r.order.id;
+    this.fx({ kind: 'coins', amount: r.coins });
+    if (r.order.ribbons) this.fx({ kind: 'ribbon', amount: r.order.ribbons, why: r.order.title ?? 'Board order' });
+    if (r.keepsake) this.fx({ kind: 'keepsake', villager: r.order.villager, name: r.keepsake.name });
     this.levelUps(r.levelsGained);
     this.friendFx(r.friendship);
     log(this.state, this.now(), `order ${id}`);
     this.event({ type: 'order_done', id });
     this.changed();
-    return true;
   }
 
   day(): number {
