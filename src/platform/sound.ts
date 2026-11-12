@@ -2,10 +2,11 @@
  * Tiny synthesized sound effects (no audio files to download). iOS only lets Web Audio start after a
  * user gesture, so the context is created on the first tap. Web Audio follows the iPhone's silent switch.
  */
-type Sfx = 'plant' | 'harvest' | 'clear' | 'coin' | 'levelup' | 'quest' | 'ui' | 'denied' | 'mail';
+type Sfx = 'plant' | 'harvest' | 'clear' | 'coin' | 'levelup' | 'quest' | 'ui' | 'denied' | 'mail' | 'bite' | 'splash';
 
 let ctx: AudioContext | null = null;
 let muted = false;
+let volume = 1;
 let combo = 0;
 let comboTimer: number | undefined;
 
@@ -33,6 +34,11 @@ export function setMuted(m: boolean): void {
   muted = m;
 }
 
+/** 0–1 multiplier for every sound effect. */
+export function setSfxVolume(v: number): void {
+  volume = Math.max(0, Math.min(1, v));
+}
+
 function tone(freq: number, start: number, dur: number, type: OscillatorType = 'triangle', vol = 0.18, slideTo?: number): void {
   if (!ctx) return;
   const t = ctx.currentTime + start;
@@ -42,7 +48,7 @@ function tone(freq: number, start: number, dur: number, type: OscillatorType = '
   o.frequency.setValueAtTime(freq, t);
   if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol * volume), t + 0.01);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(g).connect(ctx.destination);
   o.start(t);
@@ -50,9 +56,17 @@ function tone(freq: number, start: number, dur: number, type: OscillatorType = '
 }
 
 export function play(s: Sfx): void {
-  if (muted || !ctx || ctx.state !== 'running') return;
+  if (muted || volume <= 0 || !ctx || ctx.state !== 'running') return;
   const jitter = 1 + (Math.random() - 0.5) * 0.08;
   switch (s) {
+    case 'bite':
+      // the bobber dips: a quick double plip you can hear without looking
+      tone(880, 0, 0.07, 'sine', 0.3, 1320);
+      tone(990, 0.09, 0.08, 'sine', 0.3, 1480);
+      return;
+    case 'splash':
+      tone(300, 0, 0.18, 'triangle', 0.18, 90);
+      return;
     case 'plant':
       tone(220 * jitter, 0, 0.12, 'sine', 0.22, 140);
       break;

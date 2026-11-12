@@ -194,7 +194,7 @@ export class FarmScene extends Phaser.Scene {
     this.critterLayer = this.add.container(0, 0);
     this.world.add([this.ground, this.structLayer, this.soilLayer, this.coachG, this.plotLayer, this.decoG, this.decorLayer, this.critterLayer, this.highlight]);
     const c = this.game_.content;
-    this.fxLayer = new FxLayer(this, [...c.crops.map((x) => x.name)].join(''));
+    this.fxLayer = new FxLayer(this, [...c.crops.map((x) => x.name)].join(''), () => this.game_.reducedMotion());
     this.world.add(this.fxLayer.root);
     if (this.registry.get('debug')) (window as unknown as { cropsyFx: FxLayer }).cropsyFx = this.fxLayer;
     this.buildStructures();
@@ -262,7 +262,7 @@ export class FarmScene extends Phaser.Scene {
       }
       if (e.kind === 'expand') {
         this.layout();
-        this.cameras.main.shake(250, 0.004);
+        if (!this.game_.reducedMotion()) this.cameras.main.shake(250, 0.004);
       }
       if (e.kind === 'denied') {
         const msg: Record<string, string> = {
@@ -317,9 +317,12 @@ export class FarmScene extends Phaser.Scene {
         this.perf.redrawMax = Math.max(this.perf.redrawMax, ms);
       }
     }
-    this.animatePlots(t);
-    this.animateStructures(t);
-    this.animateCritters(t);
+    // Reduced motion and battery saver hold idle animation (sway, wheels, critters' bob) still.
+    const still = this.game_.reducedMotion() || !!this.game_.state.settings.batterySaver;
+    const at = still ? 0 : t;
+    this.animatePlots(at);
+    this.animateStructures(at);
+    this.animateCritters(at);
     if (this.perfText) this.updatePerf(t, dt);
   }
 
@@ -1161,7 +1164,7 @@ export class FarmScene extends Phaser.Scene {
     const [x, y] = parseKey(k);
     const { sx, sy } = cellToScreen(x, y);
     this.fxLayer.combo(sx, sy, n);
-    if (n >= 8) this.cameras.main.shake(120, 0.002);
+    if (n >= 8 && !this.game_.reducedMotion()) this.cameras.main.shake(120, 0.002);
   }
 
   private popText(k: string, text: string, color: string): void {
@@ -1298,6 +1301,14 @@ export class FarmScene extends Phaser.Scene {
     } else if (this.dragMode === 'act') {
       if (Phaser.Math.Distance.Between(q.x, q.y, this.downAt.x, this.downAt.y) < TAP_SLOP) return;
       this.moved = true;
+      if (this.game_.state.settings.dragActions === false) {
+        // drag planting is off: a moving finger just pans
+        this.dragMode = 'pan';
+        this.pendingKey = null;
+        this.infoKey = null;
+        this.lastPan = { x: q.x, y: q.y };
+        return;
+      }
       const k = this.plotAt(p);
       if (!k || k === this.pendingKey || this.actedKeys.has(k)) return;
       this.infoKey = null;

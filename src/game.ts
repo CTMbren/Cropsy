@@ -53,6 +53,7 @@ export type FxEvent =
   | { kind: 'gift'; villager: string; taste: string }
   | { kind: 'shipped'; n: number; coins: number }
   | { kind: 'barn-nearly'; used: number; cap: number }
+  | { kind: 'bite' }
   | { kind: 'collect'; building: string; items: Record<string, number> }
   | { kind: 'levelup'; level: number }
   | { kind: 'quest'; title: string; done: boolean }
@@ -95,6 +96,15 @@ export class Game {
   private fxListeners = new Set<(e: FxEvent) => void>();
   private screenListeners = new Set<(e: ScreenFx) => void>();
   private saveTimer: number | undefined;
+
+  /** A sheet or card covers the farm, so it doesn't need drawing (battery). Set by the UI. */
+  uiCovered = false;
+
+  setCovered(covered: boolean): void {
+    if (this.uiCovered === covered) return;
+    this.uiCovered = covered;
+    this.emit();
+  }
 
   /** A finger is down on the farm (cards wait until it lifts). Set by the farm scene. */
   gestureActive = false;
@@ -499,6 +509,11 @@ export class Game {
     return rollFish(this.state, this.now(), this.tz(), Math.random());
   }
 
+  /** The bobber dipped: a sound cue (iPhone has no vibration for web apps). */
+  fishBite(): void {
+    this.fx({ kind: 'bite' });
+  }
+
   /** Reeled in on time: the fish goes to the barn and the Creek Journal. */
   catchFish(fishId: string): CatchResult {
     const r = catchFish(this.state, this.content, fishId, this.now());
@@ -677,6 +692,38 @@ export class Game {
   setTextScale(scale: number): void {
     this.state.settings.textScale = scale;
     this.changed();
+  }
+
+  /** Any player setting; the UI, audio and farm scene pick it up on the next change. */
+  setSetting<K extends keyof FarmState['settings']>(k: K, v: FarmState['settings'][K]): void {
+    this.state.settings[k] = v;
+    this.changed();
+  }
+
+  /** Reduced motion: the player's choice, or the iPhone's own setting. */
+  reducedMotion(): boolean {
+    const m = this.state.settings.motion ?? 'system';
+    if (m !== 'system') return m === 'reduced';
+    return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  /** Harvests every ripe plot (for VoiceOver, where the farm canvas can't be explored). */
+  harvestAllRipe(): number {
+    const now = this.now();
+    let n = 0;
+    for (const k of Object.keys(this.state.plots)) {
+      const p = this.state.plots[k];
+      if (this.state.obstacles[k] || !p.crop || stageOf(p, now) !== 'ripe') continue;
+      const r = this.tapPlot(k, true);
+      if (r?.ok) n++;
+      else if (!r) break; // barn full: the card explains
+    }
+    return n;
+  }
+
+  /** Sends the farm camera back to its fitted view. */
+  resetCamera(): void {
+    this.screenFx({ kind: 'reset-camera' });
   }
 
   setMuted(muted: boolean): void {
