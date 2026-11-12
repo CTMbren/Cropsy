@@ -18,6 +18,8 @@ import {
   replantAll,
   sell,
   stageOf,
+  barnCapacity,
+  barnUsed,
   type ActionResult,
   type AwaySummary,
   type FarmState,
@@ -35,7 +37,8 @@ import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merch
 import { buyBarn, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
 import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, restoreQuestFlags, ensureQuestMail, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
 import { dayIndex, gameNow, localOffsetMinutes, systemNow } from './core/time';
-import { loadSave, requestPersistence, writeSave } from './platform/storage';
+import { dailyBackup, loadSave, readBackup, requestPersistence, unblockSaves, writeBackup, writeSave } from './platform/storage';
+import { recordError } from './platform/errors';
 
 type Listener = () => void;
 export type FxEvent =
@@ -49,6 +52,7 @@ export type FxEvent =
   | { kind: 'heart'; villager: string; hearts: number; perk?: string }
   | { kind: 'gift'; villager: string; taste: string }
   | { kind: 'shipped'; n: number; coins: number }
+  | { kind: 'barn-nearly'; used: number; cap: number }
   | { kind: 'collect'; building: string; items: Record<string, number> }
   | { kind: 'levelup'; level: number }
   | { kind: 'quest'; title: string; done: boolean }
@@ -66,7 +70,10 @@ export type FxEvent =
   | { kind: 'ui' };
 
 /** Screen-space effects the farm scene asks the HUD to draw (e.g. coins flying to the coin pill). */
-export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number } | { kind: 'open-building'; id: string } | { kind: 'open-crop'; key: string } | { kind: 'open-land'; cell: string } | { kind: 'pick-seed'; key: string };
+export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number } | { kind: 'open-building'; id: string } | { kind: 'open-crop'; key: string } | { kind: 'open-land'; cell: string } | { kind: 'pick-seed'; key: string }
+  | { kind: 'confirm-soil'; key: string; tier: number; name: string; coins: number; items: Record<string, number> }
+  | { kind: 'barn-full' }
+  | { kind: 'gesture-end' };
 
 /**
  * The single owner of game state. Phaser (the farm) and Preact (the HUD) both read from it and
@@ -87,11 +94,31 @@ export class Game {
   private screenListeners = new Set<(e: ScreenFx) => void>();
   private saveTimer: number | undefined;
 
+  /** A finger is down on the farm (cards wait until it lifts). Set by the farm scene. */
+  gestureActive = false;
+  /** The player chose to let extra crops ship while the barn is full. Cleared once there's space again. */
+  shipWhenFull = false;
+  private barnWarned = false;
+
+  /** The farm scene's finger lifted: anything held back (level-up cards…) can show now. */
+  gestureEnded(): void {
+    this.gestureActive = false;
+    this.screenFx({ kind: 'gesture-end' });
+  }
+
+  /** Why the saved farm couldn't be loaded. While set, nothing is saved, so the real farm stays safe. */
+  loadError: string | null = null;
+
   async init(): Promise<void> {
     try {
       const loaded = await loadSave();
-      if (loaded) this.state = loaded;
+      if (loaded) {
+        this.state = loaded;
+        void dailyBackup(loaded).catch((e) => recordError(`daily backup: ${(e as Error).message}`, 'storage'));
+      }
     } catch (e) {
+      this.loadError = (e as Error).message || String(e);
+      recordError(`Could not load save: ${this.loadError}`, 'game.init');
       console.error('Could not load save', e);
     }
     const now = this.now();
@@ -167,13 +194,13 @@ export class Game {
     const plot = this.state.plots[key];
     if (!plot || this.mode === 'decorate') return null;
     const now = this.now();
-    if (this.mode === 'soil') {
-      const r = upgradeSoil(this.state, this.content, key);
-      if (r.ok) {
-        this.fx({ kind: 'soil', key, tier: r.tier });
-        log(this.state, now, `soil ${key} ${r.tier}`);
-        this.changed();
-      } else this.fx({ kind: 'denied', key, reason: r.reason });
+    // Soil mode never touches ripe crops or obstacles (they harvest / clear as usual), never works
+    // by dragging, and always asks before spending coins.
+    if (this.mode === 'soil' && !this.state.obstacles[key] && stageOf(plot, now) !== 'ripe') {
+      if (drag) return null;
+      const next = this.content.economy.soil[(plot.soil ?? 0) + 1];
+      if (!next) this.fx({ kind: 'denied', key, reason: 'max' });
+      else this.screenFx({ kind: 'confirm-soil', key, tier: next.tier, name: next.name, coins: next.coins ?? 0, items: next.items ?? {} });
       return null;
     }
     if (this.mode === 'fertilize' && plot.crop && stageOf(plot, now) !== 'ripe') {
@@ -187,7 +214,17 @@ export class Game {
     }
     let r: ActionResult | null = null;
     if (this.state.obstacles[key]) r = clearObstacle(this.state, key);
-    else if (stageOf(plot, now) === 'ripe') r = harvest(this.state, this.content, key, now);
+    else if (stageOf(plot, now) === 'ripe') {
+      const space = barnCapacity(this.state, this.content) - barnUsed(this.state, this.content);
+      if (space > 0) this.shipWhenFull = false;
+      else if (!this.shipWhenFull) {
+        // full barn: leave the crop in the field and ask, instead of selling it behind the player's back
+        this.fx({ kind: 'denied', key, reason: 'barn-full' });
+        this.screenFx({ kind: 'barn-full' });
+        return null;
+      }
+      r = harvest(this.state, this.content, key, now);
+    }
     else if (!plot.crop) {
       if (!this.selectedCrop) {
         if (!drag && this.mode === 'plant') this.screenFx({ kind: 'pick-seed', key });
@@ -213,6 +250,7 @@ export class Game {
       if (r.firstTime) this.fx({ kind: 'ribbon', amount: 1, why: `First ${r.crop.name} harvest!` });
       if (r.star) this.fx({ kind: 'star', crop: r.crop.name, id: r.crop.id, stars: r.star });
       if (r.shipped) this.fx({ kind: 'shipped', n: r.shipped, coins: r.tip });
+      this.checkBarn();
       this.levelUps(r.levelsGained);
       this.event({ type: 'harvest', crop: r.crop.id });
       log(this.state, now, `harvest ${r.crop.id}${r.fresh ? ' fresh' : ''}`);
@@ -330,6 +368,8 @@ export class Game {
       log(this.state, this.now(), `collect ${buildingId} ${n}`);
       this.changed();
     }
+    if (r.leftForSpace) this.screenFx({ kind: 'barn-full' });
+    else this.checkBarn();
     return n;
   }
 
@@ -536,6 +576,28 @@ export class Game {
     return r;
   }
 
+  /** A one-time heads-up each time the barn passes 90% full. */
+  private checkBarn(): void {
+    const cap = barnCapacity(this.state, this.content);
+    const used = barnUsed(this.state, this.content);
+    if (used < cap * 0.9) this.barnWarned = false;
+    else if (!this.barnWarned && used < cap) {
+      this.barnWarned = true;
+      this.fx({ kind: 'barn-nearly', used, cap });
+    }
+  }
+
+  /** Confirmed from the soil card: upgrade one plot, then go back to planting. */
+  confirmSoil(key: string): void {
+    const r = upgradeSoil(this.state, this.content, key);
+    if (r.ok) {
+      this.fx({ kind: 'soil', key, tier: r.tier });
+      log(this.state, this.now(), `soil ${key} ${r.tier}`);
+    } else this.fx({ kind: 'denied', key, reason: r.reason });
+    this.mode = 'plant';
+    this.changed();
+  }
+
   /** From the seed picker: arm the seed and plant the plot that was tapped. */
   plantPicked(key: string, cropId: string): void {
     this.selectedCrop = cropId;
@@ -627,7 +689,11 @@ export class Game {
     this.changed();
   }
 
-  replaceState(s: FarmState): void {
+  /** Replaces the farm (Restore). The current farm is kept in a backup slot first. */
+  async replaceState(s: FarmState): Promise<void> {
+    if (!this.loadError) await writeBackup('beforeRestore', this.state).catch((e) => recordError(`backup: ${(e as Error).message}`, 'restore'));
+    this.loadError = null;
+    unblockSaves();
     this.state = s;
     this.applyStory(advance(this.state, this.content, this.now(), this.tz()));
     this.changed();
@@ -636,7 +702,19 @@ export class Game {
   saveNow(): void {
     window.clearTimeout(this.saveTimer);
     if (!this.away) this.state.lastSeen = this.now();
-    void writeSave(this.state);
+    writeSave(this.state).catch((e) => recordError(`Could not save: ${(e as Error).message}`, 'writeSave'));
+  }
+
+  /** After a failed load: give up on the old save and start fresh (the raw data was offered for copying first). */
+  startOverAfterLoadError(): void {
+    this.loadError = null;
+    unblockSaves();
+    this.changed();
+  }
+
+  /** A farm from a backup slot, for "Restore yesterday's farm". */
+  readBackup(which: 'daily' | 'beforeRestore') {
+    return readBackup(which);
   }
 
   private event(e: GameEvent): void {

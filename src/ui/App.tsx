@@ -1,9 +1,11 @@
+import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DAILY_ORDERS } from '../core/board';
 import { itemName, itemValue, shortName, type Content, type VillagerDef } from '../core/content';
-import { barnCapacity, barnUsed, cratePrice, hasFlag, hasItems, lifetimeHarvests, MASTERY_STEP, masteryLevel, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
+import { barnCapacity, barnUsed, cratePrice, hasFlag, type FarmState, hasItems, lifetimeHarvests, MASTERY_STEP, masteryLevel, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
 import { xpToNext } from '../core/progression';
 import { fromSaveCode, toSaveCode } from '../core/save';
+import { rawSaveDump } from '../platform/storage';
 import { canGiftToday, chatter, friends, heartProgress, hearts, pendingEvents, seenEvents, taste } from '../core/friendship';
 import { buildingPrice, canAffordBuilding, queueView, readyCount, slotUpgradeCost } from '../core/processing';
 import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, priceFactor, toolPrice } from '../core/shop';
@@ -18,7 +20,7 @@ import { CritterIcon } from './critterIcons';
 import { biteCap, FISH, FISH_PAGE_TITLES, FISH_PAGES, fishingOpen, nextBiteIn, type CatchResult, type FishDef } from '../core/fishing';
 import { formatDuration } from '../core/time';
 import { clearErrors, recentErrors } from '../platform/errors';
-import type { Game } from '../game';
+import type { Game, ScreenFx } from '../game';
 import { lastSavedAt } from '../platform/storage';
 import { ItemIcon } from './itemArt';
 import { Portrait, type Mood } from './portraits';
@@ -57,7 +59,15 @@ type Flyer = { id: number; x: number; y: number; go: boolean };
 export function App({ game, updateReady, onUpdate, debug }: { game: Game; updateReady: boolean; onUpdate: () => void; debug: boolean }) {
   const now = useGame(game);
   const s = game.state;
-  const [toast, setToast] = useState<string | null>(null);
+  // toasts queue up (one at a time) so a quick second message never wipes the first
+  const [toasts, setToasts] = useState<string[]>([]);
+  const toast = toasts[0] ?? null;
+  const setToast = (t: string | null) => {
+    if (t) setToasts((q) => (q.includes(t) ? q : [...q, t].slice(-4)));
+  };
+  // cards that pop up mid-drag wait until the finger lifts
+  const held = useRef<(() => void)[]>([]);
+  const whenIdle = (fn: () => void) => (game.gestureActive ? held.current.push(fn) : fn());
   const [sheet, setSheet] = useState<Sheet>(null);
   const [dialogue, setDialogue] = useState<Dialogue | null>(null);
   const [installHint, setInstallHint] = useState(false);
@@ -65,6 +75,8 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
   const [coinBump, setCoinBump] = useState(0);
   const [levelCard, setLevelCard] = useState<number | null>(null);
   const [seedPick, setSeedPick] = useState<string | null>(null);
+  const [barnFull, setBarnFull] = useState(false);
+  const [soilAsk, setSoilAsk] = useState<Extract<ScreenFx, { kind: 'confirm-soil' }> | null>(null);
   const [masteryCard, setMasteryCard] = useState<string | null>(null);
   const [chapterCard, setChapterCard] = useState<number | null>(null);
   const [cropInfo, setCropInfo] = useState<string | null>(null);
@@ -87,9 +99,10 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
 
   useEffect(() => {
     const offFx = game.onFx((e) => {
-      if (e.kind === 'levelup') setLevelCard(e.level);
-      if (e.kind === 'chapter') setChapterCard(e.n);
-      if (e.kind === 'star') setMasteryCard(e.id);
+      if (e.kind === 'levelup') whenIdle(() => setLevelCard(e.level));
+      if (e.kind === 'chapter') whenIdle(() => setChapterCard(e.n));
+      if (e.kind === 'star') whenIdle(() => setMasteryCard(e.id));
+      if (e.kind === 'barn-nearly') setToast(`Barn almost full: ${e.used}/${e.cap}. Sell some crops soon.`);
       if (e.kind === 'critter' && e.result.pageDone) setToast(`Sketchbook page ${e.result.pageDone} complete! +1 Ribbon`);
       else if (e.kind === 'critter' && e.result.firstTime) setToast(`Sketched the ${e.result.species.name}! See it in Town → Sketchbook`);
       if (e.kind === 'moss') setToast('coins' in e.find ? `Moss dug up ${e.find.coins} coins!` : `Moss dug up ${e.find.qty} ${itemName(game.content, e.find.item).toLowerCase()}!`);
@@ -117,6 +130,13 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       if (e.kind === 'open-crop') setCropInfo(e.key);
       if (e.kind === 'open-land') setLandCell(e.cell);
       if (e.kind === 'pick-seed') setSeedPick(e.key);
+      if (e.kind === 'confirm-soil') setSoilAsk(e);
+      if (e.kind === 'barn-full') whenIdle(() => setBarnFull(true));
+      if (e.kind === 'gesture-end') {
+        const fns = held.current;
+        held.current = [];
+        for (const fn of fns) fn();
+      }
     });
     return () => {
       offFx();
@@ -126,7 +146,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
 
   useEffect(() => {
     if (!toast) return;
-    const id = window.setTimeout(() => setToast(null), 2600);
+    const id = window.setTimeout(() => setToasts((q) => q.slice(1)), toasts.length > 1 ? 1800 : 2600);
     return () => window.clearTimeout(id);
   }, [toast]);
 
@@ -248,12 +268,37 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         </div>
       )}
 
-      {coach && !seedPick && !masteryCard && (
+      {coach && !seedPick && !masteryCard && game.mode !== 'soil' && game.mode !== 'fertilize' && (
         <div class={`coach coach-${coach.target}`} role="status">
           {coach.text}
         </div>
       )}
 
+      {(game.mode === 'soil' || game.mode === 'fertilize') && (
+        <div class="mode-banner" role="status">
+          <Icon name={game.mode === 'soil' ? 'soil' : 'fertilizer'} size={22} />
+          <span>{game.mode === 'soil' ? 'Soil mode: tap a plot to upgrade it' : 'Fertilize: tap a growing crop'}</span>
+          <button class="btn small" onClick={() => game.setMode('plant')}>
+            Done
+          </button>
+        </div>
+      )}
+      {soilAsk && (
+        <ConfirmCard
+          title={`Upgrade to ${soilAsk.name}?`}
+          yes={`Spend ${soilAsk.coins.toLocaleString()} coins`}
+          onNo={() => setSoilAsk(null)}
+          onYes={() => {
+            game.confirmSoil(soilAsk.key);
+            setSoilAsk(null);
+          }}
+        >
+          <p>
+            This plot's soil becomes <b>{soilAsk.name}</b> for good. You have {s.coins.toLocaleString()} coins
+            {Object.keys(soilAsk.items).length ? `, and it also uses ${Object.entries(soilAsk.items).map(([id, n]) => `${n} ${itemName(game.content, id).toLowerCase()}`).join(', ')}` : ''}.
+          </p>
+        </ConfirmCard>
+      )}
       {game.mode === 'decorate' ? (
         <section class="tray" aria-label="Decorations">
           <div class="deco-hint">Tap a spot by the field to place · tap a decoration to pick it up</div>
@@ -369,6 +414,33 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
 
       {landCell && <LandCard game={game} cell={landCell} now={now} onClose={() => setLandCell(null)} />}
       {cropInfo && <CropInfo game={game} plotKey={cropInfo} now={now} onClose={() => setCropInfo(null)} />}
+      {game.loadError && <LoadFailedCard game={game} />}
+      {barnFull && (
+        <ConfirmCard
+          title="Your barn is full!"
+          yes="Open the barn"
+          no="Not now"
+          onNo={() => setBarnFull(false)}
+          onYes={() => {
+            setBarnFull(false);
+            setSheet('barn');
+          }}
+        >
+          <p>
+            Your barn holds <b>{barnCapacity(s, game.content)}</b> items and it's full. Ripe crops are staying in the field so nothing gets sold by accident.
+          </p>
+          <p class="muted small">Sell or use some crops, or upgrade the barn. Or keep harvesting and let extras ship at crate price:</p>
+          <button
+            class="link-btn small"
+            onClick={() => {
+              game.shipWhenFull = true;
+              setBarnFull(false);
+            }}
+          >
+            Ship extras until I've made space
+          </button>
+        </ConfirmCard>
+      )}
       {seedPick && <SeedPicker game={game} plotKey={seedPick} onClose={() => setSeedPick(null)} />}
       {masteryCard && levelCard === null && <MasteryCard game={game} cropId={masteryCard} onClose={() => setMasteryCard(masteryToChoose(game.state).find((id) => id !== masteryCard) ?? null)} />}
       {levelCard !== null && <LevelCard content={game.content} level={levelCard} onClose={() => setLevelCard(null)} />}
@@ -747,9 +819,89 @@ function problemReport(game: Game): string {
   return lines.join('\n');
 }
 
+/** A yes/no card. The confirm button says what will happen; Cancel is always the safe choice. */
+export function ConfirmCard({ title, children, yes, no = 'Cancel', danger, onYes, onNo }: { title: string; children: ComponentChildren; yes: string; no?: string; danger?: boolean; onYes: () => void; onNo: () => void }) {
+  return (
+    <div class="modal-back confirm-back" onClick={onNo}>
+      <div class="card level-card confirm" role="alertdialog" aria-labelledby="confirm-title" onClick={(e) => e.stopPropagation()}>
+        <h2 id="confirm-title">{title}</h2>
+        {children}
+        <div class="row">
+          <button class="btn" onClick={onNo}>
+            {no}
+          </button>
+          <button class={`btn ${danger ? 'red' : 'green'}`} onClick={onYes}>
+            {yes}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** One line describing a farm, for comparing before a restore. */
+const farmLine = (f: FarmState) => `Level ${f.level} · ${f.coins.toLocaleString()} coins · ${Object.keys(f.plots).length} plots`;
+
+/** Shown instead of the game when a saved farm exists but couldn't be loaded. Nothing is saved meanwhile. */
+function LoadFailedCard({ game }: { game: Game }) {
+  const [msg, setMsg] = useState('');
+  const [daily, setDaily] = useState<{ state: FarmState; savedAt: number } | null>(null);
+  const [sure, setSure] = useState(false);
+  useEffect(() => {
+    void game.readBackup('daily').then(setDaily);
+  }, []);
+  return (
+    <div class="modal-back">
+      <div class="card level-card" role="alertdialog" aria-labelledby="lf-title">
+        <h2 id="lf-title">Your farm didn't load</h2>
+        <p>Something went wrong reading your saved farm. It's still on this phone, and the game won't save over it.</p>
+        <p class="muted small">Reason: {game.loadError}</p>
+        <div class="col">
+          <button class="btn green" onClick={() => location.reload()}>
+            Try again
+          </button>
+          <button
+            class="btn"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(await rawSaveDump());
+                setMsg('Copied. Send it to the developer and they can rescue your farm.');
+              } catch {
+                setMsg("Couldn't copy. Use Copy problem report in Settings instead.");
+              }
+            }}
+          >
+            Copy saved farm data
+          </button>
+          {daily && (
+            <button class="btn" onClick={() => void game.replaceState(daily.state)}>
+              Restore farm from {new Date(daily.savedAt).toLocaleDateString()} ({farmLine(daily.state)})
+            </button>
+          )}
+          {sure ? (
+            <button class="btn red" onClick={() => game.startOverAfterLoadError()}>
+              Yes, start a brand-new farm
+            </button>
+          ) : (
+            <button class="link-btn small" onClick={() => setSure(true)}>
+              Start a new farm instead…
+            </button>
+          )}
+        </div>
+        {msg && (
+          <p class="muted small" role="status">
+            {msg}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; debug: boolean }) {
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState('');
+  const [pending, setPending] = useState<{ state: FarmState; from: string } | null>(null);
   const saved = lastSavedAt();
   const s = game.state;
   return (
@@ -802,8 +954,7 @@ function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; d
           class="btn"
           onClick={() => {
             try {
-              game.replaceState(fromSaveCode(code));
-              setMsg('Farm restored.');
+              setPending({ state: fromSaveCode(code), from: 'this backup code' });
             } catch (e) {
               setMsg((e as Error).message);
             }
@@ -812,6 +963,49 @@ function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; d
           Restore
         </button>
       </div>
+      <div class="row">
+        <button
+          class="btn small"
+          onClick={async () => {
+            const b = await game.readBackup('daily');
+            if (b) setPending({ state: b.state, from: `the daily backup from ${new Date(b.savedAt).toLocaleString()}` });
+            else setMsg('No daily backup yet. One is kept each day you play.');
+          }}
+        >
+          Restore yesterday's farm
+        </button>
+        <button
+          class="btn small"
+          onClick={async () => {
+            const b = await game.readBackup('beforeRestore');
+            if (b) setPending({ state: b.state, from: `the farm you had before your last restore (${new Date(b.savedAt).toLocaleString()})` });
+            else setMsg("Nothing to undo: you haven't restored a farm yet.");
+          }}
+        >
+          Undo last restore
+        </button>
+      </div>
+      {pending && (
+        <ConfirmCard
+          title="Replace your farm?"
+          yes="Replace my farm"
+          danger
+          onNo={() => setPending(null)}
+          onYes={async () => {
+            await game.replaceState(pending.state);
+            setPending(null);
+            setMsg('Farm restored. Your previous farm is kept: use Undo last restore to get it back.');
+          }}
+        >
+          <p>
+            Your farm now: <b>{farmLine(game.state)}</b>
+          </p>
+          <p>
+            From {pending.from}: <b>{farmLine(pending.state)}</b>
+          </p>
+          <p class="muted small">Your current farm is kept, so you can undo this.</p>
+        </ConfirmCard>
+      )}
       {msg && (
         <p class="muted" role="status">
           {msg}
