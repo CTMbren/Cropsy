@@ -12,7 +12,8 @@ const version = `${new Date().toISOString().slice(0, 10)}${process.env.GITHUB_SH
 // and on a custom domain later.
 export default defineConfig({
   base: './',
-  define: { __APP_VERSION__: JSON.stringify(version) },
+  // version plus the commit it was built from, so Settings shows exactly which build a phone is running
+  define: { __APP_VERSION__: JSON.stringify(process.env.GITHUB_SHA ? `${version} (${process.env.GITHUB_SHA.slice(0, 7)})` : version) },
   plugins: [
     preact(),
     VitePWA({

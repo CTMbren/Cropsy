@@ -65,3 +65,15 @@ describe('quests never ask for obstacles the farm does not have', () => {
     expect(ensureQuestMaterials(s, content)).toEqual([]);
   });
 });
+
+describe('finished quests keep their unlocks', () => {
+  it('re-grants a missing unlock flag (e.g. the Almanac) and leaves good saves alone', async () => {
+    const { restoreQuestFlags } = await import('../../src/core/story');
+    const s = newFarm(T0);
+    s.story.done = content.quests.filter((q) => q.chapter <= 3 || q.id === 'ch4_letter').map((q) => q.id);
+    expect(s.flags).not.toContain('almanac_open');
+    expect(restoreQuestFlags(s, content)).toEqual(expect.arrayContaining(['almanac_open', 'met_hazel']));
+    expect(s.flags).toContain('almanac_open');
+    expect(restoreQuestFlags(s, content)).toEqual([]);
+  });
+});

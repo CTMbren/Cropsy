@@ -53,6 +53,22 @@ export interface StoryOutcome {
   expanded?: boolean;
 }
 
+/**
+ * Re-grants the unlock flags of every finished quest (e.g. `almanac_open` from Tobias's letter).
+ * Flags are never taken away, so this only fixes saves that somehow missed one. Returns the flags it added.
+ */
+export function restoreQuestFlags(state: FarmState, content: Content): string[] {
+  const added: string[] = [];
+  for (const id of state.story.done) {
+    for (const f of content.questById.get(id)?.rewards.flags ?? []) {
+      if (hasFlag(state, f)) continue;
+      setFlag(state, f);
+      added.push(f);
+    }
+  }
+  return added;
+}
+
 /** Starts the next quest if none is active. Mail-given quests start immediately. */
 export function advance(state: FarmState, content: Content, now: number, offsetMin: number): StoryOutcome {
   const out: StoryOutcome = { levelsGained: 0 };
