@@ -1,5 +1,5 @@
 import type { BuildingDef, Content, RecipeDef } from './content';
-import { grantXp, hasItems, storeInBarn, takeItems, type BuildingState, type FarmState, type QueueItem } from './farm';
+import { barnCapacity, barnUsed, grantXp, hasItems, storeInBarn, takeItems, type BuildingState, type FarmState, type QueueItem } from './farm';
 
 /**
  * Processing buildings turn crops into goods. Each building works through its queue one item at a
@@ -52,23 +52,28 @@ export function recipeTime(state: FarmState, buildingId: string, r: RecipeDef): 
 }
 
 /** Moves finished goods to the barn. Returns what was collected and levels gained. */
-export function collect(state: FarmState, content: Content, buildingId: string, now: number): { items: Record<string, number>; levelsGained: number } {
+export function collect(state: FarmState, content: Content, buildingId: string, now: number): { items: Record<string, number>; levelsGained: number; leftForSpace: number } {
   const b = state.buildings[buildingId];
   const def = content.buildings.get(buildingId);
   const items: Record<string, number> = {};
   let xp = 0;
-  if (!b || !def) return { items, levelsGained: 0 };
+  let leftForSpace = 0;
+  if (!b || !def) return { items, levelsGained: 0, leftForSpace };
   const keep: QueueItem[] = [];
   for (const q of b.queue) {
     const r = recipeOf(def, q.recipe);
-    if (r && now >= endOf(q)) {
+    // a full barn leaves finished goods waiting in the building rather than shipping them
+    if (r && now >= endOf(q) && barnUsed(state, content) >= barnCapacity(state, content)) {
+      leftForSpace += 1;
+      keep.push(q);
+    } else if (r && now >= endOf(q)) {
       storeInBarn(state, content, r.output, 1);
       items[r.output] = (items[r.output] ?? 0) + 1;
       xp += r.xp;
     } else keep.push(q);
   }
   b.queue = keep;
-  return { items, levelsGained: xp ? grantXp(state, xp) : 0 };
+  return { items, levelsGained: xp ? grantXp(state, xp) : 0, leftForSpace };
 }
 
 /** Extra queue slots cost Ribbons (design: 2, 4, 6), up to five slots. */

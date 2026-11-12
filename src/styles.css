@@ -503,3 +503,10 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
   .creek.biting .bobber { animation: none; translate: 0 8px; }
 }
 .secret-mark { display: grid; place-items: center; width: 34px; height: 34px; font-family: 'Lilita One', system-ui; font-size: 22px; color: #cfc4b0; }
+
+/* Confirm cards and the load-failed card */
+.col { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.confirm-back { z-index: 60; }
+.confirm .row { justify-content: center; gap: 10px; }
+.mode-banner { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-bottom) + 206px); z-index: 6; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 3px solid var(--ink); border-radius: 16px; background: #fff3c4; font-weight: 700; font-size: 14px; box-shadow: 0 3px 0 var(--ink); white-space: nowrap; max-width: calc(100% - 24px); }
+.mode-banner span { overflow: hidden; text-overflow: ellipsis; }

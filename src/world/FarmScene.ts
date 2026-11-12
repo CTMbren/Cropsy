@@ -144,6 +144,8 @@ export class FarmScene extends Phaser.Scene {
   private pendingKey: string | null = null;
   /** The finger has wandered past TAP_SLOP, so releasing is no longer a tap. */
   private moved = false;
+  /** A tap on a building, critter, Moss, spot or wild land, run on release if the finger stayed put. */
+  private pendingTap: (() => void) | null = null;
   private pinchDist = 0;
   private sparkleT = 0;
   private drawnSize = '';
@@ -266,6 +268,7 @@ export class FarmScene extends Phaser.Scene {
           empty: 'Plant first',
           none: 'No fertilizer',
           blocked: 'Clear it first',
+          'barn-full': 'Barn full',
         };
         if (msg[e.reason]) this.popText(e.key, msg[e.reason], '#ffd0d0');
       }
@@ -1142,6 +1145,7 @@ export class FarmScene extends Phaser.Scene {
       // a second finger means pinch/pan: whatever the first finger was about to do is cancelled
       this.dragMode = 'pan';
       this.pendingKey = null;
+      this.pendingTap = null;
       this.infoKey = null;
       this.pinchDist = Phaser.Math.Distance.Between(downs[0].x, downs[0].y, downs[1].x, downs[1].y);
       this.lastPan = { x: (downs[0].x + downs[1].x) / 2, y: (downs[0].y + downs[1].y) / 2 };
@@ -1152,39 +1156,36 @@ export class FarmScene extends Phaser.Scene {
     this.lastPan = { x: q.x, y: q.y };
     this.actedKeys.clear();
     this.pendingKey = null;
+    this.pendingTap = null;
     this.moved = false;
+    this.game_.gestureActive = true;
+    // Spots, critters, Moss, buildings and wild land act on release like plots do, and only if the
+    // finger didn't move: starting a pan on the mill no longer opens it.
+    this.dragMode = 'pan';
     if (this.game_.mode === 'decorate') {
-      this.dragMode = 'pan';
       const spot = this.spotAt(p);
-      if (spot) {
-        this.dragMode = 'none';
-        this.game_.tapSpot(spot);
-      }
+      if (spot) this.pendingTap = () => this.game_.tapSpot(spot);
       return;
     }
     const critter = this.game_.mode === 'plant' ? this.critterAt(p) : null;
     if (critter !== null) {
-      this.dragMode = 'none';
-      this.game_.tapCritter(critter);
+      this.pendingTap = () => this.game_.tapCritter(critter);
       return;
     }
     if (this.mossAt(p)) {
-      this.dragMode = 'none';
-      this.game_.patMoss();
+      this.pendingTap = () => this.game_.patMoss();
       return;
     }
     const b = this.buildingAt(p);
     if (b) {
-      this.dragMode = 'none';
-      this.game_.screenFx({ kind: 'open-building', id: b });
+      this.pendingTap = () => this.game_.screenFx({ kind: 'open-building', id: b });
       return;
     }
     const k = this.plotAt(p);
     if (!k && this.game_.mode === 'plant') {
       const w = this.wildAt(p);
       if (w) {
-        this.dragMode = 'none';
-        this.game_.screenFx({ kind: 'open-land', cell: w });
+        this.pendingTap = () => this.game_.screenFx({ kind: 'open-land', cell: w });
         return;
       }
     }
@@ -1210,6 +1211,10 @@ export class FarmScene extends Phaser.Scene {
       this.lastPan = mid;
       return;
     }
+    if (!this.moved && Phaser.Math.Distance.Between(q.x, q.y, this.downAt.x, this.downAt.y) >= TAP_SLOP) {
+      this.moved = true;
+      this.pendingTap = null;
+    }
     if (this.dragMode === 'pan') {
       this.world.x += q.x - this.lastPan.x;
       this.world.y += q.y - this.lastPan.y;
@@ -1229,6 +1234,8 @@ export class FarmScene extends Phaser.Scene {
   }
 
   private onUp(): void {
+    if (this.pendingTap && !this.moved && this.pointersDown().length === 0) this.pendingTap();
+    this.pendingTap = null;
     if (this.pendingKey && this.dragMode === 'act' && this.actedKeys.size === 0 && !this.moved) {
       const k = this.pendingKey;
       const plot = this.game_.state.plots[k];
@@ -1242,6 +1249,7 @@ export class FarmScene extends Phaser.Scene {
     if (this.pointersDown().length === 0) {
       this.dragMode = 'none';
       this.pinchDist = 0;
+      this.game_.gestureEnded();
     }
   }
 
