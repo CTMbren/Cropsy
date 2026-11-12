@@ -39,6 +39,7 @@ import {
 import { DIRT_SIDE_L, DIRT_SIDE_R, drawObstacleArt, drawOvergrown, drawSoil, OBSTACLE_BOUNDS, OVERGROWN_BOUNDS, SOIL_BOUNDS } from './tileArt';
 import { cellToScreen, screenToCell, TILE_H, TILE_W } from './iso';
 import { FxLayer } from './fx';
+import { clearCamera, loadCamera, saveCamera } from './camera';
 import { queueArt, registerArt } from './artLoader';
 import { hideSplash, splashProgress } from '../splash';
 
@@ -144,6 +145,8 @@ export class FarmScene extends Phaser.Scene {
   private pendingKey: string | null = null;
   /** The finger has wandered past TAP_SLOP, so releasing is no longer a tap. */
   private moved = false;
+  private cameraMoved = false;
+  private lastGrassTap = 0;
   /** A tap on a building, critter, Moss, spot or wild land, run on release if the finger stayed put. */
   private pendingTap: (() => void) | null = null;
   private pinchDist = 0;
@@ -207,6 +210,10 @@ export class FarmScene extends Phaser.Scene {
     this.redraw();
 
     this.game_.subscribe(() => this.redraw());
+    this.game_.onScreenFx((e) => {
+      if (e.kind === 'focus-plots') this.focusPlots(e.keys);
+      if (e.kind === 'reset-camera') this.resetCamera();
+    });
     this.game_.onFx((e) => {
       if (e.kind === 'harvest') {
         const crop = this.game_.content.cropById.get(e.crop);
@@ -287,7 +294,11 @@ export class FarmScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onMove(p));
     this.input.on('pointerup', () => this.onUp());
-    this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => this.zoomBy(dy > 0 ? 0.9 : 1.1));
+    this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
+      this.zoomBy(dy > 0 ? 0.9 : 1.1, this.pt(p));
+      this.clampCamera();
+      this.rememberCamera();
+    });
     // the farm has its art and first layout: show it once a frame has drawn
     requestAnimationFrame(() => requestAnimationFrame(hideSplash));
   }
@@ -371,18 +382,79 @@ export class FarmScene extends Phaser.Scene {
     return { x: this.world.x + sx * this.world.scale, y: this.world.y + sy * this.world.scale };
   }
 
-  private layout(): void {
+  /** The camera that fits the field: tight around the plots until there are buildings to show too. */
+  private fitCamera(): { scale: number; x: number; y: number } {
     const { width, height } = this.view();
     const s = this.game_.state;
     const mid = cellToScreen((s.width - 1) / 2, (s.height - 1) / 2);
-    const farmW = (s.width + s.height + 2 * PAD) * (TILE_W / 2);
-    const farmH = (s.width + s.height + 2 * PAD) * (TILE_H / 2) + 60;
+    const pad = Object.keys(s.buildings).length || s.flags.includes('mill_project') ? 2 : 1.2;
+    const farmW = (s.width + s.height + 2 * pad) * (TILE_W / 2);
+    const farmH = (s.width + s.height + 2 * pad) * (TILE_H / 2) + 60;
     const availH = Math.max(160, height - UI_TOP - UI_BOTTOM);
-    const fit = Math.min((width * 0.94) / farmW, availH / farmH, 1.6);
-    this.world.setScale(Phaser.Math.Clamp(fit, MIN_ZOOM, MAX_ZOOM));
-    this.world.setPosition(width / 2 - mid.sx * this.world.scale, UI_TOP + availH / 2 - mid.sy * this.world.scale + 10);
+    const scale = Phaser.Math.Clamp(Math.min((width * 0.96) / farmW, availH / farmH, 1.6), MIN_ZOOM, MAX_ZOOM);
+    return { scale, x: width / 2 - mid.sx * scale, y: UI_TOP + availH / 2 - mid.sy * scale + 10 };
+  }
+
+  /** Fits the camera, or restores the player's own zoom and pan if the field hasn't changed since. */
+  private layout(): void {
+    const s = this.game_.state;
+    const fit = this.fitCamera();
+    const saved = loadCamera();
+    if (saved && saved.w === s.width && saved.h === s.height) {
+      this.world.setScale(Phaser.Math.Clamp(saved.scale, MIN_ZOOM, MAX_ZOOM));
+      this.world.setPosition(fit.x + saved.dx, fit.y + saved.dy);
+      this.clampCamera();
+    } else {
+      this.world.setScale(fit.scale);
+      this.world.setPosition(fit.x, fit.y);
+    }
     this.drawGround();
     this.buildViews();
+  }
+
+  /** Glides the camera to show these plots and flashes them ("3 ripe" chip). */
+  private focusPlots(keys: string[]): void {
+    if (!keys.length) return;
+    const pts = keys.map((k) => {
+      const [x, y] = parseKey(k);
+      return cellToScreen(x, y);
+    });
+    const sx = pts.reduce((a, p) => a + p.sx, 0) / pts.length;
+    const sy = pts.reduce((a, p) => a + p.sy, 0) / pts.length;
+    const { width, height } = this.view();
+    const scale = Math.max(this.world.scale, this.fitCamera().scale);
+    const tx = width / 2 - sx * scale;
+    const ty = UI_TOP + (height - UI_TOP - UI_BOTTOM) / 2 - sy * scale;
+    this.tweens.add({ targets: this.world, x: tx, y: ty, scale, duration: 320, ease: 'Cubic.easeOut', onComplete: () => this.rememberCamera() });
+    for (const k of keys) this.flash(k);
+  }
+
+  /** Back to the fitted view (double-tap on grass, or Reset camera in Settings). */
+  resetCamera(): void {
+    clearCamera();
+    const fit = this.fitCamera();
+    this.tweens.add({ targets: this.world, x: fit.x, y: fit.y, scale: fit.scale, duration: 260, ease: 'Cubic.easeOut' });
+  }
+
+  /** Keeps the middle of the field on screen, so the farm can never be panned away. */
+  private clampCamera(): void {
+    const { width, height } = this.view();
+    const s = this.game_.state;
+    const mid = cellToScreen((s.width - 1) / 2, (s.height - 1) / 2);
+    const half = ((s.width + s.height) * (TILE_W / 2) * this.world.scale) / 2;
+    const cx = this.world.x + mid.sx * this.world.scale;
+    const cy = this.world.y + mid.sy * this.world.scale;
+    const mx = Math.max(width * 0.15, half * 0.8);
+    const my = Math.max(80, half * 0.4);
+    this.world.x += Phaser.Math.Clamp(cx, width / 2 - mx, width / 2 + mx) - cx;
+    this.world.y += Phaser.Math.Clamp(cy, UI_TOP + 40 - my, height - UI_BOTTOM - 40 + my) - cy;
+  }
+
+  /** Remembers the player's zoom and pan (relative to the fitted view). */
+  private rememberCamera(): void {
+    const fit = this.fitCamera();
+    const s = this.game_.state;
+    saveCamera({ w: s.width, h: s.height, scale: this.world.scale, dx: this.world.x - fit.x, dy: this.world.y - fit.y });
   }
 
   private diamond(cx: number, cy: number, w = TILE_W, h = TILE_H): Phaser.Math.Vector2[] {
@@ -1203,12 +1275,14 @@ export class FarmScene extends Phaser.Scene {
     const downs = this.pointersDown().map((d) => this.pt(d));
     if (downs.length >= 2) {
       const d = Phaser.Math.Distance.Between(downs[0].x, downs[0].y, downs[1].x, downs[1].y);
-      if (this.pinchDist > 0) this.zoomBy(d / this.pinchDist);
-      this.pinchDist = d;
       const mid = { x: (downs[0].x + downs[1].x) / 2, y: (downs[0].y + downs[1].y) / 2 };
+      if (this.pinchDist > 0) this.zoomBy(d / this.pinchDist, mid);
+      this.pinchDist = d;
       this.world.x += mid.x - this.lastPan.x;
       this.world.y += mid.y - this.lastPan.y;
       this.lastPan = mid;
+      this.clampCamera();
+      this.cameraMoved = true;
       return;
     }
     if (!this.moved && Phaser.Math.Distance.Between(q.x, q.y, this.downAt.x, this.downAt.y) >= TAP_SLOP) {
@@ -1219,6 +1293,8 @@ export class FarmScene extends Phaser.Scene {
       this.world.x += q.x - this.lastPan.x;
       this.world.y += q.y - this.lastPan.y;
       this.lastPan = { x: q.x, y: q.y };
+      this.clampCamera();
+      if (this.moved) this.cameraMoved = true;
     } else if (this.dragMode === 'act') {
       if (Phaser.Math.Distance.Between(q.x, q.y, this.downAt.x, this.downAt.y) < TAP_SLOP) return;
       this.moved = true;
@@ -1235,6 +1311,14 @@ export class FarmScene extends Phaser.Scene {
 
   private onUp(): void {
     if (this.pendingTap && !this.moved && this.pointersDown().length === 0) this.pendingTap();
+    else if (!this.pendingTap && !this.pendingKey && !this.moved && this.dragMode === 'pan' && this.pointersDown().length === 0) {
+      // a double-tap on empty grass puts the camera back
+      const t = this.time.now;
+      if (t - this.lastGrassTap < 320) {
+        this.resetCamera();
+        this.lastGrassTap = 0;
+      } else this.lastGrassTap = t;
+    }
     this.pendingTap = null;
     if (this.pendingKey && this.dragMode === 'act' && this.actedKeys.size === 0 && !this.moved) {
       const k = this.pendingKey;
@@ -1249,15 +1333,18 @@ export class FarmScene extends Phaser.Scene {
     if (this.pointersDown().length === 0) {
       this.dragMode = 'none';
       this.pinchDist = 0;
+      if (this.cameraMoved) this.rememberCamera();
+      this.cameraMoved = false;
       this.game_.gestureEnded();
     }
   }
 
-  private zoomBy(f: number): void {
+  /** Zooms around a screen point (between the fingers for a pinch; the centre otherwise). */
+  private zoomBy(f: number, at?: { x: number; y: number }): void {
     const s = Phaser.Math.Clamp(this.world.scale * f, MIN_ZOOM, MAX_ZOOM);
     const { width, height } = this.view();
-    const cx = width / 2;
-    const cy = height / 2;
+    const cx = at?.x ?? width / 2;
+    const cy = at?.y ?? height / 2;
     this.world.x = cx - (cx - this.world.x) * (s / this.world.scale);
     this.world.y = cy - (cy - this.world.y) * (s / this.world.scale);
     this.world.setScale(s);

@@ -510,3 +510,7 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .confirm .row { justify-content: center; gap: 10px; }
 .mode-banner { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-bottom) + 206px); z-index: 6; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 3px solid var(--ink); border-radius: 16px; background: #fff3c4; font-weight: 700; font-size: 14px; box-shadow: 0 3px 0 var(--ink); white-space: nowrap; max-width: calc(100% - 24px); }
 .mode-banner span { overflow: hidden; text-overflow: ellipsis; }
+.ready-chips { display: flex; gap: 6px; padding: 0; background: none; border: 0; }
+.ready-chip { padding: 4px 12px; font: inherit; font-size: 13px; font-weight: 700; color: var(--ink); background: #effbd9; border: 2px solid var(--ink); border-radius: 12px; box-shadow: 0 2px 0 var(--ink); min-height: 32px; }
+.row-name .needed { display: block; color: #b35b00; font-weight: 700; }
+.want-link { font: inherit; border: 0; background: none; padding: 0; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
