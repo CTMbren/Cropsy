@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DAILY_ORDERS } from '../core/board';
+import { goodsReady } from '../core/processing';
 import { itemName, itemValue, shortName, type Content, type VillagerDef } from '../core/content';
 import { barnCapacity, barnUsed, cratePrice, hasFlag, type FarmState, hasItems, lifetimeHarvests, MASTERY_STEP, masteryLevel, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
 import { xpToNext } from '../core/progression';
@@ -10,7 +11,7 @@ import { canGiftToday, chatter, friends, heartProgress, hearts, pendingEvents, s
 import { buildingPrice, canAffordBuilding, queueView, readyCount, slotUpgradeCost } from '../core/processing';
 import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, priceFactor, toolPrice } from '../core/shop';
 import { blockerAt, clearCost, clearReward, clearTime, landOpen, nextCapLevel, plotCap, plotCount, touchesField } from '../core/land';
-import { activeQuest, canHandIn, inbox, letterStatus, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
+import { activeQuest, canHandIn, inbox, itemsWanted, letterStatus, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
 import { beauty, calendarRewards, canClaim, decorDef, decorDefs, nextGift, placed, stored, tipBonus, type CalendarReward } from '../core/decor';
 import { hasImprovement, improvements, nextTownLevel, TOWN_BONUS_LEVELS, TOWN_BONUS_PER_LEVEL, townLevel, townProject, townProjectOpen, weekOf } from '../core/town';
 import { boughtToday, daysUntilMerchant, merchantHere, merchantStock, merchantUnlocked } from '../core/merchant';
@@ -152,14 +153,14 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
 
   const need = xpToNext(s.level);
   const ready = nextReady(s, now);
+  const ripeKeys = Object.keys(s.plots).filter((k) => !s.obstacles[k] && s.plots[k].crop && stageOf(s.plots[k], now) === 'ripe');
+  const goods = goodsReady(s, now);
   const unlocked = new Set(unlockedCrops(s, game.content).map((c) => c.id));
+  const nextCrop = game.content.crops.filter((c) => !unlocked.has(c.id)).sort((a, b) => a.unlock_level - b.unlock_level)[0];
   const quest = activeQuest(s, game.content);
   const active = s.story.active;
   const giver = quest && quest.giver !== 'mail' ? game.content.villagers.get(quest.giver) : undefined;
   const mailUnread = unreadCount(s, now);
-  const barnCount = Object.entries(s.inventory)
-    .filter(([id]) => game.content.cropById.has(id))
-    .reduce((a, [, n]) => a + n, 0);
   const boardOpen = hasFlag(s, 'board_open');
   const fillable = s.board.orders.filter((o) => hasItems(s, o.wants)).length;
   const coach = sheet === null && !dialogue ? game.coach() : null;
@@ -234,7 +235,22 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         );
       })()}
 
-      {ready !== null && <div class="next-ready">Next harvest in {formatDuration(ready)}</div>}
+      {ripeKeys.length > 0 || goods.length > 0 ? (
+        <div class="next-ready ready-chips">
+          {ripeKeys.length > 0 && (
+            <button class="ready-chip" onClick={() => game.screenFx({ kind: 'focus-plots', keys: ripeKeys })} aria-label={`${ripeKeys.length} crops ripe. Show them`}>
+              {ripeKeys.length} ripe
+            </button>
+          )}
+          {goods.length > 0 && (
+            <button class="ready-chip" onClick={() => setSheet(`building:${goods[0].building}`)}>
+              {goods.reduce((a, g) => a + g.n, 0)} goods ready
+            </button>
+          )}
+        </div>
+      ) : (
+        ready !== null && <div class="next-ready">Next harvest in {formatDuration(ready)}</div>
+      )}
       {toast && (
         <div class="toast" role="status">
           {toast}
@@ -324,8 +340,35 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       ) : (
       <section class="tray" aria-label="Seeds">
         <div class="seeds">
-          {game.content.crops.map((c) => {
-            const locked = !unlocked.has(c.id);
+          {canReplant && (
+            <button class="seed replant" onClick={() => game.replantAll()}>
+              <Icon name="replant" size={30} />
+              <span class="seed-name">Replant all</span>
+            </button>
+          )}
+          {s.level >= 8 && (s.inventory.fertilizer ?? 0) > 0 && (
+            <button class={`seed tool${game.mode === 'fertilize' ? ' selected' : ''}`} aria-pressed={game.mode === 'fertilize'} disabled={!(s.inventory.fertilizer ?? 0)} onClick={() => game.setMode('fertilize')}>
+              <Icon name="fertilizer" size={30} />
+              <span class="seed-name">Fertilize</span>
+              <span class="chip time">×{s.inventory.fertilizer ?? 0}</span>
+            </button>
+          )}
+          {s.level >= 10 && (
+            <button class={`seed tool${game.mode === 'soil' ? ' selected' : ''}`} aria-pressed={game.mode === 'soil'} onClick={() => game.setMode('soil')}>
+              <Icon name="soil" size={30} />
+              <span class="seed-name">Soil</span>
+              <span class="chip time">Upgrade</span>
+            </button>
+          )}
+          {(Object.keys(stored(s)).length > 0 || Object.keys(placed(s)).length > 0) && (
+            <button class="seed tool" onClick={() => game.selectDecor(Object.keys(stored(s))[0] ?? null)}>
+              <Icon name="decor" size={30} />
+              <span class="seed-name">Decorate</span>
+              <span class="chip time">♥ {beauty(s, game.content)}</span>
+            </button>
+          )}
+          {game.content.crops.filter((c) => unlocked.has(c.id)).map((c) => {
+            const locked = false;
             const selected = game.mode === 'plant' && game.selectedCrop === c.id;
             return (
               <button key={c.id} class={`seed${selected ? ' selected' : ''}${locked ? ' locked' : ''}${coach?.target === 'seed' && coach.seed === c.id ? ' coach-pulse' : ''}`} disabled={locked} aria-pressed={selected} aria-label={`${c.name}${locked ? `, unlocks at level ${c.unlock_level}` : ''}`} onClick={() => game.selectCrop(c.id)}>
@@ -359,38 +402,20 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
               </button>
             );
           })}
-          {s.level >= 8 && (
-            <button class={`seed tool${game.mode === 'fertilize' ? ' selected' : ''}`} aria-pressed={game.mode === 'fertilize'} disabled={!(s.inventory.fertilizer ?? 0)} onClick={() => game.setMode('fertilize')}>
-              <Icon name="fertilizer" size={30} />
-              <span class="seed-name">Fertilize</span>
-              <span class="chip time">×{s.inventory.fertilizer ?? 0}</span>
+          {nextCrop && (
+            <button class="seed locked" disabled aria-label={`Next crop: ${nextCrop.name}, unlocks at level ${nextCrop.unlock_level}`}>
+              <ItemIcon id={nextCrop.id} color={nextCrop.color} />
+              <span class="seed-name">Next: {nextCrop.name}</span>
+              <span class="chip lock">Lv {nextCrop.unlock_level}</span>
             </button>
           )}
-          {s.level >= 10 && (
-            <button class={`seed tool${game.mode === 'soil' ? ' selected' : ''}`} aria-pressed={game.mode === 'soil'} onClick={() => game.setMode('soil')}>
-              <Icon name="soil" size={30} />
-              <span class="seed-name">Soil</span>
-              <span class="chip time">Upgrade</span>
-            </button>
-          )}
-          {(Object.keys(stored(s)).length > 0 || Object.keys(placed(s)).length > 0) && (
-            <button class="seed tool" onClick={() => game.selectDecor(Object.keys(stored(s))[0] ?? null)}>
-              <Icon name="decor" size={30} />
-              <span class="seed-name">Decorate</span>
-              <span class="chip time">♥ {beauty(s, game.content)}</span>
-            </button>
-          )}
-          <button class="seed replant" disabled={!canReplant} onClick={() => game.replantAll()}>
-            <Icon name="replant" size={30} />
-            <span class="seed-name">Replant all</span>
-          </button>
         </div>
       </section>
       )}
 
       <nav class="nav" aria-label="Farm menu">
         <NavBtn icon="farm" label="Farm" active={sheet === null} onClick={() => setSheet(null)} />
-        <NavBtn icon="barn" label="Barn" badge={barnCount} pulse={coach?.target === 'barn'} active={sheet === 'barn'} onClick={() => setSheet('barn')} />
+        <NavBtn icon="barn" label="Barn" alert={barnUsed(s, game.content) >= barnCapacity(s, game.content) * 0.9 ? 'barn nearly full' : undefined} pulse={coach?.target === 'barn'} active={sheet === 'barn'} onClick={() => setSheet('barn')} />
         <NavBtn icon="board" label="Board" pulse={coach?.target === 'board'} badge={boardOpen ? fillable : 0} locked={!boardOpen} active={sheet === 'board'} onClick={() => boardOpen && setSheet('board')} />
         <NavBtn icon="town" label="Town" badge={(merchantUnlocked(s) && merchantHere(game.content, game.day(), s) && !boughtToday(s, game.day()).length ? 1 : 0) + (fishingOpen(s) && (s.fishing?.bites ?? 0) >= biteCap(s, game.content) ? 1 : 0)} active={sheet === 'town'} onClick={() => setSheet('town')} />
         <NavBtn icon="mail" label="Mail" pulse={coach?.target === 'mail'} badge={mailUnread} active={sheet === 'mail'} onClick={() => setSheet('mail')} />
@@ -544,14 +569,19 @@ function Rolling({ value }: { value: number }) {
 /** 1440 → 1.4k, so the XP numbers fit beside the level at high levels. */
 const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
 
-function NavBtn({ icon, label, badge, active, locked, pulse, onClick }: { icon: string; label: string; badge?: number; active?: boolean; locked?: boolean; pulse?: boolean; onClick: () => void }) {
+function NavBtn({ icon, label, badge, alert, active, locked, pulse, onClick }: { icon: string; label: string; badge?: number; alert?: string; active?: boolean; locked?: boolean; pulse?: boolean; onClick: () => void }) {
   return (
-    <button class={`nav-btn${active ? ' active' : ''}${locked ? ' locked' : ''}${pulse ? ' coach-pulse' : ''}`} onClick={onClick} aria-label={`${label}${badge ? `, ${badge}` : ''}${locked ? ', locked' : ''}`}>
+    <button class={`nav-btn${active ? ' active' : ''}${locked ? ' locked' : ''}${pulse ? ' coach-pulse' : ''}`} onClick={onClick} aria-label={`${label}${badge ? `, ${badge}` : alert ? `, ${alert}` : ''}${locked ? ', locked' : ''}`}>
       <span class="nav-medal">
         <NavIcon name={locked ? 'lock' : icon} size={30} />
       </span>
       <span class="nav-label">{label}</span>
       {!!badge && <span class="badge">{badge > 9 ? '9+' : badge}</span>}
+      {!badge && alert && (
+        <span class="badge" aria-label={alert}>
+          !
+        </span>
+      )}
     </button>
   );
 }
@@ -587,7 +617,12 @@ function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
   const s = game.state;
   const crops = [...game.content.crops, ...game.content.goods.values()].filter((c) => (s.inventory[c.id] ?? 0) > 0);
   const materials = game.content.economy.materials.map((m) => m.id).filter((m) => (s.inventory[m] ?? 0) > 0);
+  const want = itemsWanted(s, game.content);
+  const spare = (id: string) => Math.max(0, (s.inventory[id] ?? 0) - (want[id] ?? 0));
+  const extras = crops.reduce((a, c) => a + cratePrice(c) * spare(c.id), 0);
   const total = crops.reduce((a, c) => a + cratePrice(c) * (s.inventory[c.id] ?? 0), 0);
+  const [askAll, setAskAll] = useState(false);
+  const full = barnUsed(s, game.content) >= barnCapacity(s, game.content);
   return (
     <Sheet title="Barn" onClose={onClose}>
       <div class="capacity" aria-label={`Barn ${barnUsed(s, game.content)} of ${barnCapacity(s, game.content)}`}>
@@ -598,28 +633,57 @@ function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
           {barnUsed(s, game.content)}/{barnCapacity(s, game.content)}
         </span>
       </div>
-      {barnUsed(s, game.content) >= barnCapacity(s, game.content) && <p class="muted small">Your barn is full. New harvests go straight to the shipping crate. Bruno can build a bigger barn (Town → Land).</p>}
+      {full && <p class="muted small">Your barn is full. Ripe crops wait in the field until there's room. Bruno can build a bigger barn (Town → Land).</p>}
       {!crops.length && !materials.length && <p class="muted">Your barn is empty. Harvested crops land here.</p>}
       {crops.length > 0 && (
         <>
           <h3>Crops and goods</h3>
           <ul class="rows">
-            {crops.map((c) => (
-              <li key={c.id} class="row-item">
-                <ItemIcon id={c.id} color={c.color} small />
-                <span class="row-name">
-                  {c.name} <b>×{s.inventory[c.id]}</b>
-                </span>
-                <button class="btn small" onClick={() => game.sell(c.id, 1)}>
-                  Sell 1 · {cratePrice(c)}
-                </button>
-              </li>
-            ))}
+            {crops.map((c) => {
+              const n = s.inventory[c.id] ?? 0;
+              const needed = want[c.id] ?? 0;
+              return (
+                <li key={c.id} class="row-item">
+                  <ItemIcon id={c.id} color={c.color} small />
+                  <span class="row-name">
+                    {c.name} <b>×{n}</b>
+                    {needed > 0 && <small class="needed">Orders need {needed}</small>}
+                  </span>
+                  <button class="btn small" onClick={() => game.sell(c.id, 1)} aria-label={`Sell 1 ${c.name} for ${cratePrice(c)} coins`}>
+                    Sell 1 · {cratePrice(c)}
+                  </button>
+                  {spare(c.id) > 1 && (
+                    <button class="btn small" onClick={() => game.sell(c.id, spare(c.id))} aria-label={`Sell ${spare(c.id)} ${c.name}`}>
+                      Sell {spare(c.id)}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
-          <button class="btn green" onClick={() => game.sellAll()}>
-            Ship everything · {total} coins
+          <button class="btn green" disabled={extras <= 0} onClick={() => game.sellAll(true)}>
+            Ship extras · {extras} coins
           </button>
-          <p class="muted small">The shipping crate pays 70% of a crop's value. Board orders pay much more.</p>
+          {total > extras && (
+            <button class="link-btn small" onClick={() => setAskAll(true)}>
+              Ship everything, including what orders need ({total} coins)
+            </button>
+          )}
+          <p class="muted small">The shipping crate pays 70% of a crop's value. Board orders pay much more, so "Ship extras" keeps what your orders and quest need.</p>
+          {askAll && (
+            <ConfirmCard
+              title="Ship everything?"
+              yes={`Ship it all · ${total}`}
+              danger
+              onNo={() => setAskAll(false)}
+              onYes={() => {
+                game.sellAll(false);
+                setAskAll(false);
+              }}
+            >
+              <p>This also sells crops your board orders and quest are waiting for, at crate price.</p>
+            </ConfirmCard>
+          )}
         </>
       )}
       {materials.length > 0 && (
@@ -638,6 +702,31 @@ function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
         </>
       )}
     </Sheet>
+  );
+}
+
+/** "2/3 Strawberry" on an order. A missing crop is tappable: it arms that seed, or says when it unlocks. */
+function WantChip({ game, id, n, onPick }: { game: Game; id: string; n: number; onPick: () => void }) {
+  const s = game.state;
+  const have = Math.min(s.inventory[id] ?? 0, n);
+  const label = `${have}/${n} ${itemName(game.content, id)}`;
+  const crop = game.content.cropById.get(id);
+  if (have >= n || !crop) return <span class={have >= n ? 'have' : 'need'}>{label}</span>;
+  const open = unlockedCrops(s, game.content).some((c) => c.id === id);
+  return (
+    <button
+      class="need want-link"
+      title={open ? `Plant ${crop.name}` : `${crop.name} unlocks at level ${crop.unlock_level}`}
+      onClick={() => {
+        if (!open) return;
+        game.selectCrop(id);
+        if (game.selectedCrop !== id) game.selectCrop(id);
+        onPick();
+      }}
+      aria-label={open ? `${label}. Tap to plant ${crop.name}` : `${label}. Unlocks at level ${crop.unlock_level}`}
+    >
+      {label} {open ? '· Plant' : `· Lv ${crop.unlock_level}`}
+    </button>
   );
 }
 
@@ -661,9 +750,7 @@ function BoardSheet({ game, onClose }: { game: Game; onClose: () => void }) {
                 </div>
                 <div class="order-wants">
                   {Object.entries(o.wants).map(([id, n]) => (
-                    <span key={id} class={(s.inventory[id] ?? 0) >= n ? 'have' : 'need'}>
-                      {Math.min(s.inventory[id] ?? 0, n)}/{n} {itemName(game.content, id)}
-                    </span>
+                    <WantChip key={id} game={game} id={id} n={n} onPick={onClose} />
                   ))}
                 </div>
                 <div class="order-reward">

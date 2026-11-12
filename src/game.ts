@@ -35,7 +35,7 @@ import { buildImprovement, deliverTownProject, raiseTownLevel, syncTownProject, 
 import { buyDecor, claimGift, pickUpDecor, placeDecor, type CalendarReward } from './core/decor';
 import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merchant';
 import { buyBarn, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
-import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, restoreQuestFlags, ensureQuestMail, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
+import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, restoreQuestFlags, ensureQuestMail, itemsWanted, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
 import { dayIndex, gameNow, localOffsetMinutes, systemNow } from './core/time';
 import { dailyBackup, loadSave, readBackup, requestPersistence, unblockSaves, writeBackup, writeSave } from './platform/storage';
 import { recordError } from './platform/errors';
@@ -73,6 +73,8 @@ export type FxEvent =
 export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number } | { kind: 'open-building'; id: string } | { kind: 'open-crop'; key: string } | { kind: 'open-land'; cell: string } | { kind: 'pick-seed'; key: string }
   | { kind: 'confirm-soil'; key: string; tier: number; name: string; coins: number; items: Record<string, number> }
   | { kind: 'barn-full' }
+  | { kind: 'focus-plots'; keys: string[] }
+  | { kind: 'reset-camera' }
   | { kind: 'gesture-end' };
 
 /**
@@ -286,9 +288,15 @@ export class Game {
     return coins;
   }
 
-  sellAll(): number {
+  /** Ships every crop and good, except (by default) what orders and the active quest are waiting for. */
+  sellAll(keepWanted = true): number {
+    const want = keepWanted ? itemsWanted(this.state, this.content) : {};
     let total = 0;
-    for (const id of Object.keys(this.state.inventory)) if (this.content.cropById.has(id) || this.content.goods.has(id)) total += this.sell(id, Infinity);
+    for (const id of Object.keys(this.state.inventory)) {
+      if (!this.content.cropById.has(id) && !this.content.goods.has(id)) continue;
+      const extra = (this.state.inventory[id] ?? 0) - (want[id] ?? 0);
+      if (extra > 0) total += this.sell(id, extra);
+    }
     return total;
   }
 

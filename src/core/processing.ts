@@ -17,6 +17,13 @@ export function recipeOf(b: BuildingDef, id: string): RecipeDef | undefined {
 
 const endOf = (q: QueueItem) => q.startsAt + q.durS;
 
+/** Buildings with finished goods waiting to be collected, and how many. */
+export function goodsReady(state: FarmState, now: number): { building: string; n: number }[] {
+  return Object.entries(state.buildings)
+    .map(([building, b]) => ({ building, n: b.queue.filter((q) => now >= endOf(q)).length }))
+    .filter((x) => x.n > 0);
+}
+
 export type QueueView = { item: QueueItem; status: 'done' | 'working' | 'waiting'; remaining: number };
 
 export function queueView(b: BuildingState, now: number): QueueView[] {

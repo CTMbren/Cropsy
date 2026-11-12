@@ -69,6 +69,17 @@ export function restoreQuestFlags(state: FarmState, content: Content): string[] 
   return added;
 }
 
+/** Items something is waiting for: board orders and the active quest's hand-in (most wanted per item). */
+export function itemsWanted(state: FarmState, content: Content): Record<string, number> {
+  const want: Record<string, number> = {};
+  const add = (items: Record<string, number>) => {
+    for (const [id, n] of Object.entries(items)) want[id] = Math.max(want[id] ?? 0, n);
+  };
+  for (const o of state.board.orders) add(o.wants);
+  for (const o of activeQuest(state, content)?.objectives ?? []) if (o.type === 'hand_in') add(o.items);
+  return want;
+}
+
 /** Where the letter a quest is waiting on stands: not sent, on its way, in the mailbox, or read. */
 export function letterStatus(state: FarmState, id: string, now: number): { state: 'missing' | 'coming' | 'waiting' | 'read'; arrivesAt?: number } {
   const m = state.mail.find((x) => x.id === id);
