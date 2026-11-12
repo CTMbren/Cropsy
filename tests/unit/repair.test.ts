@@ -77,3 +77,22 @@ describe('finished quests keep their unlocks', () => {
     expect(restoreQuestFlags(s, content)).toEqual([]);
   });
 });
+
+describe('story letters', () => {
+  it('reports on its way / waiting / read, and resends a letter an old save never got', async () => {
+    const { ensureQuestMail, letterStatus, sendMail } = await import('../../src/core/story');
+    const s = newFarm(T0);
+    s.story.done = content.quests.filter((q) => q.chapter <= 3).map((q) => q.id);
+    s.story.active = { id: 'ch4_letter', status: 'active', progress: [0] };
+    expect(letterStatus(s, 'tobias_3', T0).state).toBe('missing');
+    expect(ensureQuestMail(s, content, T0, TZ)).toEqual(['tobias_3']);
+    expect(letterStatus(s, 'tobias_3', T0).state).toBe('waiting');
+    expect(ensureQuestMail(s, content, T0, TZ)).toEqual([]);
+    const s2 = newFarm(T0);
+    sendMail(s2, 'tobias_3', 'next_day', T0, TZ);
+    expect(letterStatus(s2, 'tobias_3', T0)).toMatchObject({ state: 'coming' });
+    readMail(s, content, 'tobias_3', T0, TZ);
+    expect(letterStatus(s, 'tobias_3', T0).state).toBe('read');
+    expect(s.flags).toContain('almanac_open');
+  });
+});

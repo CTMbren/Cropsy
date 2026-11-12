@@ -69,6 +69,26 @@ export function restoreQuestFlags(state: FarmState, content: Content): string[] 
   return added;
 }
 
+/** Where the letter a quest is waiting on stands: not sent, on its way, in the mailbox, or read. */
+export function letterStatus(state: FarmState, id: string, now: number): { state: 'missing' | 'coming' | 'waiting' | 'read'; arrivesAt?: number } {
+  const m = state.mail.find((x) => x.id === id);
+  if (!m) return { state: 'missing' };
+  if (m.arrivesAt > now) return { state: 'coming', arrivesAt: m.arrivesAt };
+  return { state: m.read ? 'read' : 'waiting' };
+}
+
+/** Makes sure the active quest's letter was actually sent (old saves could miss one). */
+export function ensureQuestMail(state: FarmState, content: Content, now: number, offsetMin: number): string[] {
+  const q = activeQuest(state, content);
+  const sent: string[] = [];
+  for (const o of q?.objectives ?? [])
+    if (o.type === 'read_mail' && !state.mail.some((m) => m.id === o.id)) {
+      sendMail(state, o.id, 'now', now, offsetMin);
+      sent.push(o.id);
+    }
+  return sent;
+}
+
 /** Starts the next quest if none is active. Mail-given quests start immediately. */
 export function advance(state: FarmState, content: Content, now: number, offsetMin: number): StoryOutcome {
   const out: StoryOutcome = { levelsGained: 0 };
