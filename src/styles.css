@@ -277,8 +277,9 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .pill.ribbons { padding: 0 10px 0 4px; font-size: 18px; gap: 2px; background: linear-gradient(#7cc4f5, #3a8fd6 60%, #2a6fb0); }
 .tracker.waiting { pointer-events: none; }
 .tracker.waiting .tracker-title { color: #2a6fb0; }
-.tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
-.tab { flex: none; min-height: 40px; padding: 4px 12px; font-family: 'Lilita One', system-ui; font-size: 14px; background: #fff; border: 2.5px solid var(--ink); border-radius: 12px; }
+/* tabs wrap onto extra rows instead of scrolling, so every tab (and the active one) is always visible */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab { flex: none; min-height: 40px; padding: 4px 11px; font-family: 'Lilita One', system-ui; font-size: 14px; background: #fff; border: 2.5px solid var(--ink); border-radius: 12px; }
 .tab.active { color: #fff; -webkit-text-stroke: 0.6px var(--ink); paint-order: stroke fill; background: var(--green); }
 .chip.owned { background: var(--green); }
 .needs { display: flex; flex-wrap: wrap; gap: 2px 8px; }
@@ -326,6 +327,7 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 /* keep rows in scrolling sheets at their natural height (tab rows were collapsing) */
 .sheet-body { grid-auto-rows: max-content; }
 .tabs { min-height: 46px; flex-shrink: 0; padding-bottom: 4px; }
+@media (max-width: 420px) { .tab { min-height: 36px; padding: 3px 9px; font-size: 13.5px; } .tabs { gap: 5px; } }
 
 /* Phase 3: chapter title cards, story log, Ziggy's cart */
 .chapter-back { background: rgba(40, 25, 10, 0.7); pointer-events: auto; }
