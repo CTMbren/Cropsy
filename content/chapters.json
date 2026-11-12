@@ -23,5 +23,10 @@
     "n": 5,
     "title": "The Golden Harvest",
     "blurb": "One last crop, grown for the whole valley."
+  },
+  {
+    "n": 6,
+    "title": "Across the Creek",
+    "blurb": "An old dock, a river-keeper with a long memory, and a feud nobody remembers starting."
   }
 ]

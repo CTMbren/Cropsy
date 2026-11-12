@@ -5,6 +5,7 @@ import projectsJson from '../../content/projects.json';
 import questsJson from '../../content/quests.json';
 import villagersJson from '../../content/villagers.json';
 import chaptersJson from '../../content/chapters.json';
+import fishJson from '../../content/fish.json';
 
 export interface CropDef {
   id: string;
@@ -165,7 +166,11 @@ export type Objective =
   /** Grow n different crops (counts crops already discovered). */
   | { type: 'discover'; n: number }
   /** Harvest any one crop n times (counts the best crop's total). */
-  | { type: 'mastery'; n: number };
+  | { type: 'mastery'; n: number }
+  /** Catch fish (one species, or any). */
+  | { type: 'fish'; fish: string; n: number }
+  /** Different species in the Creek Journal. */
+  | { type: 'fish_species'; n: number };
 
 export interface ChapterDef {
   n: number;
@@ -286,7 +291,8 @@ export function loadContent(rawCrops: unknown = cropsJson): Content {
   const c = {
     crops,
     cropById: new Map(crops.map((x) => [x.id, x])),
-    goods: new Map(economy.goods.map((g) => [g.id, g])),
+    // fish are goods too: they sell at the crate and can be gifted or handed in
+    goods: new Map([...economy.goods, ...(fishJson as GoodDef[]).map(({ id, name, sell, color }) => ({ id, name, sell, color }))].map((g) => [g.id, g])),
     economy,
     buildings: new Map(economy.buildings.map((b) => [b.id, b as BuildingDef])),
     tools: new Map(economy.tools.map((t) => [t.id, t])),

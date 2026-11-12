@@ -98,6 +98,8 @@ export interface FarmState {
   town?: { week: number; done: boolean; trophies: number; project?: import('./town').TownProject };
   /** Meadow Visitors: critters on the farm, the arrival clock, species sketched, pollen toward honey. */
   critters?: { out: import('./critters').Visitor[]; nextAt: number; n: number; seen: string[]; pollen: number };
+  /** Creek Dock fishing (Chapter 6); created when the creek opens. */
+  fishing?: import('./fishing').FishingState;
   /** Land being cleared by Bruno's crew: one plot at a time. */
   clearing?: { cell: string; kind: 'stump' | 'boulder'; endsAt: number };
   /** Moss's digs today. */

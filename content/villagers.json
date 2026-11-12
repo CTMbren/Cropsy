@@ -75,7 +75,8 @@
     "loves": [
       "corn",
       "potato",
-      "wood"
+      "wood",
+      "old_whiskers"
     ],
     "likes": [
       "wheat",
@@ -144,7 +145,8 @@
       "potato",
       "corn",
       "stone",
-      "honey"
+      "honey",
+      "brook_trout"
     ],
     "dislikes": [
       "radish",
@@ -211,7 +213,8 @@
       "strawberry",
       "jam",
       "pumpkin",
-      "honey"
+      "honey",
+      "perch"
     ],
     "dislikes": [
       "potato",
@@ -340,7 +343,8 @@
       "pumpkin",
       "tomato",
       "lettuce",
-      "coffee"
+      "coffee",
+      "rainbow_pike"
     ],
     "dislikes": [
       "jam",
@@ -407,7 +411,8 @@
       "corn",
       "pastry",
       "wood",
-      "honey"
+      "honey",
+      "minnow"
     ],
     "dislikes": [
       "lettuce",
@@ -458,10 +463,75 @@
     "short": "Juniper"
   },
   {
+    "id": "nell",
+    "name": "Nell Brightwater",
+    "role": "River-keeper",
+    "color": "#3f7f9e",
+    "hair": "#c8c2b4",
+    "loves": [
+      "coffee",
+      "honey",
+      "pastry"
+    ],
+    "likes": [
+      "corn",
+      "potato",
+      "honey_jam"
+    ],
+    "dislikes": [
+      "golden_melon"
+    ],
+    "perk": "Nell shares her fishing spot: the creek holds up to 8 bites",
+    "lines": [
+      [
+        "Mind the third plank. And the fifth. Actually, just mind all of them.",
+        "Fish don't care how loud you are. I do."
+      ],
+      [
+        "The creek's been talking more since you fixed the dock. Mostly about you.",
+        "Tobias could never sit still long enough to fish. He'd cast, then go and look at a plant."
+      ],
+      [
+        "You've got patient hands. That's rarer than a silver ghost.",
+        "Rufus waved at me yesterday. I think he waved. He might've been swatting a fly."
+      ],
+      [
+        "The ferry's yours whenever you want it. Free. Don't tell Ziggy, he'll want a discount too.",
+        "Forty years I've kept this river. First time it's felt like company."
+      ]
+    ],
+    "events": [
+      {
+        "hearts": 3,
+        "title": "The flood marks",
+        "lines": [
+          "See these notches on the post? Every big flood since I was a girl.",
+          "This one's the year the mill stopped. Rufus closed the race to save the town, and the water came my way instead.",
+          "Took my mother's boat. I blamed him for twenty years.",
+          "Truth is, he did the right thing. I just never wanted to be the one who said it."
+        ]
+      },
+      {
+        "hearts": 6,
+        "title": "Old Tobias's line",
+        "lines": [
+          "Found this in the bottom of the tackle box. Tobias's old line. He tied his knots backwards. Always did.",
+          "He left the valley the spring after the flood. Said there was nothing left here to grow.",
+          "I told him he was wrong. Took him forty years and you to prove it.",
+          "Here. You keep it. It still holds."
+        ]
+      }
+    ],
+    "short": "Nell"
+  },
+  {
     "id": "tobias",
     "name": "Old Tobias",
     "role": "Your great-uncle",
     "color": "#9a8a6a",
-    "hair": "#e8e2d4"
+    "hair": "#e8e2d4",
+    "loves": [
+      "golden_carp"
+    ]
   }
 ]

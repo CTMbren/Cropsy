@@ -1,4 +1,5 @@
 import type { JSX } from 'preact';
+import { FISH, type FishDef } from '../core/fishing';
 
 /**
  * Illustrated icons for crops, goods and decorations, in the same style as the farm art: warm ink
@@ -426,6 +427,66 @@ const ICONS: Record<string, () => JSX.Element> = {
     </>
   ),
 };
+
+/** A fish (or crayfish) facing left, drawn from its species' shape and colours. */
+function fishArt(f: FishDef): JSX.Element {
+  const body = f.color;
+  const fin = f.fin;
+  const eye = (x: number, y: number) => (
+    <>
+      <circle cx={x} cy={y} r="1.9" fill="#fff" stroke={INK} stroke-width="1.1" />
+      <circle cx={x - 0.4} cy={y} r="0.9" fill={INK} />
+    </>
+  );
+  if (f.shape === 'crayfish') {
+    return (
+      <>
+        <path d="M7 11l-3-4M7 13l-4-1" stroke={INK} stroke-width="1.2" stroke-linecap="round" />
+        <path d="M10 10c-4-3-7-2-7 1 2 0 4 0 5 1.5zM10 18c-4 3-7 2-7-1 2 0 4 0 5-1.5z" fill={body} stroke={INK} stroke-width="1.6" stroke-linejoin="round" />
+        <path d="M8 14c0-3.5 3-5.5 7-5.5h8l2.5 2v7l-2.5 2h-8c-4 0-7-2-7-5.5z" fill={body} />
+        <path d="M8 14c0 3.5 3 5.5 7 5.5h8l2.5-2V14z" fill={shade(body, 0.2)} />
+        <path d="M15 8.6v10.8M19 8.6v10.8M23 8.6v10.8" stroke={shade(body, 0.4)} stroke-width="1.1" />
+        <path d="M25.5 10.5l4-1.5v10l-4-1.5z" fill={fin} stroke={INK} stroke-width="1.5" stroke-linejoin="round" />
+        <path d="M8 14c0-3.5 3-5.5 7-5.5h8l2.5 2v7l-2.5 2h-8c-4 0-7-2-7-5.5z" fill="none" stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+        <path d="M12 21l-1 4M17 21l-.5 4M22 21v4" stroke={INK} stroke-width="1.2" stroke-linecap="round" />
+        {eye(11, 12.6)}
+      </>
+    );
+  }
+  // body outline, belly shadow and tail per shape: [body path, tail path, eye x, eye y]
+  const shapes: Record<string, [string, string, number, number]> = {
+    slim: ['M4 16c3-4.5 9-6 15-6 3.5 0 6 2 7.5 6-1.5 4-4 6-7.5 6-6 0-12-1.5-15-6z', 'M25.5 16l4.5-5v10z', 9, 15],
+    round: ['M4 16c1-6 7-9.5 13-9.5 5 0 8.5 4 9.5 9.5-1 5.5-4.5 9.5-9.5 9.5-6 0-12-3.5-13-9.5z', 'M25.5 16l5-5.5v11z', 9.5, 14],
+    long: ['M3 16c2.5-4 8-5.5 14-5.5 4.5 0 7.5 2 9.5 5.5-2 3.5-5 5.5-9.5 5.5-6 0-11.5-1.5-14-5.5z', 'M25.5 16l4.5-4.5-1 4.5 1 4.5z', 8, 15],
+    eel: ['M3 16c2-2.5 5-3.5 8-3.5 3 0 5 2.5 8 2.5s5-2 8-1c1.5.5 2 1.8 2 2s-.5 1.5-2 2c-3 1-5-1-8-1s-5 2.5-8 2.5c-3 0-6-1-8-3.5z', 'M27 14.5l2.5 1.5-2.5 1.5z', 7, 15.4],
+    catfish: ['M4 17c2-6 8-8.5 14-8.5 4 0 7 3 8.5 8.5-1.5 4.5-4.5 6.5-8.5 6.5-6 0-12-1.5-14-6.5z', 'M25.5 17l4.5-5v10z', 9, 15],
+  };
+  const [d, tail, ex, ey] = shapes[f.shape] ?? shapes.slim;
+  return (
+    <>
+      <path d={tail} fill={fin} stroke={INK} stroke-width="1.6" stroke-linejoin="round" />
+      {f.shape !== 'eel' && <path d="M14 10.5c1-3 4-4 6-3l-1 3.5z" fill={fin} stroke={INK} stroke-width="1.4" stroke-linejoin="round" />}
+      <path d={d} fill={body} />
+      <clipPath id={`fb-${f.id}`}>
+        <path d={d} />
+      </clipPath>
+      <g clip-path={`url(#fb-${f.id})`}>
+        <rect x="0" y="17.5" width="32" height="12" fill={shade(body, 0.2)} />
+        <ellipse cx="13" cy="12.5" rx="5" ry="1.5" fill="#fff" opacity="0.45" />
+        {f.shape === 'long' && [12, 16, 20].map((x) => <circle key={x} cx={x} cy="15" r="0.9" fill={fin} />)}
+        {f.shape === 'round' && <path d="M15 8v16M19 9v14" stroke={shade(body, 0.3)} stroke-width="1" opacity="0.7" />}
+      </g>
+      <path d={d} fill="none" stroke={INK} stroke-width="1.9" stroke-linejoin="round" />
+      {f.shape === 'catfish' && <path d="M5 18c-2 1-3 3-2.5 5M6 17.5c-1 2-1 4 .5 5.5" stroke={INK} stroke-width="1.2" fill="none" stroke-linecap="round" />}
+      <path d={`M${ex + 3.5} ${ey - 3}c1 2 1 4.5 0 6.5`} stroke={shade(body, 0.4)} stroke-width="1.2" fill="none" stroke-linecap="round" />
+      {eye(ex, ey)}
+      {f.id === 'golden_carp' && twinkle(26, 6, 3.2, '#fff8d0')}
+      {f.id === 'silver_ghost' && twinkle(27, 7, 2.6, '#ffffff')}
+    </>
+  );
+}
+
+for (const f of FISH) ICONS[f.id] = () => fishArt(f);
 
 export function hasItemIcon(id: string | undefined): boolean {
   return !!id && id in ICONS;

@@ -15,6 +15,7 @@ import { boughtToday, daysUntilMerchant, merchantHere, merchantStock, merchantUn
 import { needsBackupNudge } from '../core/backup';
 import { CRITTERS, crittersOpen, nextVisitorIn, PAGE_TITLES, PAGES, pollenPerHoney } from '../core/critters';
 import { CritterIcon } from './critterIcons';
+import { biteCap, FISH, FISH_PAGE_TITLES, FISH_PAGES, fishingOpen, nextBiteIn, type CatchResult, type FishDef } from '../core/fishing';
 import { formatDuration } from '../core/time';
 import { clearErrors, recentErrors } from '../platform/errors';
 import type { Game } from '../game';
@@ -346,7 +347,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         <NavBtn icon="farm" label="Farm" active={sheet === null} onClick={() => setSheet(null)} />
         <NavBtn icon="barn" label="Barn" badge={barnCount} pulse={coach?.target === 'barn'} active={sheet === 'barn'} onClick={() => setSheet('barn')} />
         <NavBtn icon="board" label="Board" pulse={coach?.target === 'board'} badge={boardOpen ? fillable : 0} locked={!boardOpen} active={sheet === 'board'} onClick={() => boardOpen && setSheet('board')} />
-        <NavBtn icon="town" label="Town" badge={merchantUnlocked(s) && merchantHere(game.content, game.day(), s) && !boughtToday(s, game.day()).length ? 1 : 0} active={sheet === 'town'} onClick={() => setSheet('town')} />
+        <NavBtn icon="town" label="Town" badge={(merchantUnlocked(s) && merchantHere(game.content, game.day(), s) && !boughtToday(s, game.day()).length ? 1 : 0) + (fishingOpen(s) && (s.fishing?.bites ?? 0) >= biteCap(s, game.content) ? 1 : 0)} active={sheet === 'town'} onClick={() => setSheet('town')} />
         <NavBtn icon="mail" label="Mail" pulse={coach?.target === 'mail'} badge={mailUnread} active={sheet === 'mail'} onClick={() => setSheet('mail')} />
       </nav>
 
@@ -1364,14 +1365,16 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
   const scenes = pendingEvents(s, c).length > 0;
   const townOpen = townProjectOpen(s, c);
   const sketch = crittersOpen(s, c);
-  const tabs = ['store', ...(cart ? ['cart'] : []), ...(friends(s, c).length ? ['friends'] : []), ...(almanac ? ['almanac'] : []), ...(sketch ? ['sketchbook'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(projects.length || townOpen ? ['projects'] : [])];
-  const [tab, setTab] = useState<string>(projectDue ? 'projects' : scenes ? 'friends' : cart && merchantHere(c, day, s) && !boughtToday(s, day).length ? 'cart' : 'store');
+  const creek = fishingOpen(s);
+  const tabs = ['store', ...(cart ? ['cart'] : []), ...(friends(s, c).length ? ['friends'] : []), ...(almanac ? ['almanac'] : []), ...(sketch ? ['sketchbook'] : []), ...(creek ? ['creek'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(projects.length || townOpen ? ['projects'] : [])];
+  const fishQuest = creek && (activeQuest(s, c)?.objectives.some((o) => o.type === 'fish' || o.type === 'fish_species') ?? false);
+  const [tab, setTab] = useState<string>(projectDue ? 'projects' : fishQuest ? 'creek' : scenes ? 'friends' : cart && merchantHere(c, day, s) && !boughtToday(s, day).length ? 'cart' : 'store');
   return (
     <Sheet title="Bramblewick" onClose={onClose}>
       <div class="tabs" role="tablist">
         {tabs.map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} class={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'store' ? "Goldie's store" : t === 'cart' ? "Ziggy's cart" : t === 'friends' ? (scenes ? 'Friends ♥' : 'Friends') : t === 'almanac' ? 'Almanac' : t === 'sketchbook' ? 'Sketchbook' : t === 'land' ? 'Land' : t === 'market' ? 'Market' : 'Projects'}
+            {t === 'store' ? "Goldie's store" : t === 'cart' ? "Ziggy's cart" : t === 'friends' ? (scenes ? 'Friends ♥' : 'Friends') : t === 'almanac' ? 'Almanac' : t === 'sketchbook' ? 'Sketchbook' : t === 'creek' ? 'Creek' : t === 'land' ? 'Land' : t === 'market' ? 'Market' : 'Projects'}
           </button>
         ))}
       </div>
@@ -1511,6 +1514,7 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
       {tab === 'friends' && <FriendsTab game={game} day={day} onScene={onScene} />}
       {tab === 'almanac' && <AlmanacTab game={game} />}
       {tab === 'sketchbook' && <SketchbookTab game={game} />}
+      {tab === 'creek' && <CreekTab game={game} />}
 
       {tab === 'projects' && (
         <div class="projects">
@@ -1724,6 +1728,223 @@ function CartTab({ game, day }: { game: Game; day: number }) {
 }
 
 /** The Field Sketchbook: every Meadow Visitor, page by page, with the pollen jar. */
+type CastPhase = 'idle' | 'waiting' | 'bite' | 'early' | 'escaped' | 'caught';
+
+/** Sky and water colours for the local hour. */
+function creekSky(hour: number): { sky: string; water: string; label: string } {
+  if (hour >= 5 && hour < 10) return { sky: '#f7c9a8', water: '#6aa6c2', label: 'Morning mist' };
+  if (hour >= 10 && hour < 17) return { sky: '#a8daf2', water: '#4f9fc9', label: 'Midday' };
+  if (hour >= 17 && hour < 21) return { sky: '#f2a46f', water: '#58819f', label: 'Evening' };
+  return { sky: '#2c3a63', water: '#24395c', label: 'Night' };
+}
+
+/** Creek Dock fishing: cast, wait for the dip, reel in on time. Plus Nell's Creek Journal. */
+function CreekTab({ game }: { game: Game }) {
+  const s = game.state;
+  const c = game.content;
+  const f = s.fishing;
+  const bites = f?.bites ?? 0;
+  const cap = biteCap(s, c);
+  const next = nextBiteIn(s, c, game.now());
+  const [phase, setPhase] = useState<CastPhase>('idle');
+  const [fish, setFish] = useState<FishDef | null>(null);
+  const [result, setResult] = useState<CatchResult | null>(null);
+  const [view, setView] = useState<'dock' | 'journal'>('dock');
+  const [open, setOpen] = useState<string | null>(null);
+  const timers = useRef<number[]>([]);
+  const clear = () => {
+    for (const t of timers.current) window.clearTimeout(t);
+    timers.current = [];
+  };
+  useEffect(() => clear, []);
+  const hour = new Date().getHours();
+  const sky = creekSky(hour);
+
+  const cast = () => {
+    if (bites <= 0) return;
+    clear();
+    const on = game.rollFish();
+    setFish(on);
+    setResult(null);
+    setPhase('waiting');
+    const wait = 1200 + Math.random() * 2300;
+    timers.current.push(
+      window.setTimeout(() => {
+        setPhase('bite');
+        navigator.vibrate?.(30);
+        timers.current.push(window.setTimeout(() => setPhase('escaped'), on.window * 1000));
+      }, wait),
+    );
+  };
+  const reel = () => {
+    if (phase === 'waiting') {
+      clear();
+      setPhase('early');
+    } else if (phase === 'bite' && fish) {
+      clear();
+      const r = game.catchFish(fish.id);
+      setResult(r);
+      setPhase(r.ok ? 'caught' : 'idle');
+    }
+  };
+  const casting = phase === 'waiting' || phase === 'bite';
+  const seen = f?.seen ?? [];
+
+  if (view === 'journal')
+    return (
+      <>
+        <div class="row">
+          <button class="btn small" onClick={() => setView('dock')}>
+            ← Back to the dock
+          </button>
+          <span class="muted small">
+            {seen.length}/{FISH.length} species
+          </span>
+        </div>
+        {FISH_PAGES.map((page) => {
+          const list = FISH.filter((x) => x.page === page);
+          const found = list.filter((x) => seen.includes(x.id)).length;
+          return (
+            <section key={page}>
+              <h3>
+                Page {page} · {FISH_PAGE_TITLES[page] ?? ''} <span class="muted small">{found === list.length ? '✓ complete' : `${found}/${list.length}`}</span>
+              </h3>
+              <ul class="almanac">
+                {list.map((x) => {
+                  const got = seen.includes(x.id);
+                  return (
+                    <li key={x.id} class={`almanac-card${got ? '' : ' unknown'}`}>
+                      <button class="critter-card" disabled={!got} onClick={() => setOpen(open === x.id ? null : x.id)} aria-expanded={open === x.id}>
+                        {got || !x.secret ? (
+                          <span class={got ? '' : 'silhouette'}>
+                            <ItemIcon id={x.id} color={x.color} />
+                          </span>
+                        ) : (
+                          <span class="secret-mark" aria-hidden="true">?</span>
+                        )}
+                        <span class="almanac-name">{got ? x.name : x.secret ? '???' : 'Not yet caught'}</span>
+                        <small>{got ? `Caught ${f?.caught[x.id] ?? 0}` : x.secret ? '' : fishHours(x)}</small>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {open && list.some((x) => x.id === open) && <p class="story-lines critter-note">“{FISH.find((x) => x.id === open)!.note}” <b>– Nell</b></p>}
+            </section>
+          );
+        })}
+      </>
+    );
+
+  return (
+    <>
+      <div class={`creek${phase === 'bite' ? ' biting' : ''}`} style={`--sky:${sky.sky};--water:${sky.water}`}>
+        <svg class="creek-scene" viewBox="0 0 320 170" aria-hidden="true">
+          <rect width="320" height="70" fill="var(--sky)" />
+          {hour >= 21 || hour < 5 ? (
+            <circle cx="262" cy="26" r="11" fill="#fdf3c8" stroke="#4a2e1a" stroke-width="2" />
+          ) : (
+            <circle cx="262" cy="30" r="13" fill="#ffe27a" stroke="#4a2e1a" stroke-width="2" />
+          )}
+          {/* far bank and Nell's houseboat */}
+          <path d="M0 62c40-10 90-12 140-6s110 4 180-6v20H0z" fill="#5cb83a" stroke="#4a2e1a" stroke-width="2" />
+          <g transform="translate(36 40)">
+            <path d="M0 24h50l-6 8H6z" fill="#8a5a3a" stroke="#4a2e1a" stroke-width="2" stroke-linejoin="round" />
+            <rect x="10" y="10" width="26" height="14" fill="#3f7f9e" stroke="#4a2e1a" stroke-width="2" />
+            <path d="M7 11l16-9 16 9z" fill="#c0532f" stroke="#4a2e1a" stroke-width="2" stroke-linejoin="round" />
+            <rect x="16" y="14" width="6" height="5" fill={hour >= 18 || hour < 6 ? '#ffe27a' : '#cfe8f5'} stroke="#4a2e1a" stroke-width="1.5" />
+          </g>
+          <rect y="70" width="320" height="100" fill="var(--water)" />
+          <path d="M20 96h40M120 88h30M210 104h50M60 130h36M240 140h40" stroke="#ffffff" stroke-opacity="0.35" stroke-width="3" stroke-linecap="round" />
+          {/* line and bobber */}
+          {(casting || phase === 'escaped' || phase === 'early') && (
+            <>
+              <path d="M300 160 Q240 60 172 112" stroke="#f6efe0" stroke-width="1.4" fill="none" />
+              <g class="bobber" transform="translate(172 112)">
+                <ellipse cx="0" cy="6" rx="12" ry="3.5" fill="#ffffff" opacity="0.35" class="ripple" />
+                <circle cx="0" cy="0" r="6" fill="#ffffff" stroke="#4a2e1a" stroke-width="2" />
+                <path d="M-6 0a6 6 0 0 1 12 0z" fill="#e23b2e" stroke="#4a2e1a" stroke-width="2" />
+                <path d="M0-6v-5" stroke="#4a2e1a" stroke-width="2" stroke-linecap="round" />
+              </g>
+              {phase === 'bite' && (
+                <text x="172" y="88" text-anchor="middle" class="creek-bang">
+                  !
+                </text>
+              )}
+            </>
+          )}
+          {/* the dock */}
+          <path d="M210 170l30-26h80v26z" fill="#b07a4a" stroke="#4a2e1a" stroke-width="2.5" stroke-linejoin="round" />
+          <path d="M236 147h84M228 154h92M220 161h100" stroke="#8a5a3a" stroke-width="1.5" />
+        </svg>
+        <div class="creek-hud">
+          <span class="chip">{sky.label}</span>
+          <span class="chip">
+            Bites {bites}/{cap}
+          </span>
+        </div>
+      </div>
+
+      {phase === 'caught' && result?.ok ? (
+        <div class="order catch">
+          <ItemIcon id={result.fish.id} size={52} />
+          <div class="order-body">
+            <div class="order-who">
+              {result.firstTime ? 'New! ' : ''}
+              {result.fish.name}
+            </div>
+            {result.firstTime ? (
+              <p class="story-lines small">
+                “{result.fish.note}” <b>– Nell</b>
+              </p>
+            ) : (
+              <p class="muted small">Added to your barn. Worth {result.fish.sell} coins at the crate.</p>
+            )}
+            {result.pageDone && <p class="small"><b>Journal page {result.pageDone} complete! +1 Ribbon</b></p>}
+          </div>
+        </div>
+      ) : (
+        <p class="muted small creek-msg" aria-live="polite">
+          {phase === 'waiting'
+            ? 'Watch the bobber…'
+            : phase === 'bite'
+              ? 'It’s biting! Reel in!'
+              : phase === 'early'
+                ? 'Too soon! It swam off. (No bite lost.)'
+                : phase === 'escaped'
+                  ? 'It got away! (No bite lost.)'
+                  : bites > 0
+                    ? 'Cast your line, wait for the bobber to dip, then reel in.'
+                    : `All caught up. Next bite in about ${formatDuration(next ?? 0)}.`}
+        </p>
+      )}
+
+      <div class="row creek-actions">
+        {casting ? (
+          <button class={`btn big ${phase === 'bite' ? 'gold pulse' : 'green'}`} onClick={reel}>
+            Reel in!
+          </button>
+        ) : (
+          <button class="btn big green" disabled={bites <= 0} onClick={cast}>
+            {phase === 'idle' ? 'Cast' : 'Cast again'}
+          </button>
+        )}
+        <button class="btn" onClick={() => (clear(), setPhase('idle'), setView('journal'))}>
+          Journal {seen.length}/{FISH.length}
+        </button>
+      </div>
+      {bites < cap && next !== null && bites > 0 && <p class="muted small">Next bite in about {formatDuration(next)}. The creek holds {cap}.</p>}
+    </>
+  );
+}
+
+function fishHours(f: FishDef): string {
+  if (f.hours === 'any') return f.needs ? 'Any time, for experts' : 'Any time';
+  const [a, b] = f.hours;
+  const h = (x: number) => (x === 0 ? '12am' : x < 12 ? `${x}am` : x === 12 ? '12pm' : `${x - 12}pm`);
+  return `${h(a)}–${h(b)}`;
+}
+
 function SketchbookTab({ game }: { game: Game }) {
   const s = game.state;
   const c = game.content;

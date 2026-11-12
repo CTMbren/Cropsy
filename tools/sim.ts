@@ -3,7 +3,7 @@
  * long each level, chapter and purchase takes. Run with `npm run sim`.
  *
  * The player: one 30-minute first session (a look every 2 minutes), then checks in 4 times a day (8:00, 12:30, 18:00, 22:00).
- * At each check-in they read mail, talk to visitors, harvest, collect buildings, fill orders, sell
+ * At each check-in they read mail, talk to visitors, tap critters, fish every waiting bite, harvest, collect buildings, fill orders, sell
  * what they don't need, clear what they can afford, buy upgrades, and plant the most profitable
  * crop that will be ready by their next check-in.
  */
@@ -17,7 +17,9 @@ import { buyFromMerchant, merchantStock } from '../src/core/merchant';
 import { buildImprovement, deliverTownProject, hasImprovement, improvements, nextTownLevel, raiseTownLevel, syncTownProject, townProjectOpen } from '../src/core/town';
 import { buyDecor, decorDefs } from '../src/core/decor';
 import { activeQuest, advance, inbox, onEvent, readMail, talk } from '../src/core/story';
-import { dayIndex } from '../src/core/time';
+import { dayIndex, rng } from '../src/core/time';
+import { syncCritters, tapCritter } from '../src/core/critters';
+import { catchFish, rollFish, syncBites } from '../src/core/fishing';
 
 const TZ = 0;
 const T0 = Date.UTC(2027, 0, 4, 9, 0, 0) / 1000; // a Monday, 9:00
@@ -28,7 +30,7 @@ export interface SimResult {
   final: FarmState;
 }
 
-function reserve(s: FarmState, c: Content): Record<string, number> {
+function reserve(s: FarmState, c: Content, withOrders = true): Record<string, number> {
   const keep: Record<string, number> = {};
   const want = (items: Record<string, number>) => {
     for (const [id, n] of Object.entries(items)) keep[id] = Math.max(keep[id] ?? 0, n);
@@ -45,7 +47,7 @@ function reserve(s: FarmState, c: Content): Record<string, number> {
   // the next story quest's hand-in (e.g. Rufus's wheat) before it's offered
   const next = c.quests.find((x) => !s.story.done.includes(x.id) && x.id !== q?.id);
   for (const o of next?.objectives ?? []) if (o.type === 'hand_in') want(o.items);
-  for (const o of s.board.orders) want(o.wants);
+  if (withOrders) for (const o of s.board.orders) want(o.wants);
   if (townProjectOpen(s, c)) want(nextTownLevel(s, c).wants);
   if (s.town?.project && !s.town.done) want(s.town.project.wants);
   // recipe inputs for buildings we own
@@ -58,6 +60,16 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
   advance(s, c, now, TZ);
   for (const m of inbox(s, now).filter((x) => !x.read)) readMail(s, c, m.id, now, TZ);
   refreshBoard(s, c, now, TZ);
+  // meadow visitors and the creek: tap every critter, land every bite (never misses, never fishes extra)
+  syncCritters(s, c, now);
+  for (const v of [...(s.critters?.out ?? [])]) tapCritter(s, c, v.id);
+  syncBites(s, c, now);
+  const roll = rng(now);
+  while ((s.fishing?.bites ?? 0) > 0) {
+    const r = catchFish(s, c, rollFish(s, now, TZ, roll()).id, now);
+    if (!r.ok) break;
+    ev({ type: 'fish', fish: r.fish.id });
+  }
   // collect and restart buildings
   for (const id of Object.keys(s.buildings)) {
     collect(s, c, id, now);
@@ -111,7 +123,10 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
     }
   }
   // orders
+  // (but never with what the story or a project is waiting for, e.g. the festival's pastries)
+  const story = reserve(s, c, false);
   for (const o of [...s.board.orders]) {
+    if (Object.entries(o.wants).some(([id, n]) => (s.inventory[id] ?? 0) - n < (story[id] ?? 0))) continue;
     if (fulfilOrder(s, c, o.id).ok) ev({ type: 'order_done', id: o.id });
   }
   talk(s, c, now, TZ);
