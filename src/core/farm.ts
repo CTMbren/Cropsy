@@ -80,7 +80,21 @@ export interface FarmState {
   story: StoryState;
   mail: MailState[];
   board: { day: number; orders: OrderState[] };
-  settings: { muted: boolean; music: boolean; /** Text size multiplier: 1, 1.15 or 1.3. */ textScale?: number };
+  settings: {
+    muted: boolean;
+    music: boolean;
+    /** Text size multiplier: 1, 1.15 or 1.3. */
+    textScale?: number;
+    /** 0–1, default 1 (sound effects) and 0.5 (music). */
+    sfxVolume?: number;
+    musicVolume?: number;
+    /** 'system' follows the iPhone's Reduce Motion setting. */
+    motion?: 'system' | 'reduced' | 'full';
+    /** 30 fps and no idle animation on the farm. */
+    batterySaver?: boolean;
+    /** Dragging across plots plants/harvests each one (on by default). */
+    dragActions?: boolean;
+  };
   villagers: Record<string, FriendState>;
   /** Barn upgrade tier (index into economy.barn). */
   barnLevel: number;

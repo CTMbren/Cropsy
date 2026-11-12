@@ -4,6 +4,7 @@
  * and paused whenever the game is hidden.
  */
 let ctx: AudioContext | null = null;
+let level = 0.5;
 let master: GainNode | null = null;
 let timer: number | undefined;
 let nextTime = 0;
@@ -74,13 +75,19 @@ export function initMusic(audio: AudioContext): void {
   if (ctx) return;
   ctx = audio;
   master = ctx.createGain();
-  master.gain.value = 0.5;
+  master.gain.value = level;
   master.connect(ctx.destination);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') stop();
     else if (wanted) start();
   });
   if (wanted) start();
+}
+
+/** 0–1 music volume (default 0.5). */
+export function setMusicVolume(v: number): void {
+  level = Math.max(0, Math.min(1, v));
+  if (master) master.gain.value = level;
 }
 
 export function setMusic(on: boolean): void {

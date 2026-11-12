@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { DAILY_ORDERS } from '../core/board';
 import { goodsReady } from '../core/processing';
 import { itemName, itemValue, shortName, type Content, type VillagerDef } from '../core/content';
-import { barnCapacity, barnUsed, cratePrice, hasFlag, type FarmState, hasItems, lifetimeHarvests, MASTERY_STEP, masteryLevel, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
+import { barnCapacity, barnUsed, cratePrice, hasFlag, newFarm, type FarmState, hasItems, lifetimeHarvests, MASTERY_STEP, masteryLevel, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
 import { xpToNext } from '../core/progression';
 import { fromSaveCode, toSaveCode } from '../core/save';
 import { rawSaveDump } from '../platform/storage';
@@ -57,7 +57,7 @@ type Sheet = 'barn' | 'board' | 'mail' | 'settings' | 'town' | `building:${strin
 type Dialogue = { villager: VillagerDef; lines: string[]; index: number; done?: string; title?: string };
 type Flyer = { id: number; x: number; y: number; go: boolean };
 
-export function App({ game, updateReady, onUpdate, debug }: { game: Game; updateReady: boolean; onUpdate: () => void; debug: boolean }) {
+export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdateCheck }: { game: Game; updateReady: boolean; onUpdate: () => void; debug: boolean; checkUpdate?: () => Promise<'ready' | 'latest' | 'offline'>; lastUpdateCheck?: () => number }) {
   const now = useGame(game);
   const s = game.state;
   // toasts queue up (one at a time) so a quick second message never wipes the first
@@ -164,6 +164,8 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
   const boardOpen = hasFlag(s, 'board_open');
   const fillable = s.board.orders.filter((o) => hasItems(s, o.wants)).length;
   const coach = sheet === null && !dialogue ? game.coach() : null;
+  // nothing to draw on the farm while a sheet or a dialogue covers it (saves battery)
+  useEffect(() => game.setCovered(sheet !== null || !!dialogue), [sheet, dialogue]);
   const [backupLater, setBackupLater] = useState(false);
   const canReplant = Object.keys(s.lastCrop).some((k) => s.plots[k] && !s.plots[k].crop && !s.obstacles[k]);
 
@@ -235,6 +237,14 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
         );
       })()}
 
+      <div class="sr-only" aria-live="polite">
+        {`Farm: ${ripeKeys.length} ripe, ${Object.values(s.plots).filter((p) => p.crop).length - ripeKeys.length} growing${ready !== null ? `, next ready in ${formatDuration(ready)}` : ''}${goods.length ? `, ${goods.reduce((a, g) => a + g.n, 0)} goods ready` : ''}.`}
+      </div>
+      {ripeKeys.length > 0 && (
+        <button class="sr-only" onClick={() => game.harvestAllRipe()}>
+          Harvest all {ripeKeys.length} ripe crops
+        </button>
+      )}
       {ripeKeys.length > 0 || goods.length > 0 ? (
         <div class="next-ready ready-chips">
           {ripeKeys.length > 0 && (
@@ -424,7 +434,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
       {sheet === 'barn' && <BarnSheet game={game} onClose={() => setSheet(null)} />}
       {sheet === 'board' && <BoardSheet game={game} onClose={() => setSheet(null)} />}
       {sheet === 'mail' && <MailSheet game={game} now={now} onClose={() => setSheet(null)} />}
-      {sheet === 'settings' && <Settings game={game} onClose={() => setSheet(null)} debug={debug} />}
+      {sheet === 'settings' && <Settings game={game} onClose={() => setSheet(null)} debug={debug} updateReady={updateReady} onUpdate={onUpdate} checkUpdate={checkUpdate} lastUpdateCheck={lastUpdateCheck} />}
       {sheet === 'town' && (
         <TownSheet
           game={game}
@@ -985,22 +995,88 @@ function LoadFailedCard({ game }: { game: Game }) {
   );
 }
 
-function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; debug: boolean }) {
+function Settings({ game, onClose, debug, updateReady, onUpdate, checkUpdate, lastUpdateCheck }: { game: Game; onClose: () => void; debug: boolean; updateReady: boolean; onUpdate: () => void; checkUpdate?: () => Promise<'ready' | 'latest' | 'offline'>; lastUpdateCheck?: () => number }) {
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState('');
   const [pending, setPending] = useState<{ state: FarmState; from: string } | null>(null);
+  const [upd, setUpd] = useState<'idle' | 'checking' | 'ready' | 'latest' | 'offline'>(updateReady ? 'ready' : 'idle');
+  const [startOver, setStartOver] = useState('');
+  const [persisted, setPersisted] = useState<boolean | null>(null);
+  useEffect(() => {
+    void navigator.storage?.persisted?.().then(setPersisted).catch(() => undefined);
+  }, []);
   const saved = lastSavedAt();
   const s = game.state;
+  const st = s.settings;
+  // the game clock never runs backwards, so a phone clock that was once set ahead freezes growth until it catches up
+  const clockAhead = Math.max(0, s.time.maxSeenTime - (Date.now() / 1000 + s.time.debugOffset));
+  const backedUp = s.backup?.lastAt;
   return (
     <Sheet title="Settings" onClose={onClose}>
+      <h3>Sound</h3>
       <label class="toggle">
-        <input type="checkbox" checked={!s.settings.muted} onChange={(e) => game.setMuted(!(e.target as HTMLInputElement).checked)} />
+        <input type="checkbox" checked={!st.muted} onChange={(e) => game.setMuted(!(e.target as HTMLInputElement).checked)} />
         <span>Sound effects</span>
       </label>
+      {!st.muted && (
+        <label class="slider">
+          <span>Effects volume</span>
+          <input type="range" min="0" max="1" step="0.1" value={st.sfxVolume ?? 1} onChange={(e) => game.setSetting('sfxVolume', Number((e.target as HTMLInputElement).value))} />
+        </label>
+      )}
       <label class="toggle">
-        <input type="checkbox" checked={s.settings.music !== false} onChange={(e) => game.setMusic((e.target as HTMLInputElement).checked)} />
+        <input type="checkbox" checked={st.music !== false} onChange={(e) => game.setMusic((e.target as HTMLInputElement).checked)} />
         <span>Music</span>
       </label>
+      {st.music !== false && (
+        <label class="slider">
+          <span>Music volume</span>
+          <input type="range" min="0" max="1" step="0.1" value={st.musicVolume ?? 0.5} onChange={(e) => game.setSetting('musicVolume', Number((e.target as HTMLInputElement).value))} />
+        </label>
+      )}
+      <p class="muted small">Sounds follow your iPhone's silent switch. The fishing bite has its own sound, since web apps can't vibrate on iPhone.</p>
+
+      <h3>Controls</h3>
+      <label class="toggle">
+        <input type="checkbox" checked={st.dragActions !== false} onChange={(e) => game.setSetting('dragActions', (e.target as HTMLInputElement).checked)} />
+        <span>Drag across plots to plant and harvest</span>
+      </label>
+      <p class="muted small">Off: dragging only moves the camera, and each plot needs its own tap.</p>
+      <div class="row">
+        <button
+          class="btn small"
+          onClick={() => {
+            game.resetCamera();
+            setMsg('Camera reset. You can also double-tap the grass.');
+          }}
+        >
+          Reset camera
+        </button>
+      </div>
+
+      <h3>Display and battery</h3>
+      <div class="field">
+        <span>Motion</span>
+        <div class="tabs" role="radiogroup" aria-label="Motion">
+          {(
+            [
+              ['system', 'Match iPhone'],
+              ['reduced', 'Reduced'],
+              ['full', 'Full'],
+            ] as const
+          ).map(([v, label]) => (
+            <button key={v} role="radio" aria-checked={(st.motion ?? 'system') === v} class={`tab${(st.motion ?? 'system') === v ? ' active' : ''}`} onClick={() => game.setSetting('motion', v)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p class="muted small">Reduced: no camera shake, sparkle bursts or swaying crops.</p>
+      <label class="toggle">
+        <input type="checkbox" checked={!!st.batterySaver} onChange={(e) => game.setSetting('batterySaver', (e.target as HTMLInputElement).checked)} />
+        <span>Battery saver</span>
+      </label>
+      <p class="muted small">Draws the farm at 30 frames a second and keeps it still when you're not touching it. The farm always pauses behind menus like this one.</p>
       <div class="field">
         <span>Text size</span>
         <div class="tabs" role="radiogroup" aria-label="Text size">
@@ -1015,7 +1091,20 @@ function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; d
           ))}
         </div>
       </div>
-      <p class="muted">Last saved {saved ? new Date(saved).toLocaleTimeString() : 'not yet'}.</p>
+      <h3>Your farm</h3>
+      <ul class="facts">
+        <li>Last saved: {saved ? new Date(saved).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'not yet this session'}</li>
+        <li>Last backup code: {backedUp ? new Date(backedUp * 1000).toLocaleDateString() : 'never'}</li>
+        <li>
+          Storage:{' '}
+          {persisted === null ? 'checking…' : persisted ? 'kept safe by your iPhone' : isStandalone() ? 'not protected yet (keep a backup code)' : 'Safari may clear it. Add Cropsy to your Home Screen'}
+        </li>
+      </ul>
+      {clockAhead > 60 && (
+        <p class="callout">
+          Your crops seem frozen? Your phone's clock was once set ahead, about {formatDuration(clockAhead)} ago in game time. Cropsy never runs its clock backwards, so growth resumes once real time catches up.
+        </p>
+      )}
       <label class="field">
         <span>Backup code</span>
         <textarea rows={3} value={code} onInput={(e) => setCode((e.target as HTMLTextAreaElement).value)} placeholder="Tap “Copy backup code”, or paste one here to restore" />
@@ -1155,7 +1244,52 @@ function Settings({ game, onClose, debug }: { game: Game; onClose: () => void; d
           </button>
         )}
       </div>
-      <p class="muted small version">Cropsy {__APP_VERSION__}</p>
+      <h3>Updates</h3>
+      <p class="muted small version">
+        Cropsy {__APP_VERSION__}
+        {lastUpdateCheck && lastUpdateCheck() > 0 && ` · checked ${formatDuration(Math.max(1, Math.round((Date.now() - lastUpdateCheck()) / 1000)))} ago`}
+      </p>
+      <div class="row">
+        {upd === 'ready' ? (
+          <button class="btn green" onClick={onUpdate}>
+            Update now
+          </button>
+        ) : (
+          <button
+            class="btn"
+            disabled={upd === 'checking' || !checkUpdate}
+            onClick={async () => {
+              setUpd('checking');
+              setUpd((await checkUpdate?.()) ?? 'offline');
+            }}
+          >
+            {upd === 'checking' ? 'Checking…' : 'Check for update'}
+          </button>
+        )}
+        <span class="muted small" role="status">
+          {upd === 'latest' ? "You're on the latest version." : upd === 'offline' ? "Couldn't check. Are you online?" : upd === 'ready' ? 'A new version is ready.' : ''}
+        </span>
+      </div>
+
+      <h3>Start over</h3>
+      <p class="muted small">Deletes this farm and starts a new one. Copy a backup code first if you might want it back. Type START to confirm.</p>
+      <div class="row">
+        <input class="text-input" value={startOver} onInput={(e) => setStartOver((e.target as HTMLInputElement).value)} placeholder="Type START" aria-label="Type START to confirm starting over" />
+        <button
+          class="btn red"
+          disabled={startOver.trim().toUpperCase() !== 'START'}
+          onClick={async () => {
+            await game.replaceState(newFarm(game.now()));
+            setStartOver('');
+            setMsg('A fresh farm! Your old one is kept: Undo last restore brings it back.');
+          }}
+        >
+          Start over
+        </button>
+      </div>
+
+      <h3>Credits</h3>
+      <p class="muted small">Made by Brendan Bickford, with help from Claude. Fonts: Lilita One and Fredoka (SIL Open Font License). Built with Phaser and Preact. Music and sounds are made in code as you play.</p>
       {debug && (
         <>
           <h3>Debug</h3>
@@ -2064,7 +2198,7 @@ function CreekTab({ game }: { game: Game }) {
     timers.current.push(
       window.setTimeout(() => {
         setPhase('bite');
-        navigator.vibrate?.(30);
+        game.fishBite();
         timers.current.push(window.setTimeout(() => setPhase('escaped'), on.window * 1000));
       }, wait),
     );

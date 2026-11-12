@@ -120,6 +120,8 @@ export class FxLayer {
   constructor(
     private scene: Phaser.Scene,
     extraChars = '',
+    /** Reduced motion: no particle sprays, and text fades without bouncing. */
+    private calm: () => boolean = () => false,
   ) {
     bakeFxFont(scene, extraChars);
     bakeDot(scene);
@@ -137,6 +139,7 @@ export class FxLayer {
   }
 
   burst(x: number, y: number, color: number, count = 8): void {
+    if (this.calm()) return;
     this.emitter.setParticleTint(color);
     this.emitter.explode(count, x, y - 10);
   }
@@ -145,7 +148,7 @@ export class FxLayer {
   pop(x: number, y: number, text: string, color: string | number): void {
     const t = this.take(text, color, 22).setPosition(x, y - 30);
     this.scene.tweens.add({ targets: t, y: y - 80, alpha: 0, duration: 900, ease: 'Cubic.easeOut', onComplete: () => this.release(t) });
-    this.scene.tweens.add({ targets: t, scale: { from: 0.6, to: 1.15 }, duration: 180, yoyo: true, ease: 'Back.easeOut' });
+    if (!this.calm()) this.scene.tweens.add({ targets: t, scale: { from: 0.6, to: 1.15 }, duration: 180, yoyo: true, ease: 'Back.easeOut' });
   }
 
   combo(x: number, y: number, n: number): void {

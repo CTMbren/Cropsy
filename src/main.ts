@@ -4,8 +4,8 @@ import { registerSW } from 'virtual:pwa-register';
 import { Game } from './game';
 import { installErrorLog } from './platform/errors';
 import { countVisit } from './platform/visits';
-import { initMusic, setMusic } from './platform/music';
-import { play, setMuted, unlockAudio, whenAudioReady } from './platform/sound';
+import { initMusic, setMusic, setMusicVolume } from './platform/music';
+import { play, setMuted, setSfxVolume, unlockAudio, whenAudioReady } from './platform/sound';
 import { App } from './ui/App';
 import { FarmScene } from './world/FarmScene';
 import { hideSplash } from './splash';
@@ -41,12 +41,15 @@ async function start() {
 
   // Sound: iOS only allows audio after a user gesture.
   window.addEventListener('pointerdown', unlockAudio, { capture: true });
-  setMuted(game.state.settings.muted);
-  setMusic(game.state.settings.music !== false);
-  game.subscribe(() => {
-    setMuted(game.state.settings.muted);
-    setMusic(game.state.settings.music !== false);
-  });
+  const applyAudio = () => {
+    const st = game.state.settings;
+    setMuted(st.muted);
+    setSfxVolume(st.sfxVolume ?? 1);
+    setMusicVolume(st.musicVolume ?? 0.5);
+    setMusic(st.music !== false);
+  };
+  applyAudio();
+  game.subscribe(applyAudio);
   whenAudioReady((ctx) => {
     // iOS resumes the context asynchronously after the first tap
     const go = () => initMusic(ctx);
@@ -65,6 +68,7 @@ async function start() {
     else if (e.kind === 'moss') play('coin');
     else if (e.kind === 'denied') play('denied');
     else if (e.kind === 'ui') play('ui');
+    else if (e.kind === 'bite') play('bite');
   });
 
   // Render at device pixels (capped at 2×) so the farm is crisp on Retina screens; the scene's
@@ -93,6 +97,24 @@ async function start() {
       },
     },
   });
+  // Battery: render at 30 fps in battery saver, and not at all while a full-screen sheet covers the farm.
+  let asleep = false;
+  const applyLoop = () => {
+    const loop = phaser.loop;
+    if (!loop) return;
+    loop.setFPSLimit(game.state.settings.batterySaver ? 30 : 0);
+    const covered = game.uiCovered && !game.away;
+    if (covered && !asleep) {
+      loop.sleep();
+      asleep = true;
+    } else if (!covered && asleep) {
+      loop.wake(true);
+      asleep = false;
+    }
+  };
+  game.subscribe(applyLoop);
+  phaser.events.once('ready', applyLoop);
+
   window.addEventListener('resize', () => {
     const s = size();
     phaser.scale.resize(s.w, s.h);
@@ -103,6 +125,22 @@ async function start() {
   // started playing), apply it straight away; mid-session, offer it with a banner instead.
   const launchedAt = performance.now();
   let updateReady = false;
+  let swReg: ServiceWorkerRegistration | undefined;
+  let lastCheck = 0;
+  /** Settings' "Check for update": asks the server now, then reports what it found. */
+  const checkUpdate = async (): Promise<'ready' | 'latest' | 'offline'> => {
+    if (updateReady) return 'ready';
+    if (!swReg) return 'offline';
+    try {
+      await swReg.update();
+      lastCheck = Date.now();
+      // a found update installs in the background; give it a moment to report
+      await new Promise((r) => setTimeout(r, 2500));
+      return updateReady || swReg.waiting || swReg.installing ? 'ready' : 'latest';
+    } catch {
+      return 'offline';
+    }
+  };
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
@@ -116,7 +154,8 @@ async function start() {
     },
     onRegisteredSW(_url, reg) {
       if (!reg) return;
-      const check = () => void reg.update().catch(() => undefined);
+      swReg = reg;
+      const check = () => void reg.update().then(() => (lastCheck = Date.now())).catch(() => undefined);
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') check();
       });
@@ -131,6 +170,8 @@ async function start() {
         game,
         debug,
         updateReady,
+        checkUpdate,
+        lastUpdateCheck: () => lastCheck,
         onUpdate: () => {
           game.saveNow();
           void updateSW(true);
