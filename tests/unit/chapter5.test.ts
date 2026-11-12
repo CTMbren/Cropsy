@@ -57,7 +57,7 @@ describe('Chapter 5: The Golden Harvest', () => {
     expect(talk(s, content, now, TZ).kind).toBe('outro');
     expect(s.ribbons).toBe(ribbons + 10);
     expect(s.flags).toContain('story_complete');
-    expect(s.story.done.length).toBe(content.quests.length);
+    expect(s.story.done.length).toBe(content.quests.filter((q) => q.chapter <= 5).length);
     // his thank-you letter brings a statue
     now += 86400;
     readMail(s, content, 'tobias_5', now, TZ);

@@ -26,6 +26,7 @@ import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, 
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
 import { markBackedUp, snoozeBackup } from './core/backup';
 import { syncCritters, tapCritter, type TapResult } from './core/critters';
+import { catchFish, rollFish, syncBites, type CatchResult, type FishDef } from './core/fishing';
 import { startClearing, syncLand, type ClearResult } from './core/land';
 import { coachHint, type CoachHint } from './core/coach';
 import { buildImprovement, deliverTownProject, raiseTownLevel, syncTownProject, townLevel } from './core/town';
@@ -114,13 +115,15 @@ export class Game {
     window.addEventListener('pagehide', () => this.saveNow());
     this.finishClearing();
     syncCritters(this.state, this.content, this.now());
-    // visitors arrive while the app is open, too
+    syncBites(this.state, this.content, this.now());
+    // visitors (and bites at the creek) arrive while the app is open, too
     window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       const before = JSON.stringify(this.state.critters?.out ?? []);
       syncCritters(this.state, this.content, this.now());
+      const bites = syncBites(this.state, this.content, this.now());
       const cleared = this.state.clearing && this.now() >= this.state.clearing.endsAt;
-      if (cleared || JSON.stringify(this.state.critters?.out ?? []) !== before) this.changed();
+      if (cleared || bites || JSON.stringify(this.state.critters?.out ?? []) !== before) this.changed();
     }, 5000);
     this.emit();
   }
@@ -439,6 +442,24 @@ export class Game {
     this.changed();
   }
 
+  /** What's on the line for the next cast, picked by the local time of day. */
+  rollFish(): FishDef {
+    return rollFish(this.state, this.now(), this.tz(), Math.random());
+  }
+
+  /** Reeled in on time: the fish goes to the barn and the Creek Journal. */
+  catchFish(fishId: string): CatchResult {
+    const r = catchFish(this.state, this.content, fishId, this.now());
+    if (!r.ok) return r;
+    this.fx({ kind: 'ui' });
+    log(this.state, this.now(), `fish ${fishId}`);
+    if (r.pageDone) this.fx({ kind: 'ribbon', amount: 1, why: 'Creek Journal page' });
+    this.friendFx(r.friendship);
+    this.event({ type: 'fish', fish: fishId });
+    this.changed();
+    return r;
+  }
+
   /** Dig up a growing crop early (it's destroyed, no refund). */
   digUp(key: string): boolean {
     const r = digUp(this.state, key, this.now());
@@ -664,6 +685,7 @@ export class Game {
     syncTownProject(this.state, this.content, this.day());
     this.finishClearing();
     syncCritters(this.state, this.content, this.now());
+    syncBites(this.state, this.content, this.now());
     // keep the active quest possible (places missing weeds, branches or rocks on free plots)
     ensureQuestMaterials(this.state, this.content);
     // quests measured from the farm (crops discovered, mastery) can finish without an event

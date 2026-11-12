@@ -211,6 +211,45 @@ const LOOKS: Record<string, Look> = {
       </>
     ),
   },
+  nell: {
+    // river-keeper: silver braid, roll-neck fisherman's knit, a mustard oilskin sou'wester
+    skin: '#dca37d',
+    back: (v) => (
+      <>
+        <path d="M18 34c-4 6-4 14-1 21 2 1 4 0 5-2-2-6-2-12 0-17z" fill={v.hair} stroke={INK} stroke-width="2" stroke-linejoin="round" />
+        <path d="M17 41l4 1.5M16.5 46l4.5 1M17.5 51l3.5.5" stroke={shade(v.hair, 0.3)} stroke-width="1.3" stroke-linecap="round" />
+        <path d="M18 54.5l3 1.5" stroke="#c0532f" stroke-width="2.4" stroke-linecap="round" />
+      </>
+    ),
+    outfit: (v) => (
+      <>
+        {shoulders(v.color)}
+        <path d="M24.5 49c2.5 2.5 12.5 2.5 15 0l1 4c-3 2.5-14 2.5-17 0z" fill={light(v.color, 0.2)} stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+        <path d="M18 56v8M24 54v10M40 54v10M46 56v8" stroke={shade(v.color, 0.3)} stroke-width="1.4" stroke-linecap="round" />
+        <path d="M21 59l3-2 3 2M37 59l3-2 3 2" fill="none" stroke={light(v.color, 0.35)} stroke-width="1.2" stroke-linecap="round" />
+      </>
+    ),
+    front: (v) => (
+      <>
+        {/* silver hair at the temples, under the hat */}
+        <path d="M18.6 33c-1-5 .5-9 3-11l3 2c-2 2-3.5 5-3.5 9zM45.4 33c1-5-.5-9-3-11l-3 2c2 2 3.5 5 3.5 9z" fill={v.hair} stroke={INK} stroke-width="2" stroke-linejoin="round" />
+        {/* sou'wester: domed crown, brim longer at the back and sides */}
+        <path d="M19 22c0-8 6-13 13-13s13 5 13 13z" fill="#e0a53a" stroke={INK} stroke-width={SW} stroke-linejoin="round" />
+        <path d="M37 11c4 2 7 6 7.5 10.5L41 22c-.5-4-2-7.5-4-11z" fill={shade('#e0a53a', 0.18)} />
+        <path d="M10 25c4-3.5 12-5 22-5s18 1.5 22 5c-1 2.5-3 3-5 2.5-5-2-11-3-17-3s-12 1-17 3c-2 .5-4 0-5-2.5z" fill="#e0a53a" stroke={INK} stroke-width={SW} stroke-linejoin="round" />
+        <path d="M24 13.5c2-1.5 4-2 6-2" stroke="#fff3c4" stroke-width="1.6" stroke-linecap="round" />
+        <path d="M20 22.5h24" stroke={shade('#e0a53a', 0.3)} stroke-width="1.4" />
+      </>
+    ),
+    brows: (mood) => (
+      <path
+        d={mood === 'sad' ? 'M24.5 27.6l4.4-1.4M35.1 26.2l4.4 1.4' : mood === 'surprised' ? 'M24.5 25.6l4.5-.8M35 24.8l4.5.8' : 'M24.5 26.8l4.5-.4M35 26.4l4.5.4'}
+        stroke={shade('#c8c2b4', 0.35)}
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
+    ),
+  },
   juniper: {
     skin: '#f6c9a0',
     freckles: true,

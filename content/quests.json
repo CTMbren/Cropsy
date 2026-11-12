@@ -684,5 +684,169 @@
         }
       ]
     }
+  },
+  {
+    "id": "ch6_letter",
+    "chapter": 6,
+    "giver": "mail",
+    "title": "Tobias stays",
+    "min_level": 19,
+    "objectives": [
+      {
+        "type": "read_mail",
+        "id": "tobias_6"
+      }
+    ],
+    "rewards": {}
+  },
+  {
+    "id": "ch6_dock",
+    "chapter": 6,
+    "giver": "bruno",
+    "title": "The old creek dock",
+    "intro": [
+      "The creek dock? I know it. Tobias and I built that the summer I was apprenticing. He held the hammer like a spoon.",
+      "It needs new pilings and decking. Bring me 40 wood, 15 stone and 5,000 coins for the ironwork, and I'll have it standing in a day."
+    ],
+    "outro": [
+      "There. Solid as the mill. Solider. Don't tell Rufus.",
+      "Somebody's already watching from the houseboat on the far bank. That'll be Nell. Go say hello. Bring patience."
+    ],
+    "objectives": [
+      {
+        "type": "hand_in",
+        "items": {
+          "wood": 40,
+          "stone": 15
+        },
+        "coins": 5000
+      }
+    ],
+    "rewards": {
+      "xp": 120,
+      "ribbons": 2,
+      "flags": [
+        "creek_open",
+        "met_nell"
+      ]
+    }
+  },
+  {
+    "id": "ch6_nell",
+    "chapter": 6,
+    "giver": "nell",
+    "title": "The river-keeper",
+    "intro": [
+      "So. You're the one fixing things. Tobias's sprout.",
+      "You want to cross, you learn the creek first. Cast your line, wait for the bobber to dip, then pull. Not before. Not after. Then.",
+      "Catch me three fish. Any three. The Creek's in Town now that there's a dock to stand on."
+    ],
+    "outro": [
+      "Three fish and you didn't fall in. That's better than your great-uncle managed.",
+      "Every fish you land the first time, I'll write you a note about it. Somebody ought to know who lives down there."
+    ],
+    "objectives": [
+      {
+        "type": "fish",
+        "fish": "any",
+        "n": 3
+      }
+    ],
+    "rewards": {
+      "xp": 80
+    }
+  },
+  {
+    "id": "ch6_species",
+    "chapter": 6,
+    "giver": "nell",
+    "title": "Neighbours",
+    "min_level": 20,
+    "intro": [
+      "The creek's not one place. It's a morning place and an evening place and a place that only wakes up after dark.",
+      "Find me five different kinds. Come down at different hours. The char won't wait for you to finish breakfast."
+    ],
+    "outro": [
+      "Five neighbours. You're starting to know the street.",
+      "Rufus was up at the mill race this morning, staring at the water. He used to come down here every day, you know. Before."
+    ],
+    "objectives": [
+      {
+        "type": "fish_species",
+        "n": 5
+      }
+    ],
+    "rewards": {
+      "xp": 100,
+      "ribbons": 2
+    }
+  },
+  {
+    "id": "ch6_rufus",
+    "chapter": 6,
+    "giver": "rufus",
+    "title": "A peace offering",
+    "min_level": 21,
+    "intro": [
+      "You've been fishing with Nell Brightwater. Don't look at me like that, I can see the creek from the mill.",
+      "The year of the flood I shut the race to save the town, and the water went to her side. Her mother's boat went with it. We haven't spoken since.",
+      "Edie, my wife, used to make a trout pie. Nell loved it. Bring me 5 brook trout and 5 flour. I'll bake it. Then I'll... carry it over. Probably."
+    ],
+    "outro": [
+      "She ate two slices. Didn't say anything for a long time. Then she said the crust was too thick.",
+      "Edie's crust was always too thick. Nell used to say that every time. ...It was a good day. Don't make a thing of it."
+    ],
+    "objectives": [
+      {
+        "type": "hand_in",
+        "items": {
+          "brook_trout": 5,
+          "flour": 5
+        }
+      }
+    ],
+    "rewards": {
+      "xp": 120,
+      "ribbons": 2
+    }
+  },
+  {
+    "id": "ch6_ferry",
+    "chapter": 6,
+    "giver": "nell",
+    "title": "Nell's ferry",
+    "min_level": 22,
+    "intro": [
+      "Rufus brought pie. Twenty years and he brings pie. I didn't know what to do with my hands.",
+      "Anyway. The ferry. It's been leaking since the flood and I've been too stubborn to ask anyone for anything.",
+      "I'm asking. 30 wood for the hull, 10 cotton for a new sail, and 5 honey to seal the seams. Old trick."
+    ],
+    "outro": [
+      "Floats. Floats and doesn't leak. I'd forgotten what that sounds like. Quiet.",
+      "Tobias wants to cross tomorrow. Says there's something of his still standing on the far bank. I'll take him. Slowly. Over the deep bit."
+    ],
+    "objectives": [
+      {
+        "type": "hand_in",
+        "items": {
+          "wood": 30,
+          "cotton": 10,
+          "honey": 5
+        }
+      }
+    ],
+    "rewards": {
+      "xp": 150,
+      "ribbons": 3,
+      "flags": [
+        "ferry_fixed"
+      ],
+      "mail": [
+        {
+          "id": "tobias_7",
+          "delay": "next_day"
+        }
+      ]
+    }
   }
 ]

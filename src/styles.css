@@ -477,3 +477,27 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 @keyframes mastery-pulse { 50% { transform: scale(1.15); } }
 /* bigger touch target than the badge itself */
 .mastery-badge::after { content: ''; position: absolute; inset: -10px -8px; }
+
+/* Creek Dock fishing */
+.creek { position: relative; border: 3px solid var(--ink); border-radius: 16px; overflow: hidden; margin: 4px 0 8px; background: var(--water); }
+.creek-scene { display: block; width: 100%; height: auto; }
+.creek-hud { position: absolute; top: 6px; left: 6px; display: flex; gap: 4px; }
+.creek .bobber { animation: bob 1.6s ease-in-out infinite; transform-box: fill-box; }
+.creek.biting .bobber { animation: dip 0.28s ease-in-out infinite alternate; }
+.creek .ripple { animation: ripple 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.creek-bang { font-family: 'Lilita One', system-ui; font-size: 30px; fill: #ffe14d; stroke: var(--ink); stroke-width: 2.5px; paint-order: stroke fill; animation: pop-in 0.2s ease-out; }
+@keyframes bob { 50% { translate: 0 2px; } }
+@keyframes dip { from { translate: 0 2px; } to { translate: 0 9px; } }
+@keyframes ripple { 50% { scale: 1.25; opacity: 0.15; } }
+@keyframes pop-in { from { scale: 0.3; } }
+.creek-msg { min-height: 2.6em; text-align: center; }
+.creek-actions { gap: 8px; }
+.btn.big { min-height: 56px; font-size: 20px; flex: 2; }
+.btn.pulse { animation: mastery-pulse 0.5s ease-in-out infinite; }
+.order.catch { align-items: flex-start; }
+.silhouette svg { filter: brightness(0) opacity(0.25); }
+@media (prefers-reduced-motion: reduce) {
+  .creek .bobber, .creek .ripple, .btn.pulse { animation: none; }
+  .creek.biting .bobber { animation: none; translate: 0 8px; }
+}
+.secret-mark { display: grid; place-items: center; width: 34px; height: 34px; font-family: 'Lilita One', system-ui; font-size: 22px; color: #cfc4b0; }

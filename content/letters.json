@@ -75,5 +75,17 @@
     "effects": {
       "decor": "statue"
     }
+  },
+  {
+    "id": "tobias_6",
+    "from": "tobias",
+    "subject": "About leaving",
+    "body": "My dear sprout,\n\nI've unpacked. I meant to stay a week, and then Pip offered me the room above the bakery, and the bread smells like 1975, and here we are.\n\nI went down to the creek this morning. The old dock where I used to fish with Nell Brightwater has rotted clean through. Nell still keeps the river from her houseboat on the far bank. She's been ferrying people across since before you were born, and she has not forgiven me for leaving.\n\nIf you fixed the dock, she might ferry you across. She might even teach you to fish. She taught me, though she'd say it didn't take.\n\nBruno will know what it needs.\n\nWith all my love,\nTobias"
+  },
+  {
+    "id": "tobias_7",
+    "from": "tobias",
+    "subject": "The far bank",
+    "body": "My dear sprout,\n\nNell ferried me across yesterday. First time in forty years. She didn't say a word the whole way, and then on the far bank she said, \"Took you long enough,\" and I'm choosing to believe she meant it kindly.\n\nMy old seed shed is still standing over there. The roof is mostly sky, but the bench is there, and the jars. This is where I crossed seeds when I was young and certain about everything.\n\nHazel says what I did in that shed was 'enthusiastic, not scientific'. She also asked if she could see it. Twice.\n\nI'll write again when I've swept out the spiders.\n\nWith all my love,\nTobias"
   }
 ]

@@ -14,7 +14,8 @@ export type GameEvent =
   | { type: 'read_mail'; id: string }
   | { type: 'order_done'; id: string }
   | { type: 'project'; id: string; stage: number }
-  | { type: 'merchant_buy' };
+  | { type: 'merchant_buy' }
+  | { type: 'fish'; fish: string };
 
 export const target = (o: Objective): number => ('n' in o ? o.n : 1);
 
@@ -182,6 +183,8 @@ function matches(o: Objective, e: GameEvent): number {
       return e.type === 'project' && e.id === o.id ? 1 : 0;
     case 'merchant_buy':
       return e.type === 'merchant_buy' ? 1 : 0;
+    case 'fish':
+      return e.type === 'fish' && (o.fish === 'any' || o.fish === e.fish) ? 1 : 0;
     default:
       return 0;
   }
@@ -191,6 +194,7 @@ function matches(o: Objective, e: GameEvent): number {
 function derived(state: FarmState, content: Content, o: Objective): number | null {
   if (o.type === 'discover') return state.seen.filter((id) => content.cropById.has(id)).length;
   if (o.type === 'mastery') return Math.max(0, ...Object.values(state.harvests ?? {}));
+  if (o.type === 'fish_species') return state.fishing?.seen.length ?? 0;
   // project stages count whenever they were delivered (e.g. before the quest was offered)
   if (o.type === 'project') return state.projects[o.id] ?? 0;
   return null;
@@ -313,5 +317,9 @@ export function objectiveText(o: Objective, content: Content): string {
       return `Grow ${o.n} different crops`;
     case 'mastery':
       return `Harvest one crop ${o.n} times`;
+    case 'fish':
+      return o.fish === 'any' ? `Catch ${o.n} fish at the Creek (in Town)` : `Catch ${o.n} ${itemName(content, o.fish).toLowerCase()}`;
+    case 'fish_species':
+      return `Catch ${o.n} different kinds of fish`;
   }
 }
