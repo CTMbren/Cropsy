@@ -33,7 +33,7 @@ import { buildImprovement, deliverTownProject, raiseTownLevel, syncTownProject, 
 import { buyDecor, claimGift, pickUpDecor, placeDecor, type CalendarReward } from './core/decor';
 import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merchant';
 import { buyBarn, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
-import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
+import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, restoreQuestFlags, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
 import { dayIndex, gameNow, localOffsetMinutes, systemNow } from './core/time';
 import { loadSave, requestPersistence, writeSave } from './platform/storage';
 
@@ -102,6 +102,8 @@ export class Game {
         if (q) setFlag(this.state, `chapter:${q.chapter}`);
       }
     }
+    const restored = restoreQuestFlags(this.state, this.content);
+    if (restored.length) log(this.state, now, `restored ${restored.join(' ')}`);
     this.applyStory(advance(this.state, this.content, now, this.tz()));
     refreshQuest(this.state, this.content);
     this.checkAway();
