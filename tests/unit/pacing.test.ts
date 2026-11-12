@@ -34,6 +34,17 @@ describe('pacing (simulated casual player)', () => {
     expect(r.final.story.done.length).toBe(loadContent().quests.length);
   });
 
+  it('the request board pays its way without taking over the economy', () => {
+    const b = r.board;
+    const share = b.orderCoins / (b.orderCoins + b.crateCoins);
+    expect(share).toBeGreaterThan(0.15);
+    expect(share).toBeLessThan(0.45);
+    // about 1 Ribbon a day at most, all from Specials
+    expect(b.ribbons / 56).toBeLessThanOrEqual(1.2);
+    expect(b.specials).toBeGreaterThanOrEqual(8);
+    expect((b.filled.easy ?? 0) + (b.filled.medium ?? 0)).toBeGreaterThan(56 * 2);
+  });
+
   it('the farm keeps growing', () => {
     expect(r.final.width).toBeGreaterThanOrEqual(8);
   });

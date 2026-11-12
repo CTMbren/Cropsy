@@ -1,4 +1,4 @@
-import type { Content, CropDef, ObstacleKind, OrderDef } from './content';
+import type { Content, CropDef, ObstacleKind, OrderDef, OrderTier } from './content';
 import { addXp } from './progression';
 import type { TimeState } from './time';
 
@@ -37,8 +37,32 @@ export interface MailState {
 }
 
 export interface OrderState extends OrderDef {
-  /** Set for orders pinned by a story quest; they survive the daily refresh. */
+  /** Set for orders pinned by a story quest; they sit above the regular slots. */
   story?: string;
+  /** Generated orders: easy, medium, or the Daily Special. Older saves' orders have none (shown as medium). */
+  tier?: OrderTier;
+  /** The poster's note, in their voice. */
+  note?: string;
+  /** A Special's title. */
+  title?: string;
+  /** Special lines already handed in (they leave `wants`). */
+  done?: Record<string, number>;
+  /** The written Special this is (it gives a keepsake the first time). */
+  special?: string;
+}
+
+export interface BoardState {
+  /** Local day of the last refresh (kept for older saves). */
+  day: number;
+  orders: OrderState[];
+  /** The last 2-hour tick that posted. Only moves forward, so a clock rollback posts nothing. */
+  tick?: number;
+  /** Local day the last Daily Special was posted. */
+  specialDay?: number;
+  /** Who posted the last Special (the next one goes to someone else). */
+  lastSpecialBy?: string;
+  /** Written Specials finished (each gives a keepsake once). */
+  keepsakes?: string[];
 }
 
 export interface QueueItem {
@@ -79,7 +103,7 @@ export interface FarmState {
   flags: string[];
   story: StoryState;
   mail: MailState[];
-  board: { day: number; orders: OrderState[] };
+  board: BoardState;
   settings: {
     muted: boolean;
     music: boolean;
@@ -550,11 +574,12 @@ export interface AwaySummary {
   awaySeconds: number;
   ripe: { crop: string; count: number }[];
   newMail: number;
-  newOrders: boolean;
+  /** New requests posted on the board while you were away. */
+  newOrders: number;
 }
 
 /** What changed while the player was away — shown on return instead of push notifications. */
-export function awaySummary(state: FarmState, content: Content, now: number, newOrders = false): AwaySummary {
+export function awaySummary(state: FarmState, content: Content, now: number, newOrders = 0): AwaySummary {
   const counts = new Map<string, number>();
   for (const p of Object.values(state.plots)) {
     if (!p.crop) continue;

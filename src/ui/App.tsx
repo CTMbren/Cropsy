@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { DAILY_ORDERS } from '../core/board';
+import { boardOrders, boardSlots, boardTickHours, fillableCount, isSpecial, nextPostAt } from '../core/board';
 import { goodsReady } from '../core/processing';
 import { itemName, itemValue, shortName, type Content, type VillagerDef } from '../core/content';
 import { barnCapacity, barnUsed, cratePrice, hasFlag, newFarm, type FarmState, hasItems, lifetimeHarvests, MASTERY_STEP, masteryLevel, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
@@ -19,7 +19,7 @@ import { needsBackupNudge } from '../core/backup';
 import { CRITTERS, crittersOpen, nextVisitorIn, PAGE_TITLES, PAGES, pollenPerHoney } from '../core/critters';
 import { CritterIcon } from './critterIcons';
 import { biteCap, FISH, FISH_PAGE_TITLES, FISH_PAGES, fishingOpen, nextBiteIn, type CatchResult, type FishDef } from '../core/fishing';
-import { formatDuration } from '../core/time';
+import { formatDuration, localOffsetMinutes } from '../core/time';
 import { clearErrors, recentErrors } from '../platform/errors';
 import type { Game, ScreenFx } from '../game';
 import { lastSavedAt } from '../platform/storage';
@@ -108,6 +108,7 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
       if (e.kind === 'critter' && e.result.pageDone) setToast(`Sketchbook page ${e.result.pageDone} complete! +1 Ribbon`);
       else if (e.kind === 'critter' && e.result.firstTime) setToast(`Sketched the ${e.result.species.name}! See it in Town → Sketchbook`);
       if (e.kind === 'moss') setToast('coins' in e.find ? `Moss dug up ${e.find.coins} coins!` : `Moss dug up ${e.find.qty} ${itemName(game.content, e.find.item).toLowerCase()}!`);
+      if (e.kind === 'keepsake') setToast(`Keepsake: ${e.name}! See it on the Board`);
       if (e.kind === 'ribbon') setToast(`+${e.amount} Ribbon${e.amount > 1 ? 's' : ''} · ${e.why}`);
       if (e.kind === 'heart') {
         const v = game.content.villagers.get(e.villager);
@@ -163,7 +164,7 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
   const giver = quest && quest.giver !== 'mail' ? game.content.villagers.get(quest.giver) : undefined;
   const mailUnread = unreadCount(s, now);
   const boardOpen = hasFlag(s, 'board_open');
-  const fillable = s.board.orders.filter((o) => hasItems(s, o.wants)).length;
+  const fillable = fillableCount(s);
   const coach = sheet === null && !dialogue ? game.coach() : null;
   // nothing to draw on the farm while a sheet or a dialogue covers it (saves battery)
   useEffect(() => game.setCovered(sheet !== null || !!dialogue), [sheet, dialogue]);
@@ -544,7 +545,7 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
                 </li>
               ))}
               {game.away.newMail > 0 && <li>{game.away.newMail === 1 ? 'A letter arrived' : `${game.away.newMail} letters arrived`} in your mailbox</li>}
-              {game.away.newOrders && <li>New orders are pinned on the request board</li>}
+              {game.away.newOrders > 0 && <li>{game.away.newOrders === 1 ? 'A new request is' : `${game.away.newOrders} new requests are`} on the board</li>}
             </ul>
             <button class="btn green" onClick={() => game.dismissAway()}>
               Let's go!
@@ -761,38 +762,116 @@ function WantChip({ game, id, n, onPick }: { game: Game; id: string; n: number; 
 
 function BoardSheet({ game, onClose }: { game: Game; onClose: () => void }) {
   const s = game.state;
-  const orders = s.board.orders;
+  const c = game.content;
+  const orders = boardOrders(s);
+  const regular = orders.filter((o) => !o.story && !isSpecial(o)).length;
+  const special = orders.find(isSpecial);
+  const slots = boardSlots(c);
+  const nextIn = Math.max(60, nextPostAt(c, game.now(), localOffsetMinutes()) - game.now());
+  const keepsakes = c.board.specials.filter((sp) => s.board.keepsakes?.includes(sp.id));
+  const tierLabel: Record<string, string> = { easy: 'Easy', medium: 'Medium', special: 'Daily Special' };
   return (
     <Sheet title="Request board" onClose={onClose}>
-      {!orders.length && <p class="muted">All orders filled! New ones are pinned every morning ({DAILY_ORDERS} a day).</p>}
+      <p class="muted small board-status">
+        {regular >= slots ? 'The board is full. Fill or pass an order to make room.' : `Next request in ${formatDuration(nextIn)} · ${regular}/${slots} posted`}
+        {!special && s.level >= c.board.special_level && ' · The next Special arrives at midnight.'}
+        {s.level < c.board.special_level && ` · Daily Specials start at level ${c.board.special_level}.`}
+      </p>
+      {!orders.length && <p class="muted">Caught up! A new request goes up every {boardTickHours(c)} hours.</p>}
       <ul class="orders">
         {orders.map((o) => {
-          const v = game.content.villagers.get(o.villager);
+          const v = c.villagers.get(o.villager);
+          const sp = isSpecial(o);
+          const tier = o.story ? '' : (o.tier ?? 'medium');
           const ok = hasItems(s, o.wants);
+          const lines = sp ? [...Object.keys(o.done ?? {}), ...Object.keys(o.wants)] : [];
           return (
-            <li key={o.id} class={`order${o.story ? ' story' : ''}`}>
+            <li key={o.id} class={`order${o.story ? ' story' : ''}${tier ? ` tier-${tier}` : ''}`}>
               {v && <Portrait v={v} size={44} />}
               <div class="order-body">
                 <div class="order-who">
-                  {shortName(v)}
+                  {sp && o.title ? o.title : shortName(v)}
                   {o.story && <span class="chip story">Story</span>}
+                  {tier && <span class={`chip tier ${tier}`}>{tierLabel[tier]}</span>}
                 </div>
-                <div class="order-wants">
-                  {Object.entries(o.wants).map(([id, n]) => (
-                    <WantChip key={id} game={game} id={id} n={n} onPick={onClose} />
-                  ))}
-                </div>
+                {sp && <div class="order-from small">{o.villager === 'tobias' ? 'A letter from Tobias' : `From ${shortName(v)}`}</div>}
+                {o.note && <div class="order-note">“{o.note}”</div>}
+                {sp ? (
+                  <ul class="special-lines">
+                    {lines.map((id) => {
+                      const done = o.done?.[id];
+                      const n = done ?? o.wants[id];
+                      const can = !done && (s.inventory[id] ?? 0) >= n;
+                      return (
+                        <li key={id} class={done ? 'line-done' : ''}>
+                          {done ? <span class="have">✓ {n} {itemName(c, id)}</span> : <WantChip game={game} id={id} n={n} onPick={onClose} />}
+                          {!done && (
+                            <button class={`btn small${can ? ' green' : ''}`} disabled={!can} onClick={() => game.handInLine(o.id, id)}>
+                              Give
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div class="order-wants">
+                    {Object.entries(o.wants).map(([id, n]) => (
+                      <WantChip key={id} game={game} id={id} n={n} onPick={onClose} />
+                    ))}
+                  </div>
+                )}
                 <div class="order-reward">
-                  <span class="coin sm" aria-hidden="true" /> {o.coins} · {o.xp} XP
+                  <span class="nowrap">
+                    <span class="coin sm" aria-hidden="true" /> {o.coins}
+                  </span>
+                  <span class="nowrap">· {o.xp} XP</span>
+                  {!!o.ribbons && (
+                    <span class="nowrap">
+                      · <Icon name="ribbon" size={16} /> {o.ribbons}
+                    </span>
+                  )}
                 </div>
+                {sp && <div class="small order-bonus">Double friendship{o.special && !s.board.keepsakes?.includes(o.special) ? ' and a keepsake' : ''}</div>}
+                {sp && <div class="muted small">{Object.keys(o.done ?? {}).length}/{lines.length} handed in. Pays when all are in. It waits for you, no rush.</div>}
               </div>
-              <button class={`btn small${ok ? ' green' : ''}`} disabled={!ok} onClick={() => game.fulfilOrder(o.id)}>
-                Deliver
-              </button>
+              {!sp && (
+                <div class="order-actions">
+                  <button class={`btn small${ok ? ' green' : ''}`} disabled={!ok} onClick={() => game.fulfilOrder(o.id)}>
+                    Deliver
+                  </button>
+                  {!o.story && (
+                    <button class="btn small pass" onClick={() => game.passOrder(o.id)} aria-label={`Pass on ${shortName(v)}'s order`}>
+                      Pass
+                    </button>
+                  )}
+                </div>
+              )}
             </li>
           );
         })}
       </ul>
+      {s.level >= c.board.special_level && (
+        <details class="keepsakes">
+          <summary>
+            Keepsakes {keepsakes.length}/{c.board.specials.length}
+          </summary>
+          <p class="muted small">Some Specials come with a keepsake the first time you finish them.</p>
+          <ul class="rows">
+            {keepsakes.map((sp) => (
+              <li key={sp.id} class="keepsake">
+                {c.villagers.get(sp.villager) && <Portrait v={c.villagers.get(sp.villager)!} size={36} />}
+                <div>
+                  <b>{sp.keepsake.name}</b>
+                  <div class="small">{sp.keepsake.text}</div>
+                  <div class="muted small">{sp.title}</div>
+                </div>
+              </li>
+            ))}
+            {!keepsakes.length && <li class="muted small">None yet.</li>}
+          </ul>
+        </details>
+      )}
     </Sheet>
   );
 }

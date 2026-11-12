@@ -6,6 +6,7 @@ import questsJson from '../../content/quests.json';
 import villagersJson from '../../content/villagers.json';
 import chaptersJson from '../../content/chapters.json';
 import fishJson from '../../content/fish.json';
+import boardJson from '../../content/board.json';
 
 export interface CropDef {
   id: string;
@@ -204,7 +205,29 @@ export interface QuestDef {
   rewards: Rewards;
 }
 
+export type OrderTier = 'easy' | 'medium' | 'special';
+
+/** Request board tuning and writing (content/board.json). */
+export interface BoardDef {
+  tick_hours: number;
+  slots: number;
+  first_posts: number;
+  special_level: number;
+  tiers: {
+    easy: { weight: number; mult: number; share: number };
+    medium: { weight: number; mult: number; share: number; max_grow_s: number };
+    special: { mult: number; share: number; max_grow_s: number; ribbons: number; friendship_mult: number };
+  };
+  /** Chance a poster asks for something they love or like (when they can). */
+  poster_pick: number;
+  /** How often Tobias's letters take a Special's turn, relative to one villager. */
+  tobias_weight: number;
+  posters: Record<string, { notes: string[]; titles: string[] }>;
+  specials: { id: string; villager: string; title: string; note: string; items: string[]; keepsake: { name: string; text: string } }[];
+}
+
 export interface Content {
+  board: BoardDef;
   crops: CropDef[];
   cropById: Map<string, CropDef>;
   goods: Map<string, GoodDef>;
@@ -277,6 +300,23 @@ export function validateStory(c: Omit<Content, 'questById'>): void {
     for (const m of q.rewards.mail ?? []) if (!c.letters.has(m.id)) throw new Error(`${where}: reward letter "${m.id}" does not exist`);
     for (const k of Object.keys(q.rewards.spawn ?? {})) if (!OBSTACLE_KINDS.has(k)) throw new Error(`${where}: cannot spawn "${k}"`);
   }
+  const seenSp = new Set<string>();
+  for (const [id, p] of Object.entries(c.board.posters)) {
+    if (!c.villagers.has(id)) throw new Error(`board.json poster "${id}": unknown villager`);
+    if (!p.notes.length || !p.titles.length) throw new Error(`board.json poster "${id}": needs notes and titles`);
+  }
+  for (const sp of c.board.specials) {
+    const where = `board.json special "${sp.id}"`;
+    if (seenSp.has(sp.id)) throw new Error(`${where} is duplicated`);
+    seenSp.add(sp.id);
+    if (!c.board.posters[sp.villager]) throw new Error(`${where}: "${sp.villager}" is not a poster`);
+    if (sp.items.length !== 3) throw new Error(`${where}: needs exactly 3 items`);
+    for (const k of sp.items) {
+      if (!isItem(k)) throw new Error(`${where}: unknown item "${k}"`);
+      const crop = c.cropById.get(k);
+      if (crop && crop.grow_s > c.board.tiers.special.max_grow_s) throw new Error(`${where}: ${k} grows too slowly for a Special`);
+    }
+  }
   for (const q of c.quests) if (!c.chapters.some((ch) => ch.n === q.chapter)) throw new Error(`quests.json "${q.id}": chapter ${q.chapter} has no entry in chapters.json`);
   for (const l of c.letters.values()) if (!c.villagers.has(l.from)) throw new Error(`letters.json "${l.id}": unknown sender "${l.from}"`);
   for (const v of c.villagers.values()) {
@@ -292,6 +332,7 @@ export function loadContent(rawCrops: unknown = cropsJson): Content {
   const quests = questsJson as unknown as QuestDef[];
   const blooms = ((economy as unknown as { mystery?: { blooms: GoodDef[] } }).mystery?.blooms ?? []).map(({ id, name, sell, color }) => ({ id, name, sell, color }));
   const c = {
+    board: boardJson as BoardDef,
     // hidden crops (the Mystery Sprout) can grow on a plot but never show in lists
     crops: crops.filter((x) => !x.hidden),
     cropById: new Map(crops.map((x) => [x.id, x])),

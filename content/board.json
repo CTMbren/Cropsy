@@ -1,0 +1,253 @@
+{
+  "tick_hours": 2,
+  "slots": 5,
+  "first_posts": 3,
+  "special_level": 6,
+  "tiers": {
+    "easy": { "weight": 0.6, "mult": 1.4, "share": 0.1 },
+    "medium": { "weight": 0.4, "mult": 1.8, "share": 0.2, "max_grow_s": 21600 },
+    "special": { "mult": 2.5, "share": 0.3, "max_grow_s": 57600, "ribbons": 1, "friendship_mult": 2 }
+  },
+  "poster_pick": 0.7,
+  "tobias_weight": 0.5,
+  "posters": {
+    "goldie": {
+      "notes": [
+        "Shelves are looking bare, dear. {item}, if you can spare it.",
+        "A customer asked for {item}. I said 'my farmer has some'. Don't make a liar of me!",
+        "{item}, please. I'll put the kettle on when you bring it.",
+        "Running low on {item}. Tobias never let me run low. No pressure. Some pressure.",
+        "Could you bring me some {item}? I've got a pie in mind.",
+        "{item}! The store isn't the store without {item}."
+      ],
+      "titles": ["Goldie's Big Restock", "Goldie's Bake Sale", "Goldie's Rainy-Day Shelf"]
+    },
+    "bruno": {
+      "notes": [
+        "Crew's hungry. {item}. Measure twice, harvest once.",
+        "Need {item} for the lads. They work better fed.",
+        "{item}, if you've got it. Good posts need good lunches.",
+        "My father swore by {item}. He also swore at most things.",
+        "Bring {item} by the yard. I'll be the one covered in sawdust.",
+        "{item}. That's it. That's the note. Carpenters keep it short."
+      ],
+      "titles": ["Bruno's Crew Lunch", "Bruno's Build Day", "Bruno's Long Shift"]
+    },
+    "rufus": {
+      "notes": [
+        "{item}. Don't make a thing of it.",
+        "Hmph. {item}. Please. There, I said it.",
+        "Need {item}. Not for me. For... a friend. Fine, it's for me.",
+        "{item}, if you're passing. You're always passing.",
+        "Edie liked {item}. That's all. Bring some.",
+        "The mill could use {item}. The miller too."
+      ],
+      "titles": ["Rufus's Mill Order", "Rufus's Grain Cart Stock", "Rufus's Quiet Favour"]
+    },
+    "pip": {
+      "notes": [
+        "Sorry! Could I have some {item}? Sorry. Thank you. Sorry.",
+        "I'm trying a {item} recipe. Only a little bit of it will burn!",
+        "{item}, please! The ovens are warm and my nerves are warmer.",
+        "If I had {item}, I could make something wonderful. Probably. Maybe.",
+        "Could you spare {item}? I'll save you the first un-burnt one.",
+        "{item}! I need it for a surprise. The surprise is I need {item}."
+      ],
+      "titles": ["Pip's Big Bake", "Pip's Morning Rush", "Pip's Experiment"]
+    },
+    "ziggy": {
+      "notes": [
+        "A buyer in the next valley wants {item}. Leaving soon!",
+        "{item}! I'll trade it for a story. And coins. Mostly coins.",
+        "My cart has a {item}-shaped gap. Leaving soon!",
+        "Fine {item} sells like magic out east. Help a merchant out?",
+        "{item}, friend! For a very important customer. It's me.",
+        "Quick, before the road calls: {item}!"
+      ],
+      "titles": ["Ziggy's Grand Deal", "Ziggy's Road Supplies", "Ziggy's Secret Buyer"]
+    },
+    "hazel": {
+      "notes": [
+        "I require {item} for a study. Mostly a study. Partly lunch.",
+        "Specimen request: {item}. Please label it. I'll label it again anyway.",
+        "{item}, please. For science. And for the jam stains.",
+        "I'm comparing {item} across three farms. Yours is the only farm.",
+        "Could you bring {item}? My notes have a gap and I can't stand gaps.",
+        "{item}. Healthy, ripe, unbruised. You know the drill."
+      ],
+      "titles": ["Hazel's Field Survey", "Hazel's Specimen Drive", "Hazel's Long Study"]
+    },
+    "juniper": {
+      "notes": [
+        "Moss says {item}. I think he means {item}. He might mean hi.",
+        "{item} for the workshop! Don't ask what for. I don't know yet.",
+        "Need {item}! The new gadget runs on it. In theory.",
+        "Moss would like {item}. Moss would like everything.",
+        "Could you bring {item}? I promise nothing will explode. Much.",
+        "{item}, please! Moss has already written you a thank-you. It's a paw print."
+      ],
+      "titles": ["Juniper's Big Build", "Moss's Wish List", "Juniper's Test Run"]
+    },
+    "nell": {
+      "notes": [
+        "{item}. The creek's in a mood and so am I.",
+        "Could use {item} on the boat. Mind the third plank on the way.",
+        "{item}, please. I'll ferry you across for free. I always do.",
+        "The fish have been asking about {item}. Don't ask me how.",
+        "Bring {item} down to the dock when you're passing.",
+        "{item}. Slow and steady, like the river. No rush."
+      ],
+      "titles": ["Nell's Boat Stores", "Nell's River Supper", "Nell's Long Haul"]
+    },
+    "tobias": {
+      "notes": ["A letter from Tobias, from across the creek."],
+      "titles": ["A Letter from Tobias", "Tobias's Old List", "Tobias Remembers"]
+    }
+  },
+  "specials": [
+    {
+      "id": "goldie_pie",
+      "villager": "goldie",
+      "title": "The 1987 Pie, Again",
+      "note": "I'm baking Tobias another pie. Interest, you understand. Thirty-odd years of it.",
+      "items": ["strawberry", "jam", "honey"],
+      "keepsake": { "name": "Goldie's pie tin", "text": "Dented, polished, and engraved 'IOU'. She says the debt is settled. Tobias disagrees." }
+    },
+    {
+      "id": "goldie_market",
+      "villager": "goldie",
+      "title": "Market Day Stock-Up",
+      "note": "The whole valley's coming to the market. I want every shelf groaning.",
+      "items": ["blueberry", "tomato", "pastry"],
+      "keepsake": { "name": "The store bell", "text": "The brass bell from over Goldie's door. 'It rings when someone I like comes in. So, always.'" }
+    },
+    {
+      "id": "bruno_lunch",
+      "villager": "bruno",
+      "title": "The Crew's Big Lunch",
+      "note": "Six men, one roof, no lunch. That's a problem with a simple fix.",
+      "items": ["potato", "corn", "flour"],
+      "keepsake": { "name": "Bruno's pencil stub", "text": "Chewed at one end, sharp at the other. Measure twice." }
+    },
+    {
+      "id": "bruno_picnic",
+      "villager": "bruno",
+      "title": "A Picnic on the Bench",
+      "note": "I built a bench. A bench needs a picnic, or what's it for?",
+      "items": ["corn", "tomato", "pastry"],
+      "keepsake": { "name": "A tiny town sign", "text": "A carved copy of the Bramblewick sign. The second B is backwards. On purpose, he says." }
+    },
+    {
+      "id": "rufus_rematch",
+      "villager": "rufus",
+      "title": "Grain Cart Rematch",
+      "note": "Old Pell down the valley wants a rematch. Fill the cart. Heavy. I'm not losing twice.",
+      "items": ["wheat", "flour", "potato"],
+      "keepsake": { "name": "Racing ribbon (1979)", "text": "Second place. 'The other fellow cheated.' He didn't." }
+    },
+    {
+      "id": "rufus_sunday",
+      "villager": "rufus",
+      "title": "Edie's Sunday Bake",
+      "note": "Edie baked on Sundays. I've found her recipe. Don't make a thing of it.",
+      "items": ["wheat", "pastry", "honey"],
+      "keepsake": { "name": "Edie's recipe card", "text": "Flour-thumbed and folded twice. Rufus copied it out for you in his best handwriting." }
+    },
+    {
+      "id": "pip_batch",
+      "villager": "pip",
+      "title": "The Un-Burnt Batch",
+      "note": "I'm going to bake a whole batch without burning any. Sorry in advance if I don't!",
+      "items": ["blueberry", "flour", "honey"],
+      "keepsake": { "name": "Pip's oven mitt", "text": "Scorched on one thumb. 'It's lucky now. Sorry.'" }
+    },
+    {
+      "id": "pip_festival",
+      "villager": "pip",
+      "title": "Festival Tarts",
+      "note": "Harvest festival tarts! For everyone! I've never baked for everyone. Help?",
+      "items": ["pumpkin", "strawberry", "jam"],
+      "keepsake": { "name": "Festival tart tin", "text": "Fluted, slightly bent, and still smelling of pumpkin." }
+    },
+    {
+      "id": "ziggy_deal",
+      "villager": "ziggy",
+      "title": "The Deal of a Lifetime",
+      "note": "A duke! A real duke wants Bramblewick goods. Probably a duke. A man in a hat.",
+      "items": ["grapes", "sunflower", "jam"],
+      "keepsake": { "name": "Half a treasure map", "text": "To somewhere. Ziggy swears the other half is 'around'." }
+    },
+    {
+      "id": "ziggy_cart",
+      "villager": "ziggy",
+      "title": "Cart Repairs",
+      "note": "The cart lost a wheel. And a cousin. Just the wheel, actually. Help me pay for it?",
+      "items": ["pumpkin", "cotton", "jam"],
+      "keepsake": { "name": "Ziggy's lucky coin", "text": "Two heads. 'Never lost a toss.'" }
+    },
+    {
+      "id": "hazel_survey",
+      "villager": "hazel",
+      "title": "The Specimen Survey",
+      "note": "A full survey of your crops. For the journal. I'm not excited. I'm thorough.",
+      "items": ["sunflower", "lettuce", "honey"],
+      "keepsake": { "name": "A pressed sunflower", "text": "Labelled in tiny letters: Helianthus annuus. Your farm. A good year." }
+    },
+    {
+      "id": "hazel_station",
+      "villager": "hazel",
+      "title": "Field Station Supplies",
+      "note": "I'm camping by the creek for a week. Notes, snacks, and a crayfish census.",
+      "items": ["cotton", "blueberry", "crayfish"],
+      "keepsake": { "name": "Hazel's hand lens", "text": "Brass, scratched, perfect. 'Look closer. Always look closer.'" }
+    },
+    {
+      "id": "juniper_birthday",
+      "villager": "juniper",
+      "title": "Moss's Birthday Feast",
+      "note": "It's Moss's birthday! Again! He has a lot of them. He wants cake. And carrots. And cake.",
+      "items": ["carrot", "pumpkin", "pastry"],
+      "keepsake": { "name": "Moss's chewed ball", "text": "Very loved. Slightly damp. Moss wants you to have it, then wants it right back." }
+    },
+    {
+      "id": "juniper_fuel",
+      "villager": "juniper",
+      "title": "Prototype Fuel",
+      "note": "The new machine runs on corn, strawberries and fish. Don't look at me like that.",
+      "items": ["corn", "strawberry", "minnow"],
+      "keepsake": { "name": "Juniper's spare cog", "text": "It doesn't fit anything. 'Yet,' she says." }
+    },
+    {
+      "id": "nell_bait",
+      "villager": "nell",
+      "title": "Bait and Breakfast",
+      "note": "Early start on the river. Breakfast for me, breakfast for the fish.",
+      "items": ["potato", "honey", "perch"],
+      "keepsake": { "name": "Nell's red float", "text": "Forty years old. 'Still floats. Like me.'" }
+    },
+    {
+      "id": "nell_marks",
+      "villager": "nell",
+      "title": "Mending the Flood Marks",
+      "note": "The old flood post needs a new coat and a new rope. The creek remembers. So do I.",
+      "items": ["corn", "cotton", "brook_trout"],
+      "keepsake": { "name": "A river stone with a hole", "text": "Look through it at the creek. Nell says you'll see it as it was." }
+    },
+    {
+      "id": "tobias_shed",
+      "villager": "tobias",
+      "title": "From the Old Seed Shed",
+      "note": "Found my old seed shed, still standing. Barely. Send a few things across and I'll set it right.",
+      "items": ["cotton", "sunflower", "honey"],
+      "keepsake": { "name": "Tobias's seed packet", "text": "Hand-labelled in faded ink: 'Ruby Heart. Not yet.'" }
+    },
+    {
+      "id": "tobias_list",
+      "villager": "tobias",
+      "title": "A Letter, and a List",
+      "note": "Writing a list keeps an old man young. Filling one keeps him fed.",
+      "items": ["grapes", "pumpkin", "flour"],
+      "keepsake": { "name": "Tobias's pocket watch", "text": "Runs four minutes slow, 'so I'm never early for anything I'd rather miss.'" }
+    }
+  ]
+}
