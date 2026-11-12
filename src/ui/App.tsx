@@ -8,7 +8,7 @@ import { canGiftToday, chatter, friends, heartProgress, hearts, pendingEvents, s
 import { buildingPrice, canAffordBuilding, queueView, readyCount, slotUpgradeCost } from '../core/processing';
 import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, priceFactor, toolPrice } from '../core/shop';
 import { blockerAt, clearCost, clearReward, clearTime, landOpen, nextCapLevel, plotCap, plotCount, touchesField } from '../core/land';
-import { activeQuest, canHandIn, inbox, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
+import { activeQuest, canHandIn, inbox, letterStatus, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
 import { beauty, calendarRewards, canClaim, decorDef, decorDefs, nextGift, placed, stored, tipBonus, type CalendarReward } from '../core/decor';
 import { hasImprovement, improvements, nextTownLevel, TOWN_BONUS_LEVELS, TOWN_BONUS_PER_LEVEL, townLevel, townProject, townProjectOpen, weekOf } from '../core/town';
 import { boughtToday, daysUntilMerchant, merchantHere, merchantStock, merchantUnlocked } from '../core/merchant';
@@ -190,7 +190,7 @@ export function App({ game, updateReady, onUpdate, debug }: { game: Game; update
           ) : (
             quest.objectives.map((o, i) => (
               <span class="tracker-obj" key={i}>
-                {objectiveText(o, game.content)}
+                {o.type === 'read_mail' ? letterLine(game, o.id) : objectiveText(o, game.content)}
                 {o.type !== 'hand_in' && o.type !== 'read_mail' && target(o) > 1 && (
                   <b>
                     {' '}
@@ -669,6 +669,16 @@ function MailSheet({ game, now, onClose }: { game: Game; now: number; onClose: (
 }
 
 /** Every finished quest, chapter by chapter; tap one to re-read what was said. */
+/** One line on where a story letter is: on its way (and when), or waiting in Mail. */
+function letterLine(game: Game, id: string): string {
+  const st = letterStatus(game.state, id, game.now());
+  const from = game.content.letters.get(id)?.from;
+  const who = from === 'tobias' ? "Tobias's letter" : 'A letter';
+  if (st.state === 'coming') return `${who} arrives in about ${formatDuration((st.arrivesAt ?? 0) - game.now())}`;
+  if (st.state === 'read') return `You've read ${who.toLowerCase().startsWith('a ') ? 'it' : who}`;
+  return `${who} is in your Mail. Open it there`;
+}
+
 function StoryLog({ game }: { game: Game }) {
   const c = game.content;
   const s = game.state;
@@ -690,7 +700,9 @@ function StoryLog({ game }: { game: Game }) {
                 const done = s.story.done.includes(q.id);
                 const letterId = q.objectives.find((o) => o.type === 'read_mail');
                 const letter = letterId?.type === 'read_mail' ? c.letters.get(letterId.id) : undefined;
-                const lines = letter ? [letter.body] : [...(q.intro ?? []), ...(done ? (q.outro ?? []) : [])];
+                // a letter only shows here once it's been read in the mailbox (reading it here doesn't count)
+                const unread = !!letterId && letterId.type === 'read_mail' && !done && letterStatus(s, letterId.id, game.now()).state !== 'read';
+                const lines = letter ? (unread ? [letterLine(game, (letterId as { id: string }).id)] : [letter.body]) : [...(q.intro ?? []), ...(done ? (q.outro ?? []) : [])];
                 return (
                   <li key={q.id} class="story-entry">
                     <button class="row-item" onClick={() => setOpen(open === q.id ? null : q.id)} disabled={!lines.length}>
