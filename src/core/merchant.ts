@@ -1,12 +1,12 @@
 import { itemName, type Content } from './content';
-import { addItem, hasFlag, setFlag, type FarmState } from './farm';
+import { addItem, hasFlag, MYSTERY_SEED, mysteryPrice, setFlag, type FarmState } from './farm';
 import { fnv1a } from './save';
 import { rng } from './time';
 
 /**
  * Ziggy's traveling cart. It rolls into town every few days (local days, so it arrives at
- * midnight wherever the player is) with four slots: a rare seed from a few levels ahead, a
- * material bundle, a gold nugget or a cheap material, and fertilizer. Stock comes from the day
+ * midnight wherever the player is) with five slots: a rare seed from a few levels ahead, a
+ * material bundle, a gold nugget or a cheap material, fertilizer, and one mystery seed. Stock comes from the day
  * number, so it needs no server and is the same all day. Each slot can be bought once per visit.
  */
 
@@ -73,6 +73,8 @@ function rollStock(state: FarmState, content: Content, day: number): MerchantSlo
   }
   // 4. fertilizer in bulk
   slots.push({ kind: 'item', id: 'fertilizer', qty: m.fertilizer.qty, coins: m.fertilizer.coins, label: `${m.fertilizer.qty} Fertilizer`, detail: 'Each one doubles a harvest' });
+  // 5. one mystery seed per visit: 12+ hours, lots of XP, and a rare bloom to sell or show off
+  slots.push({ kind: 'item', id: MYSTERY_SEED, qty: 1, coins: mysteryPrice(content, state.level), label: 'Mystery seed', detail: "Ziggy won't say what it grows. Takes 12+ hours, gives lots of XP and a rare bloom." });
   return slots;
 }
 

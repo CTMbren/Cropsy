@@ -488,6 +488,76 @@ function fishArt(f: FishDef): JSX.Element {
 
 for (const f of FISH) ICONS[f.id] = () => fishArt(f);
 
+// ── Ziggy's mystery seed and the blooms it becomes ──
+ICONS.mystery_seed = () => (
+  <>
+    <path d="M8 13c0-5 4-8 8-8s8 3 8 8l-1.5 12.5c-.3 2-2 3.5-4 3.5h-5c-2 0-3.7-1.5-4-3.5z" fill="#efe4ff" stroke={INK} stroke-width="2" stroke-linejoin="round" />
+    <path d="M8.4 12h15.2" stroke={INK} stroke-width="1.6" />
+    <path d="M10 6.5l12 0" stroke="#b48ef0" stroke-width="3" stroke-linecap="round" />
+    <path d="M13.2 17.2c0-2 1.3-3.2 2.9-3.2s2.9 1.1 2.9 2.6c0 2.4-2.9 2.4-2.9 4.6" fill="none" stroke="#8a5fd6" stroke-width="2.2" stroke-linecap="round" />
+    <circle cx="16.1" cy="24.3" r="1.4" fill="#8a5fd6" />
+    {twinkle(26, 6, 3, '#fff3a0')}
+  </>
+);
+
+const bloomStem = (
+  <>
+    <path d="M16 30V15" stroke="#4f8a3a" stroke-width="2.4" stroke-linecap="round" />
+    <path d="M16 24c-4 0-7-2-8-5 4-.5 7 1 8 5zM16 21c4 0 6.5-2 7.5-4.5-3.5-.5-6.5.8-7.5 4.5z" fill="#6ab04c" stroke={INK} stroke-width="1.5" stroke-linejoin="round" />
+  </>
+);
+
+ICONS.moonpetal = () => (
+  <>
+    {bloomStem}
+    {[0, 1, 2, 3, 4].map((i) => {
+      const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+      return <ellipse key={i} cx={16 + Math.cos(a) * 5.5} cy={11 + Math.sin(a) * 5} rx="4.6" ry="3.4" transform={`rotate(${(a * 180) / Math.PI} ${16 + Math.cos(a) * 5.5} ${11 + Math.sin(a) * 5})`} fill={i % 2 ? '#b9c9f2' : '#d4e0ff'} stroke={INK} stroke-width="1.4" />;
+    })}
+    <circle cx="16" cy="11" r="2.8" fill="#f4f7ff" stroke={INK} stroke-width="1.3" />
+    {twinkle(27, 4, 2.6, '#e6efff')}
+  </>
+);
+
+ICONS.ember_lily = () => (
+  <>
+    {bloomStem}
+    <path d="M16 15c-6-1-10-6-10-11 4 1 8 4 10 8 2-4 6-7 10-8 0 5-4 10-10 11z" fill="#f2793a" stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+    <path d="M16 15c-2-4-2-9 0-12 2 3 2 8 0 12z" fill="#e8603a" stroke={INK} stroke-width="1.5" stroke-linejoin="round" />
+    <path d="M13 6l1.5 4M19 6l-1.5 4" stroke="#ffd54f" stroke-width="1.3" stroke-linecap="round" />
+  </>
+);
+
+ICONS.glass_tulip = () => (
+  <>
+    {bloomStem}
+    <path d="M8.5 5l3.5 4 4-5 4 5 3.5-4-.5 9c-.3 3-3.5 5-7 5s-6.7-2-7-5z" fill="#9fe3e8" fill-opacity="0.85" stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+    <path d="M11.5 10v5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+    {twinkle(26, 6, 2.6, '#ffffff')}
+  </>
+);
+
+ICONS.star_fern = () => (
+  <>
+    {[-50, -25, 0, 25, 50].map((a) => (
+      <path key={a} d="M16 29c-2-6-2-14 0-22 2 8 2 16 0 22z" transform={`rotate(${a} 16 29)`} fill={a === 0 ? '#7cc96a' : '#5ea84c'} stroke={INK} stroke-width="1.4" stroke-linejoin="round" />
+    ))}
+    {twinkle(9, 9, 2.4, '#fff3a0')}
+    {twinkle(23, 6, 2.6, '#fff3a0')}
+    {twinkle(16, 3, 2.2, '#fff3a0')}
+  </>
+);
+
+ICONS.rainbow_rose = () => (
+  <>
+    {bloomStem}
+    {['#e8506a', '#f2a23a', '#ffd54f', '#6fc36a', '#5c8fe0', '#a070d8'].map((col, i) => (
+      <ellipse key={col} cx={16 + (i % 2 ? 0.6 : -0.6)} cy={11 - i * 0.3} rx={8.5 - i * 1.3} ry={(8.5 - i * 1.3) * 0.82} fill={col} stroke={INK} stroke-width="1.2" />
+    ))}
+    {twinkle(27, 4, 2.8, '#ffffff')}
+  </>
+);
+
 export function hasItemIcon(id: string | undefined): boolean {
   return !!id && id in ICONS;
 }

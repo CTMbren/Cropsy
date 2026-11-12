@@ -108,7 +108,8 @@ describe("Ziggy's cart", () => {
     let day = 0;
     while (!merchantHere(content, day)) day++;
     const stock = merchantStock(s, content, day);
-    expect(stock).toHaveLength(4);
+    expect(stock).toHaveLength(5);
+    expect(stock[4]).toMatchObject({ kind: 'item', id: 'mystery_seed', qty: 1 });
     const seed = stock[0];
     expect(seed.kind).toBe('seed');
     if (seed.kind !== 'seed') return;

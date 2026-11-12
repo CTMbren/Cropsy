@@ -530,3 +530,4 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .callout { padding: 8px 10px; border: 2px solid var(--ink); border-radius: 12px; background: #fff3c4; font-size: 14px; }
 .text-input { flex: 1; min-width: 0; min-height: 40px; padding: 4px 10px; font: inherit; border: 2.5px solid var(--ink); border-radius: 12px; background: #fff; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.seed.mystery { background: linear-gradient(#fff, #efe4ff); }

@@ -23,15 +23,25 @@ const SPOTS: [number, number][] = [
   [0, 9],
 ];
 
-const TALL = new Set(['corn', 'sunflower']);
+const TALL = new Set(['corn', 'sunflower', 'mystery']);
 
 /** Box around the plot centre that a crop's drawing fits in (see ArtRegistry bounds). */
 export function cropBounds(id: string): { left: number; top: number; right: number; bottom: number } {
+  if (id === 'mystery') return { left: -40, top: -96, right: 40, bottom: 22 };
   return { left: -40, top: TALL.has(id) ? -74 : -58, right: 40, bottom: 22 };
 }
 
 export function drawCropArt(g: G, id: string, stage: CropStage, leafColor: number, fruitColor: number, cx: number, cy: number): void {
   const c = { leaf: leafColor, fruit: fruitColor };
+  if (id === 'mystery') {
+    // one plant for the whole plot, drawn half again as big so it stands out
+    g.save();
+    g.translateCanvas(cx, cy);
+    g.scaleCanvas(1.5, 1.5);
+    mysteryPlant(g, stage, c, 0, 0);
+    g.restore();
+    return;
+  }
   const plant = PLANTS[id] ?? radish;
   for (const [dx, dy] of SPOTS) {
     const x = cx + dx;
@@ -412,3 +422,55 @@ const PLANTS: Record<string, Plant> = {
   coffee,
   golden_melon: goldenMelon,
 };
+
+// ── the Mystery Sprout (one plant per plot, from Ziggy's cart) ──
+
+/** One big plant in the middle of the plot: a glinting mound, a curling sprout, then a closed glowing bud. */
+function mysteryPlant(g: G, stage: CropStage, c: Colors, cx: number, cy: number): void {
+  const x = cx;
+  const y = cy;
+  if (stage === 'seed') {
+    seed(g, x, y);
+    twinkle(g, x + 7, y - 7, 3, 0xe9dcff);
+    return;
+  }
+  contact(g, x, y + 2, 14, 5);
+  if (stage === 'sprout') {
+    stem(g, x, y, x + 1, y - 12, c.leaf, 2.4);
+    leaf(g, x, y - 6, 11, 7, -1.05, c.leaf);
+    leaf(g, x, y - 8, 11, 7, 1.05, light(c.leaf, 0.1));
+    twinkle(g, x - 8, y - 14, 2.6, 0xe9dcff);
+    return;
+  }
+  const ripe = stage === 'ripe';
+  const h = ripe ? 34 : 26;
+  // spiral stem with leaves
+  stem(g, x, y, x - 2, y - h * 0.5, c.leaf, 3);
+  stem(g, x - 2, y - h * 0.5, x + 1, y - h, c.leaf, 3);
+  leaf(g, x, y - 6, 15, 8, -1.2, c.leaf);
+  leaf(g, x, y - 9, 15, 8, 1.15, light(c.leaf, 0.1));
+  leaf(g, x - 1, y - h * 0.55, 12, 6, -0.7, shade(c.leaf, 0.08));
+  // the bud: closed, purple, with a glow when ripe
+  if (ripe) {
+    g.fillStyle(0xf2e6ff, 0.55);
+    g.fillCircle(x + 1, y - h - 4, 15);
+  }
+  const bud = ripe ? c.fruit : mix(c.fruit, c.leaf, 0.45);
+  poly(g, ellipsePts(x + 1, y - h - 3, ripe ? 8 : 6, ripe ? 11 : 8), bud, 2.2);
+  g.lineStyle(1.4, shade(bud, 0.35), 1);
+  g.lineBetween(x + 1, y - h - (ripe ? 13 : 10), x + 1, y - h + 6);
+  g.lineBetween(x - 3, y - h - 8, x - 1, y - h + 5);
+  leaf(g, x + 1, y - h + 4, 7, 5, -0.9, c.leaf, 1.6);
+  leaf(g, x + 1, y - h + 4, 7, 5, 0.9, c.leaf, 1.6);
+  if (ripe) {
+    twinkle(g, x + 11, y - h - 12, 3.4, 0xfff8d0);
+    twinkle(g, x - 10, y - h - 4, 2.6, 0xffffff);
+    // a question mark in the glow, so it reads as "something's coming"
+    g.lineStyle(2.2, 0xffffff, 1);
+    g.beginPath();
+    g.arc(x + 1, y - h - 6, 3, Math.PI * 1.1, Math.PI * 0.35, false);
+    g.strokePath();
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(x + 2, y - h + 1.5, 1.2);
+  }
+}

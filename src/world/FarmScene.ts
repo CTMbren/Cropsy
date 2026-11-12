@@ -276,6 +276,7 @@ export class FarmScene extends Phaser.Scene {
           none: 'No fertilizer',
           blocked: 'Clear it first',
           'barn-full': 'Barn full',
+          mystery: 'No hurrying magic',
         };
         if (msg[e.reason]) this.popText(e.key, msg[e.reason], '#ffd0d0');
       }

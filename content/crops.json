@@ -13,5 +13,6 @@
   { "id": "cotton", "name": "Cotton", "grow_s": 43200, "seed_cost": 100, "sell": 400, "xp": 14, "unlock_level": 17, "color": "#f5f5f5", "leaf": "#689f38" },
   { "id": "grapes", "name": "Grapes", "grow_s": 57600, "seed_cost": 140, "sell": 560, "xp": 18, "unlock_level": 20, "color": "#8e44ad", "leaf": "#4caf50" },
   { "id": "coffee", "name": "Coffee", "grow_s": 86400, "seed_cost": 200, "sell": 850, "xp": 25, "unlock_level": 23, "color": "#8d4a2b", "leaf": "#2e7d32" },
-  { "id": "golden_melon", "name": "Golden Melon", "grow_s": 172800, "seed_cost": 400, "sell": 1800, "xp": 50, "unlock_level": 27, "color": "#ffc531", "leaf": "#7cb342" }
+  { "id": "golden_melon", "name": "Golden Melon", "grow_s": 172800, "seed_cost": 400, "sell": 1800, "xp": 50, "unlock_level": 27, "color": "#ffc531", "leaf": "#7cb342" },
+  { "id": "mystery", "name": "Mystery Sprout", "grow_s": 43200, "seed_cost": 0, "sell": 0, "xp": 0, "unlock_level": 1, "color": "#b48ef0", "leaf": "#5e9c4a", "hidden": true }
 ]
