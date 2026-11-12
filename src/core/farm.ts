@@ -352,7 +352,7 @@ export const cratePrice = (item: { sell: number }) => Math.max(1, Math.round(ite
 export type Fail = { ok: false; reason: 'no-plot' | 'occupied' | 'not-ripe' | 'locked' | 'no-coins' | 'unknown-crop' | 'blocked' | 'none' | 'need-tool' };
 export type ActionResult =
   | { ok: true; kind: 'planted'; crop: CropDef }
-  | { ok: true; kind: 'harvested'; crop: CropDef; qty: number; shipped: number; tip: number; xp: number; fresh: boolean; levelsGained: number; firstTime: boolean; star?: number }
+  | { ok: true; kind: 'harvested'; crop: CropDef; qty: number; shipped: number; tip: number; xp: number; fresh: boolean; levelsGained: number; firstTime: boolean; star?: number; bloom?: string; bloomNew?: boolean }
   | { ok: true; kind: 'cleared'; obstacle: ObstacleKind; item: string | null; qty: number; gold: boolean; cost: number; levelsGained: number }
   | Fail;
 
@@ -400,11 +400,50 @@ export function spawnObstacles(state: FarmState, kind: ObstacleKind, n: number):
   return free;
 }
 
+// ── Mystery seeds (Ziggy's cart) ───────────────────────────────
+export const MYSTERY = 'mystery';
+export const MYSTERY_SEED = 'mystery_seed';
+
+export interface MysteryConfig {
+  grow_s: [number, number];
+  coins_base: number;
+  coins_per_level: number;
+  xp_base: number;
+  xp_per_level: number;
+  blooms: { id: string; name: string; weight: number; sell: number; beauty: number; color: string; note: string }[];
+}
+export const mysteryCfg = (content: Content) => (content.economy as unknown as { mystery: MysteryConfig }).mystery;
+export const mysteryPrice = (content: Content, level: number) => mysteryCfg(content).coins_base + mysteryCfg(content).coins_per_level * level;
+export const mysteryXp = (content: Content, level: number) => mysteryCfg(content).xp_base + mysteryCfg(content).xp_per_level * level;
+
+/** Which bloom a planted mystery seed becomes: fixed when planted, so it can't be re-rolled by reloading. */
+export function mysteryBloom(content: Content, k: string, plantedAt: number) {
+  const blooms = mysteryCfg(content).blooms;
+  let x = luck(`bloom:${k}:${plantedAt}`) * blooms.reduce((a, b) => a + b.weight, 0);
+  for (const b of blooms) {
+    x -= b.weight;
+    if (x < 0) return b;
+  }
+  return blooms[blooms.length - 1];
+}
+
+/** Plants a mystery seed from the barn: 12–16 hours, no soil or greenhouse speed-up. */
+function plantMystery(state: FarmState, content: Content, k: string, now: number): ActionResult {
+  const crop = content.cropById.get(MYSTERY)!;
+  if ((state.inventory[MYSTERY_SEED] ?? 0) < 1) return { ok: false, reason: 'none' };
+  addItem(state, MYSTERY_SEED, -1);
+  const [lo, hi] = mysteryCfg(content).grow_s;
+  const soil = state.plots[k].soil ?? 0;
+  state.plots[k] = { crop: MYSTERY, plantedAt: now, growS: Math.round(lo + luck(`grow:${k}:${now}`) * (hi - lo)), soil };
+  return { ok: true, kind: 'planted', crop };
+}
+
 export function plant(state: FarmState, content: Content, k: string, cropId: string, now: number): ActionResult {
   const plot = state.plots[k];
   if (!plot) return { ok: false, reason: 'no-plot' };
   if (state.obstacles[k]) return { ok: false, reason: 'blocked' };
   if (plot.crop) return { ok: false, reason: 'occupied' };
+  if (cropId === MYSTERY) return plantMystery(state, content, k, now);
   const crop = content.cropById.get(cropId);
   if (!crop) return { ok: false, reason: 'unknown-crop' };
   if (!isUnlocked(state, crop)) return { ok: false, reason: 'locked' };
@@ -426,6 +465,17 @@ export function harvest(state: FarmState, content: Content, k: string, now: numb
   if (!plot.crop || stageOf(plot, now) !== 'ripe') return { ok: false, reason: 'not-ripe' };
   const crop = content.cropById.get(plot.crop);
   if (!crop) return { ok: false, reason: 'unknown-crop' };
+  if (crop.id === MYSTERY) {
+    // a mystery seed blooms into one rare flower and a big helping of XP; no tips, mastery or doubling
+    const bloom = mysteryBloom(content, k, plot.plantedAt);
+    const xp = mysteryXp(content, state.level);
+    const stored = storeInBarn(state, content, bloom.id, 1);
+    const firstTime = !state.seen.includes(bloom.id);
+    if (firstTime) state.seen.push(bloom.id);
+    const levelsGained = grantXp(state, xp);
+    state.plots[k] = emptyPlot(plot.soil ?? 0);
+    return { ok: true, kind: 'harvested', crop, qty: 1, shipped: stored.shipped, tip: stored.coins, xp, fresh: false, levelsGained, firstTime: false, bloom: bloom.id, bloomNew: firstTime };
+  }
   const fresh = isFresh(plot, now);
   const coinMult = masteryMult(state, crop.id, 'coin');
   const tip = fresh ? Math.max(1, Math.round(crop.sell * 0.2 * (1 + beautyBonus(state, content)) * coinMult)) : 0;
@@ -586,13 +636,14 @@ export function upgradeSoil(state: FarmState, content: Content, k: string): Soil
   return { ok: true, tier: next.tier };
 }
 
-export type FertilizeResult = { ok: true } | { ok: false; reason: 'none' | 'empty' | 'ripe' | 'already' | 'no-plot' };
+export type FertilizeResult = { ok: true } | { ok: false; reason: 'none' | 'empty' | 'ripe' | 'already' | 'no-plot' | 'mystery' };
 
 /** Uses one fertilizer on a growing crop: that harvest gives an extra crop. */
 export function fertilize(state: FarmState, k: string, now: number): FertilizeResult {
   const plot = state.plots[k];
   if (!plot) return { ok: false, reason: 'no-plot' };
   if (!plot.crop) return { ok: false, reason: 'empty' };
+  if (plot.crop === MYSTERY) return { ok: false, reason: 'mystery' };
   if (plot.fertilized) return { ok: false, reason: 'already' };
   if (stageOf(plot, now) === 'ripe') return { ok: false, reason: 'ripe' };
   if ((state.inventory.fertilizer ?? 0) < 1) return { ok: false, reason: 'none' };

@@ -19,6 +19,8 @@ export interface CropDef {
   /** Placeholder colours until real art lands. */
   color: string;
   leaf: string;
+  /** Not in the seed tray, Almanac or mastery (the Mystery Sprout from Ziggy's cart). */
+  hidden?: boolean;
 }
 
 export interface GoodDef {
@@ -288,11 +290,13 @@ export function loadContent(rawCrops: unknown = cropsJson): Content {
   const crops = validateCrops(rawCrops);
   const economy = economyJson as unknown as Economy;
   const quests = questsJson as unknown as QuestDef[];
+  const blooms = ((economy as unknown as { mystery?: { blooms: GoodDef[] } }).mystery?.blooms ?? []).map(({ id, name, sell, color }) => ({ id, name, sell, color }));
   const c = {
-    crops,
+    // hidden crops (the Mystery Sprout) can grow on a plot but never show in lists
+    crops: crops.filter((x) => !x.hidden),
     cropById: new Map(crops.map((x) => [x.id, x])),
-    // fish are goods too: they sell at the crate and can be gifted or handed in
-    goods: new Map([...economy.goods, ...(fishJson as GoodDef[]).map(({ id, name, sell, color }) => ({ id, name, sell, color }))].map((g) => [g.id, g])),
+    // fish and mystery blooms are goods too: they sell at the crate and can be gifted or handed in
+    goods: new Map([...economy.goods, ...(fishJson as GoodDef[]).map(({ id, name, sell, color }) => ({ id, name, sell, color })), ...blooms].map((g) => [g.id, g])),
     economy,
     buildings: new Map(economy.buildings.map((b) => [b.id, b as BuildingDef])),
     tools: new Map(economy.tools.map((t) => [t.id, t])),

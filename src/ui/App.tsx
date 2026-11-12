@@ -103,6 +103,7 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
       if (e.kind === 'levelup') whenIdle(() => setLevelCard(e.level));
       if (e.kind === 'chapter') whenIdle(() => setChapterCard(e.n));
       if (e.kind === 'star') whenIdle(() => setMasteryCard(e.id));
+      if (e.kind === 'bloom') setToast(`${e.isNew ? 'New! ' : ''}The mystery seed bloomed: ${itemName(game.content, e.id)}! +${e.xp} XP`);
       if (e.kind === 'barn-nearly') setToast(`Barn almost full: ${e.used}/${e.cap}. Sell some crops soon.`);
       if (e.kind === 'critter' && e.result.pageDone) setToast(`Sketchbook page ${e.result.pageDone} complete! +1 Ribbon`);
       else if (e.kind === 'critter' && e.result.firstTime) setToast(`Sketched the ${e.result.species.name}! See it in Town → Sketchbook`);
@@ -375,6 +376,18 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
               <Icon name="decor" size={30} />
               <span class="seed-name">Decorate</span>
               <span class="chip time">♥ {beauty(s, game.content)}</span>
+            </button>
+          )}
+          {(s.inventory.mystery_seed ?? 0) > 0 && (
+            <button
+              class={`seed mystery${game.mode === 'plant' && game.selectedCrop === 'mystery' ? ' selected' : ''}`}
+              aria-pressed={game.mode === 'plant' && game.selectedCrop === 'mystery'}
+              aria-label={`Mystery seed, ${s.inventory.mystery_seed} left. Takes 12 to 16 hours`}
+              onClick={() => game.selectCrop('mystery')}
+            >
+              <ItemIcon id="mystery_seed" />
+              <span class="seed-name">Mystery</span>
+              <span class="chip time">×{s.inventory.mystery_seed}</span>
             </button>
           )}
           {game.content.crops.filter((c) => unlocked.has(c.id)).map((c) => {
@@ -662,6 +675,11 @@ function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
                   <button class="btn small" onClick={() => game.sell(c.id, 1)} aria-label={`Sell 1 ${c.name} for ${cratePrice(c)} coins`}>
                     Sell 1 · {cratePrice(c)}
                   </button>
+                  {(s.inventory[c.id] ?? 0) > 0 && decorDef(game.content, c.id) && (
+                    <button class="btn small" onClick={() => game.bloomToDecor(c.id)} aria-label={`Use ${c.name} as a decoration`}>
+                      Decorate
+                    </button>
+                  )}
                   {spare(c.id) > 1 && (
                     <button class="btn small" onClick={() => game.sell(c.id, spare(c.id))} aria-label={`Sell ${spare(c.id)} ${c.name}`}>
                       Sell {spare(c.id)}
@@ -702,9 +720,10 @@ function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
           <ul class="rows">
             {materials.map((m) => (
               <li key={m} class="row-item">
-                <Icon name={m} size={26} />
+                {m === 'mystery_seed' ? <ItemIcon id={m} small /> : <Icon name={m} size={26} />}
                 <span class="row-name">
                   {itemName(game.content, m)} <b>×{s.inventory[m]}</b>
+                  {m === 'mystery_seed' && <small>Plant it from the seed tray</small>}
                 </span>
               </li>
             ))}
@@ -1332,6 +1351,22 @@ function SeedPicker({ game, plotKey, onClose }: { game: Game; plotKey: string; o
       <div class="card seed-picker" role="dialog" aria-labelledby="pick-title" onClick={(e) => e.stopPropagation()}>
         <h2 id="pick-title">Plant a seed</h2>
         <div class="seed-grid">
+          {(s.inventory.mystery_seed ?? 0) > 0 && (
+            <button
+              class="seed mystery"
+              onClick={() => {
+                game.plantPicked(plotKey, 'mystery');
+                onClose();
+              }}
+            >
+              <ItemIcon id="mystery_seed" />
+              <span class="seed-name">Mystery</span>
+              <span class="seed-meta">
+                <span class="chip time">12h+</span>
+                <span class="cost">×{s.inventory.mystery_seed}</span>
+              </span>
+            </button>
+          )}
           {crops.map((c) => {
             const cost = seedCost(s, c);
             const poor = s.coins < cost;
@@ -1708,9 +1743,10 @@ function CropInfo({ game, plotKey, now, onClose }: { game: Game; plotKey: string
     <div class="modal-back" onClick={onClose}>
       <div class="card crop-info" role="dialog" aria-labelledby="crop-title" onClick={(e) => e.stopPropagation()}>
         <div class="crop-head">
-          <ItemIcon id={crop.id} color={crop.color} size={52} />
+          <ItemIcon id={crop.id === 'mystery' ? 'mystery_seed' : crop.id} color={crop.color} size={52} />
           <div>
             <h2 id="crop-title">{crop.name}</h2>
+            {crop.id === 'mystery' && <p class="small">Something rare is growing. It'll bloom into a flower to sell or display, plus lots of XP.</p>}
             <p class="muted small">{STAGE_NAMES[stageOf(plot, now)]}{plot.fertilized ? ' · Fertilized (double harvest)' : ''}{plot.soil ? ` · ${soil?.name ?? 'Better soil'}` : ''}</p>
           </div>
         </div>

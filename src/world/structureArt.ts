@@ -584,9 +584,80 @@ export function drawDecor(g: G, id: string, x: number, y: number): void {
       g.lineBetween(x - 6, y - 46, x - 6, y - 22);
       break;
     }
+    case 'moonpetal':
+    case 'ember_lily':
+    case 'glass_tulip':
+    case 'star_fern':
+    case 'rainbow_rose':
+      bloomPot(g, id, x, y);
+      break;
     default:
       ball(g, x, y - 10, 10, 0xc9c0ab, 2.5);
   }
+}
+
+/** A mystery bloom from Ziggy's seed, in a terracotta pot. */
+function bloomPot(g: G, id: string, x: number, y: number): void {
+  const pot = 0xc8693f;
+  // stems and leaves first, then the pot rim over them
+  const green = id === 'star_fern' ? 0x4f9d3a : 0x5e9c4a;
+  if (id !== 'star_fern') {
+    stem(g, x, y - 16, x - 1, y - 34, green, 2.6);
+    leaf(g, x - 1, y - 22, 12, 6, -1.0, green);
+    leaf(g, x, y - 26, 12, 6, 1.05, light(green, 0.1));
+  }
+  const fy = y - 38;
+  switch (id) {
+    case 'moonpetal': {
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+        poly(g, ellipsePts(x + Math.cos(a) * 7, fy + Math.sin(a) * 6, 6, 4, a), i % 2 ? 0xb9c9f2 : 0xcfdcff, 1.8);
+      }
+      ball(g, x, fy, 3.6, 0xeef3ff, 1.6);
+      twinkle(g, x + 13, fy - 10, 3, 0xe6efff);
+      break;
+    }
+    case 'ember_lily': {
+      for (const a of [-0.9, -0.3, 0.3, 0.9]) leaf(g, x, fy + 6, 15, 7, a, a < 0 ? 0xf2793a : 0xe8603a, 2);
+      for (const a of [-0.45, 0.45]) stem(g, x, fy + 2, x + Math.sin(a) * 8, fy - 8, 0xffd54f, 1.4);
+      ball(g, x, fy + 3, 3, 0xffd54f, 1.4);
+      break;
+    }
+    case 'glass_tulip': {
+      g.fillStyle(0x9fe3e8, 0.75);
+      g.fillPoints([V(x - 9, fy - 8), V(x - 4, fy - 2), V(x, fy - 10), V(x + 4, fy - 2), V(x + 9, fy - 8), V(x + 8, fy + 6), V(x, fy + 10), V(x - 8, fy + 6)], true);
+      g.lineStyle(2, INK, 1);
+      g.strokePoints([V(x - 9, fy - 8), V(x - 4, fy - 2), V(x, fy - 10), V(x + 4, fy - 2), V(x + 9, fy - 8), V(x + 8, fy + 6), V(x, fy + 10), V(x - 8, fy + 6)], true);
+      g.lineStyle(2, 0xffffff, 0.9);
+      g.lineBetween(x - 5, fy - 3, x - 5, fy + 5);
+      twinkle(g, x + 12, fy - 6, 3, 0xffffff);
+      break;
+    }
+    case 'star_fern': {
+      for (const a of [-1.1, -0.55, 0, 0.55, 1.1]) leaf(g, x, y - 16, 26, 7, a, a === 0 ? light(green, 0.1) : green, 2);
+      for (const [dx, dy] of [
+        [-12, -34],
+        [10, -40],
+        [0, -46],
+        [15, -26],
+      ])
+        twinkle(g, x + dx, y + dy, 3, 0xfff3a0);
+      break;
+    }
+    case 'rainbow_rose': {
+      const rings = [0xe8506a, 0xf2a23a, 0xffd54f, 0x6fc36a, 0x5c8fe0, 0xa070d8];
+      rings.forEach((col, i) => {
+        const r = 11 - i * 1.6;
+        poly(g, ellipsePts(x + (i % 2 ? 1 : -1), fy - i * 0.6, r, r * 0.8, i * 0.5), col, 1.6);
+      });
+      twinkle(g, x + 13, fy - 11, 3.4, 0xffffff);
+      break;
+    }
+  }
+  poly(g, [V(x - 12, y - 16), V(x + 12, y - 16), V(x + 9, y), V(x - 9, y)], pot, 2.2);
+  poly(g, [V(x - 14, y - 20), V(x + 14, y - 20), V(x + 14, y - 15), V(x - 14, y - 15)], light(pot, 0.12), 2.2);
+  g.fillStyle(shade(pot, 0.2), 1);
+  g.fillRect(x + 3, y - 14, 5, 12);
 }
 
 // ── Moss ─────────────────────────────────────────────────────────

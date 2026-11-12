@@ -18,6 +18,7 @@ import {
   replantAll,
   sell,
   stageOf,
+  addItem,
   barnCapacity,
   barnUsed,
   type ActionResult,
@@ -32,7 +33,7 @@ import { catchFish, rollFish, syncBites, type CatchResult, type FishDef } from '
 import { startClearing, syncLand, type ClearResult } from './core/land';
 import { coachHint, type CoachHint } from './core/coach';
 import { buildImprovement, deliverTownProject, raiseTownLevel, syncTownProject, townLevel } from './core/town';
-import { buyDecor, claimGift, pickUpDecor, placeDecor, type CalendarReward } from './core/decor';
+import { buyDecor, claimGift, decorDef, grantDecor, pickUpDecor, placeDecor, type CalendarReward } from './core/decor';
 import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merchant';
 import { buyBarn, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
 import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, restoreQuestFlags, ensureQuestMail, itemsWanted, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
@@ -54,6 +55,7 @@ export type FxEvent =
   | { kind: 'shipped'; n: number; coins: number }
   | { kind: 'barn-nearly'; used: number; cap: number }
   | { kind: 'bite' }
+  | { kind: 'bloom'; id: string; xp: number; isNew: boolean }
   | { kind: 'collect'; building: string; items: Record<string, number> }
   | { kind: 'levelup'; level: number }
   | { kind: 'quest'; title: string; done: boolean }
@@ -260,6 +262,7 @@ export class Game {
     if (r.kind === 'harvested') {
       this.fx({ kind: 'harvest', key, tip: r.tip, fresh: r.fresh, crop: r.crop.id, qty: r.qty });
       if (r.firstTime) this.fx({ kind: 'ribbon', amount: 1, why: `First ${r.crop.name} harvest!` });
+      if (r.bloom) this.fx({ kind: 'bloom', id: r.bloom, xp: r.xp, isNew: !!r.bloomNew });
       if (r.star) this.fx({ kind: 'star', crop: r.crop.name, id: r.crop.id, stars: r.star });
       if (r.shipped) this.fx({ kind: 'shipped', n: r.shipped, coins: r.tip });
       this.checkBarn();
@@ -705,6 +708,17 @@ export class Game {
     const m = this.state.settings.motion ?? 'system';
     if (m !== 'system') return m === 'reduced';
     return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  /** Moves a mystery bloom from the barn into decoration storage, ready to place. */
+  bloomToDecor(id: string): boolean {
+    if ((this.state.inventory[id] ?? 0) < 1 || !decorDef(this.content, id)) return false;
+    addItem(this.state, id, -1);
+    grantDecor(this.state, id);
+    log(this.state, this.now(), `bloom decor ${id}`);
+    this.fx({ kind: 'ui' });
+    this.changed();
+    return true;
   }
 
   /** Harvests every ripe plot (for VoiceOver, where the farm canvas can't be explored). */

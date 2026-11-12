@@ -47,6 +47,10 @@
     {
       "id": "fertilizer",
       "name": "Fertilizer"
+    },
+    {
+      "id": "mystery_seed",
+      "name": "Mystery Seed"
     }
   ],
   "buildings": [
@@ -394,6 +398,51 @@
       "beauty": 30,
       "color": "#ffc531",
       "story": true
+    },
+    {
+      "id": "moonpetal",
+      "name": "Moonpetal",
+      "coins": 0,
+      "level": 1,
+      "beauty": 4,
+      "color": "#b9c9f2",
+      "story": true
+    },
+    {
+      "id": "ember_lily",
+      "name": "Ember Lily",
+      "coins": 0,
+      "level": 1,
+      "beauty": 4,
+      "color": "#f2793a",
+      "story": true
+    },
+    {
+      "id": "glass_tulip",
+      "name": "Glass Tulip",
+      "coins": 0,
+      "level": 1,
+      "beauty": 5,
+      "color": "#9fe3e8",
+      "story": true
+    },
+    {
+      "id": "star_fern",
+      "name": "Star Fern",
+      "coins": 0,
+      "level": 1,
+      "beauty": 5,
+      "color": "#7cc96a",
+      "story": true
+    },
+    {
+      "id": "rainbow_rose",
+      "name": "Rainbow Rose",
+      "coins": 0,
+      "level": 1,
+      "beauty": 8,
+      "color": "#e8506a",
+      "story": true
     }
   ],
   "beauty": {
@@ -534,5 +583,62 @@
     "cap": 5,
     "perk_cap": 8,
     "nell_points": 10
+  },
+  "mystery": {
+    "grow_s": [
+      43200,
+      57600
+    ],
+    "coins_base": 250,
+    "coins_per_level": 25,
+    "xp_base": 100,
+    "xp_per_level": 12,
+    "blooms": [
+      {
+        "id": "moonpetal",
+        "name": "Moonpetal",
+        "weight": 30,
+        "sell": 900,
+        "beauty": 4,
+        "color": "#b9c9f2",
+        "note": "Glows faintly after dark."
+      },
+      {
+        "id": "ember_lily",
+        "name": "Ember Lily",
+        "weight": 30,
+        "sell": 900,
+        "beauty": 4,
+        "color": "#f2793a",
+        "note": "Warm to the touch, somehow."
+      },
+      {
+        "id": "glass_tulip",
+        "name": "Glass Tulip",
+        "weight": 16,
+        "sell": 1300,
+        "beauty": 5,
+        "color": "#9fe3e8",
+        "note": "Rings like a bell when the wind blows."
+      },
+      {
+        "id": "star_fern",
+        "name": "Star Fern",
+        "weight": 16,
+        "sell": 1300,
+        "beauty": 5,
+        "color": "#7cc96a",
+        "note": "Its fronds hold tiny points of light."
+      },
+      {
+        "id": "rainbow_rose",
+        "name": "Rainbow Rose",
+        "weight": 8,
+        "sell": 2500,
+        "beauty": 8,
+        "color": "#e8506a",
+        "note": "Ziggy swears he's only seen one before. He's said that about everything."
+      }
+    ]
   }
 }
