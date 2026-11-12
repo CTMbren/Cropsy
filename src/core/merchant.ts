@@ -46,6 +46,12 @@ export function merchantStock(state: FarmState, content: Content, day: number): 
 export function syncMerchant(state: FarmState, content: Content, day: number): void {
   if (!merchantUnlocked(state) || !merchantHere(content, day, state)) return;
   if (state.merchant?.day !== day || !state.merchant.stock) state.merchant = { day, bought: boughtToday(state, day), stock: rollStock(state, content, day) };
+  // a visit that started before mystery seeds existed gets one added at the end (other slots keep their places)
+  else if (!state.merchant.stock.some((x) => x.kind === 'item' && x.id === MYSTERY_SEED)) state.merchant.stock.push(mysterySlot(state, content));
+}
+
+function mysterySlot(state: FarmState, content: Content): MerchantSlot {
+  return { kind: 'item', id: MYSTERY_SEED, qty: 1, coins: mysteryPrice(content, state.level), label: 'Mystery seed', detail: "Ziggy won't say what it grows. Takes 12+ hours, gives lots of XP and a rare bloom." };
 }
 
 function rollStock(state: FarmState, content: Content, day: number): MerchantSlot[] {
@@ -74,7 +80,7 @@ function rollStock(state: FarmState, content: Content, day: number): MerchantSlo
   // 4. fertilizer in bulk
   slots.push({ kind: 'item', id: 'fertilizer', qty: m.fertilizer.qty, coins: m.fertilizer.coins, label: `${m.fertilizer.qty} Fertilizer`, detail: 'Each one doubles a harvest' });
   // 5. one mystery seed per visit: 12+ hours, lots of XP, and a rare bloom to sell or show off
-  slots.push({ kind: 'item', id: MYSTERY_SEED, qty: 1, coins: mysteryPrice(content, state.level), label: 'Mystery seed', detail: "Ziggy won't say what it grows. Takes 12+ hours, gives lots of XP and a rare bloom." });
+  slots.push(mysterySlot(state, content));
   return slots;
 }
 
