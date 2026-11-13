@@ -62,6 +62,8 @@ export interface BuildingDef {
   recipes: RecipeDef[];
   /** Given by a quest rather than bought (the Pickling Station). */
   granted?: boolean;
+  /** Hands-off work (pickling): every slot works at the same time. */
+  parallel?: boolean;
   upgrade?: BuildingUpgradeDef;
 }
 

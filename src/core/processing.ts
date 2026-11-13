@@ -17,16 +17,16 @@ export function recipeOf(b: BuildingDef, id: string): RecipeDef | undefined {
 
 const endOf = (q: QueueItem) => q.startsAt + q.durS;
 
-/** Crafting lines working at once. */
-export const linesOf = (b: BuildingState) => b.lines ?? 1;
+/** Crafting lines working at once: every slot for hands-off buildings (pickling), else 1 or 2. */
+export const linesOf = (b: BuildingState, def?: BuildingDef) => (def?.parallel ? b.slots : (b.lines ?? 1));
 
 /**
  * When a new item can start: now if a line is free, otherwise when the first busy line frees up.
  * With greedy scheduling, each line's last item is among the `lines` latest-ending items.
  */
-function nextStart(b: BuildingState, now: number): number {
+function nextStart(b: BuildingState, def: BuildingDef, now: number): number {
   const ends = b.queue.map(endOf).sort((a, c) => c - a);
-  const lines = linesOf(b);
+  const lines = linesOf(b, def);
   if (ends.length < lines) return now;
   return Math.max(now, Math.min(...ends.slice(0, lines)));
 }
@@ -72,7 +72,7 @@ export function startRecipe(state: FarmState, content: Content, buildingId: stri
   if (b.queue.length >= b.slots) return { ok: false, reason: 'full' };
   if (!hasItems(state, r.inputs)) return { ok: false, reason: 'missing' };
   takeItems(state, r.inputs);
-  const item: QueueItem = { recipe: r.id, startsAt: nextStart(b, now), durS: recipeTime(state, buildingId, r) };
+  const item: QueueItem = { recipe: r.id, startsAt: nextStart(b, def, now), durS: recipeTime(state, buildingId, r) };
   b.queue.push(item);
   return { ok: true, item };
 }

@@ -3043,7 +3043,7 @@ function BuildingSheet({ game, id, now, onClose }: { game: Game; id: string; now
           </button>
         )}
       </div>
-      <p class="muted small">{linesOf(b) >= 2 ? 'Two lines: two recipes work at the same time.' : 'One line: recipes work one at a time, in order.'}</p>
+      <p class="muted small">{def.parallel ? 'Pickling is hands-off: every crock works at the same time.' : linesOf(b, def) >= 2 ? 'Two lines: two recipes work at the same time.' : 'One line: recipes work one at a time, in order.'}</p>
       <h3>Make</h3>
       <ul class="rows">
         {def.recipes.map((r) => {

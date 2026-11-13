@@ -337,7 +337,7 @@ function pickleJar(g: G, x: number, y: number, fill = 0x9ccf5a): void {
 }
 
 /** Goldie's old crocks, under a little cellar-house with a green roof and dill drying by the door. */
-export function drawPickling(g: G, cx: number, cy: number, upgraded = false): void {
+export function drawPickling(g: G, cx: number, cy: number): void {
   const b: Box = { cx, cy, a: PICKLING.a, h: PICKLING.h };
   contact(g, cx + 6, cy + 4, 62, 24, 0.18);
   const stoneWall = 0xd8cdb8;
@@ -354,12 +354,6 @@ export function drawPickling(g: G, cx: number, cy: number, upgraded = false): vo
   crock(g, cx + 30, cy + 10);
   pickleJar(g, cx + 42, cy + 6);
   pickleJar(g, cx + 48, cy + 1, 0xe8892a);
-  if (upgraded) {
-    // the cellar expansion: a second row of crocks and a lean-to
-    crock(g, cx - 38, cy + 14, 8, 0xb48a50);
-    crock(g, cx - 26, cy + 18, 7);
-    pickleJar(g, cx - 16, cy + 20, 0xd6304a);
-  }
 }
 
 /** Juniper's grandmother's loom, in a timber workshop with bolts of cloth outside. */

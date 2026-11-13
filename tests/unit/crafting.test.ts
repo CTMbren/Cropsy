@@ -5,6 +5,7 @@ import { PICKLES_BRUNO, PICKLES_GOLDIE, picklesStep, sideQuest, sideQuestOrderDo
 import { fulfilOrder } from '../../src/core/board';
 import { newFarm, setFlag, type FarmState } from '../../src/core/farm';
 import { advance } from '../../src/core/story';
+import { migrate } from '../../src/core/save';
 import { buyBuilding, buyUpgrade, grantBuilding, queueView, recipeLock, startRecipe, upgradeStatus } from '../../src/core/processing';
 import { hasItemIcon } from '../../src/ui/itemArt';
 
@@ -130,6 +131,11 @@ describe('Loom', () => {
 describe('second-line upgrades', () => {
   it('cost 40,000+ and need the level', () => {
     for (const b of content.buildings.values()) {
+      // the Pickling Station needs none: every crock already works at once
+      if (b.parallel) {
+        expect(b.upgrade, b.id).toBeUndefined();
+        continue;
+      }
       expect(b.upgrade, b.id).toBeDefined();
       expect(b.upgrade!.coins).toBeGreaterThanOrEqual(40_000);
     }
@@ -169,6 +175,29 @@ describe('second-line upgrades', () => {
     expect(c.ok && c.item.startsAt).toBe(T0 + 1200);
     const view = queueView(u.buildings.jam_maker, T0 + 600).map((v) => v.status);
     expect(view).toEqual(['working', 'working', 'waiting']);
+  });
+
+  it('pickling is hands-off: every slot works at the same time, including Ribbon slots', () => {
+    const s = farm(10);
+    grantBuilding(s, content, 'pickling');
+    s.buildings.pickling.slots = 3;
+    giveItems(s, { radish: 36 });
+    const starts = [0, 60, 120].map((d) => startRecipe(s, content, 'pickling', 'pickled_radishes', T0 + d));
+    expect(starts.map((r) => r.ok && r.item.startsAt)).toEqual([T0, T0 + 60, T0 + 120]);
+    expect(queueView(s.buildings.pickling, T0 + 600).map((v) => v.status)).toEqual(['working', 'working', 'working']);
+  });
+
+  it('refunds a Cellar Expansion bought before pickling went hands-off', () => {
+    const s = farm(16);
+    s.version = 8;
+    s.coins = 1000;
+    grantBuilding(s, content, 'pickling');
+    s.buildings.pickling.lines = 2;
+    const m = migrate(JSON.parse(JSON.stringify(s)));
+    expect(m.coins).toBe(46_000);
+    expect(m.inventory.wood).toBe(30);
+    expect(m.inventory.stone).toBe(20);
+    expect(m.buildings.pickling.lines).toBe(1);
   });
 
   it('leave items already queued as they were', () => {

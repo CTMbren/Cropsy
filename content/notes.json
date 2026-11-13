@@ -94,7 +94,7 @@
       "Board orders and the story often ask for goods. Keep a few on hand.",
       "Ribbons buy extra slots, so a building can work on more at once.",
       {
-        "text": "Goldie's old crocks became a Pickling Station. Pickles take hours: start a crock before bed.",
+        "text": "Goldie's old crocks became a Pickling Station. Every crock works at once, so fill them all before bed.",
         "needs": "pickling"
       },
       {

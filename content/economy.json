@@ -286,15 +286,6 @@
       "where": "farm",
       "granted": true,
       "slots": 2,
-      "upgrade": {
-        "name": "Cellar Expansion",
-        "level": 15,
-        "coins": 45000,
-        "items": {
-          "wood": 30,
-          "stone": 20
-        }
-      },
       "recipes": [
         {
           "id": "pickled_radishes",
@@ -335,7 +326,8 @@
           "xp": 11,
           "card": "bruno"
         }
-      ]
+      ],
+      "parallel": true
     },
     {
       "id": "loom",

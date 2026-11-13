@@ -95,6 +95,18 @@ const migrations: ((d: Record<string, unknown>) => Record<string, unknown>)[] = 
   },
   // v7 → v8 (crafting update): buildings may have a second line (`lines`); old ones have one.
   (d) => d,
+  // v8 → v9: every pickling slot now works at once, so the Cellar Expansion is gone. Anyone who
+  // bought it gets the 45,000 coins, 30 wood and 20 stone back.
+  (d) => {
+    const buildings = { ...((d.buildings as Record<string, { lines?: number }>) ?? {}) };
+    const p = buildings.pickling;
+    if (!p || (p.lines ?? 1) < 2) return d;
+    buildings.pickling = { ...p, lines: 1 };
+    const inventory = { ...((d.inventory as Record<string, number>) ?? {}) };
+    inventory.wood = (inventory.wood ?? 0) + 30;
+    inventory.stone = (inventory.stone ?? 0) + 20;
+    return { ...d, buildings, inventory, coins: ((d.coins as number) ?? 0) + 45000 };
+  },
 ];
 
 export class SaveTooNewError extends Error {}
