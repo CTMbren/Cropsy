@@ -561,3 +561,42 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .almanac-card .stamps { color: var(--gold-dark); letter-spacing: 1px; }
 .critter-note p { margin: 0 0 6px; }
 .stamp-mark { font-weight: 700; color: var(--gold-dark); margin-right: 4px; }
+
+/* Almanac mastery: five tracks, crop pages, ★10 gold signature */
+.mastery-card { max-height: 88vh; overflow-y: auto; }
+.track-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 6px 0 4px; width: 100%; }
+.track-pick:last-child:nth-child(odd) { grid-column: span 2; }
+.track-pick { position: relative; display: grid; justify-items: center; gap: 2px; padding: 8px 6px 7px; border: 2.5px solid var(--ink); border-radius: 14px; background: #fff; box-shadow: 0 3px 0 var(--ink); font: inherit; color: var(--ink); cursor: pointer; }
+.track-pick b { font-family: 'Lilita One', system-ui; font-weight: 400; font-size: 15px; line-height: 1.1; }
+.track-pick small { font-size: 11px; line-height: 1.2; color: #6d5440; }
+.track-pick:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.track-pick:disabled { opacity: 0.5; box-shadow: none; filter: grayscale(0.6); cursor: default; }
+.track-pick .pips { position: absolute; top: 4px; right: 6px; font-size: 10px; color: #6d5440; }
+.track-pick.gold { background: #fff4cc; }
+.track-pick.green { background: #e9f8dd; }
+.track-pick.sky { background: #e2f4fc; }
+.track-pick.orange { background: #fdebd8; }
+.track-pick.leaf { background: #eef6e2; }
+.track-chips { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin: 2px 0 6px; padding: 0; }
+.track-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; padding: 2px 7px 2px 4px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; }
+.track-chip.gold { background: #fff4cc; }
+.track-chip.green { background: #e9f8dd; }
+.track-chip.sky { background: #e2f4fc; }
+.track-chip.orange { background: #fdebd8; }
+.track-chip.leaf { background: #eef6e2; }
+.track-chip small { color: #6d5440; }
+.crop-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; margin: 8px 0; text-align: left; width: 100%; }
+.crop-stats div { background: #f7f0e0; border-radius: 10px; padding: 4px 8px; }
+.crop-stats dt { font-size: 11px; color: #6d5440; }
+.crop-stats dd { margin: 0; font-family: 'Lilita One', system-ui; font-size: 16px; }
+.hazel-notes { width: 100%; text-align: left; background: #fffdf5; border: 2px dashed #cdb894; border-radius: 12px; padding: 6px 10px; margin: 6px 0; }
+.hazel-notes h3 { font-family: 'Lilita One', system-ui; font-weight: 400; font-size: 15px; margin: 2px 0 4px; }
+.hazel-notes p { margin: 0 0 6px; font-size: 13px; line-height: 1.35; }
+.redo-line { margin: 4px 0 8px; }
+.redo-status { margin: -2px 0 8px; color: #6d5440; }
+.redo-status.ready { color: var(--green-dark); font-weight: 700; }
+.almanac-card .capped { display: inline-flex; gap: 1px; vertical-align: -2px; margin-left: 2px; }
+/* gold-leaf signature */
+.almanac-card.signature, .mastery-card.signature { border-color: #b8860b; background: linear-gradient(135deg, #fff8dc, #ffe9a8 45%, #fff8dc); box-shadow: 0 0 0 3px #ffd54f, 0 0 0 5.5px var(--ink); }
+.mastery-card.signature { box-shadow: 0 0 0 4px #ffd54f, 0 0 0 7px var(--ink), 0 6px 0 7px var(--ink); }
+.almanac-card.signature .almanac-name::after { content: ' ✦'; color: var(--gold-dark); }

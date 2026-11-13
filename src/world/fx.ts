@@ -144,6 +144,13 @@ export class FxLayer {
     this.emitter.explode(count, x, y - 10);
   }
 
+  /** A soft golden twinkle: a couple of slow-rising gold flecks (★10 signature crops). Shares the burst emitter. */
+  glint(x: number, y: number): void {
+    if (this.calm()) return;
+    this.emitter.setParticleTint(0xffd54f);
+    this.emitter.explode(2, x + (Math.random() - 0.5) * 30, y - 18 - Math.random() * 14);
+  }
+
   /** Floating "+3 Carrot" style text. */
   pop(x: number, y: number, text: string, color: string | number): void {
     const t = this.take(text, color, 22).setPosition(x, y - 30);

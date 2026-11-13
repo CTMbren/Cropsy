@@ -11,6 +11,7 @@ describe('economy pacing (simulated casual player)', () => {
     const b = r.board;
     const days = 70;
     console.log(`Board: filled ${JSON.stringify(b.filled)}, order coins ${b.orderCoins}, crate coins ${b.crateCoins}, order share ${(b.orderCoins / (b.orderCoins + b.crateCoins)).toFixed(2)}, board ribbons/day ${(b.ribbons / days).toFixed(2)}, specials ${b.specials} (${b.specialsIn24h} within 24 h), peak plot share ${b.peakPlotShare.toFixed(2)}`);
+    console.log(`Mastery: picks ${JSON.stringify(b.picks)}, barn overflow shipped ${b.overflow}`);
     expect(r.final.level).toBeGreaterThan(1);
   });
 });

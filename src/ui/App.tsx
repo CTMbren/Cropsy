@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { boardOrders, boardSlots, boardTickHours, fillableCount, isSketch, isSpecial, lineName, lineReady, nextPostAt } from '../core/board';
 import { goodsReady } from '../core/processing';
 import { itemName, itemValue, shortName, type Content, type VillagerDef } from '../core/content';
-import { barnCapacity, barnUsed, cratePrice, hasFlag, newFarm, type FarmState, hasItems, lifetimeHarvests, MASTERY_STEP, masteryLevel, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
+import { almanacNotes, nextNoteStar } from '../core/almanac';
+import { barnCapacity, barnUsed, cratePrice, hasFlag, newFarm, type FarmState, hasItems, lifetimeHarvests, BOUNTY_STEP, coinStep, cropStats, growTimeFor, hasSignature, MASTERY_PICKS, masteryCap, masteryLevel, masteryOptions, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, pickCount, redoReady, SIGNATURE_LEVEL, SPEED_STEP, speedMult, THRIFT_STEP, type MasteryPick, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
 import { xpToNext } from '../core/progression';
 import { fromSaveCode, toSaveCode } from '../core/save';
 import { rawSaveDump } from '../platform/storage';
@@ -418,7 +419,7 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
                   <span class="chip lock">Lv {c.unlock_level}</span>
                 ) : (
                   <span class="seed-meta">
-                    <span class="chip time">{formatDuration(c.grow_s)}</span>
+                    <span class="chip time">{formatDuration(Math.round(c.grow_s * speedMult(s, c.id)))}</span>
                     <span class="cost">
                       <span class="coin sm" aria-hidden="true" />
                       {seedCost(s, c)}
@@ -1474,7 +1475,7 @@ function SeedPicker({ game, plotKey, onClose }: { game: Game; plotKey: string; o
                 <ItemIcon id={c.id} color={c.color} />
                 <span class="seed-name">{c.name}</span>
                 <span class="seed-meta">
-                  <span class="chip time">{formatDuration(c.grow_s)}</span>
+                  <span class="chip time">{formatDuration(growTimeFor(s, game.content, c, s.plots[plotKey]?.soil ?? 0))}</span>
                   <span class="cost">
                     <span class="coin sm" aria-hidden="true" />
                     {cost}
@@ -1494,31 +1495,76 @@ function SeedPicker({ game, plotKey, onClose }: { game: Game; plotKey: string; o
 }
 
 /** A crop's mastery: progress, bonuses so far, and the coin-or-XP choice for any unspent level. */
+const TRACKS: Record<MasteryPick, { name: string; icon: string; cls: string; what: string }> = {
+  coin: { name: 'Coins', icon: 'coin', cls: 'gold', what: 'crate, market, auto-ship and Fresh tips' },
+  xp: { name: 'XP', icon: 'xp', cls: 'green', what: 'every harvest' },
+  speed: { name: 'Quick Growth', icon: 'speed', cls: 'sky', what: 'grow time, from your next planting' },
+  bounty: { name: 'Bountiful', icon: 'bounty', cls: 'orange', what: 'chance of an extra crop' },
+  thrift: { name: 'Thrifty', icon: 'thrift', cls: 'leaf', what: 'seed cost' },
+};
+
+/** What one more pick of a track does for this crop, and what all picks so far add up to. */
+function trackText(kind: MasteryPick, sell: number, n: number): { per: string; total: string } {
+  const pct = (x: number) => `${Math.round(x * 1000) / 10}%`;
+  switch (kind) {
+    case 'coin': {
+      const step = coinStep(sell);
+      return { per: `+${pct(step)} (~${Math.round(step * sell * 0.7 * 10) / 10} coins each)`, total: `+${pct(step * n)} coins` };
+    }
+    case 'xp':
+      return { per: '+5% XP', total: `+${5 * n}% XP` };
+    case 'speed':
+      return { per: `−${pct(SPEED_STEP)} grow time`, total: `−${pct(SPEED_STEP * n)} grow time` };
+    case 'bounty':
+      return { per: `+${pct(BOUNTY_STEP)} extra-crop chance`, total: `+${pct(BOUNTY_STEP * n)} extra-crop chance` };
+    case 'thrift':
+      return { per: `−${pct(THRIFT_STEP)} seed cost`, total: `−${pct(THRIFT_STEP * n)} seed cost` };
+  }
+}
+
+/** A crop's page in Hazel's Almanac: mastery picks, stats, Hazel's notes and the weekly re-do. Also the level-up card. */
 function MasteryCard({ game, cropId, onClose }: { game: Game; cropId: string; onClose: () => void }) {
   const s = game.state;
-  const crop = game.content.cropById.get(cropId);
+  const c = game.content;
+  const crop = c.cropById.get(cropId);
+  const [askRedo, setAskRedo] = useState(false);
   if (!crop) return null;
   const n = s.harvests?.[cropId] ?? 0;
   const lv = masteryLevel(s, cropId);
   const picks = masteryPicks(s, cropId);
   const pending = masteryPending(s, cropId);
-  const pct = Math.round(MASTERY_STEP * 100);
-  const coins = picks.filter((p) => p === 'coin').length * pct;
-  const xp = picks.filter((p) => p === 'xp').length * pct;
+  const options = masteryOptions(s, cropId, c);
+  const almanac = hasFlag(s, 'almanac_open');
+  const gold = hasSignature(s, cropId);
+  const st = cropStats(s, cropId);
+  const notes = almanacNotes(cropId, lv);
+  const day = game.day();
+  const ready = redoReady(s, day);
+  const held = MASTERY_PICKS.filter((k) => pickCount(s, cropId, k) > 0);
   return (
     <div class="modal-back" onClick={pending ? undefined : onClose}>
-      <div class="card level-card mastery-card" role="dialog" aria-labelledby="mastery-title" onClick={(e) => e.stopPropagation()}>
+      <div class={`card level-card mastery-card${gold ? ' signature' : ''}`} role="dialog" aria-labelledby="mastery-title" onClick={(e) => e.stopPropagation()}>
         <ItemIcon id={crop.id} color={crop.color} size={56} />
         <h2 id="mastery-title">
           {crop.name} mastery {lv > 0 ? `★ ${lv}` : ''}
         </h2>
         <p class="muted small">
           {n.toLocaleString()} grown · next level at {masteryThreshold(lv + 1).toLocaleString()}
+          {!gold && lv < SIGNATURE_LEVEL && ` · gold page at ★${SIGNATURE_LEVEL}`}
         </p>
-        {(coins > 0 || xp > 0) && (
-          <p class="small">
-            Bonuses: <b>+{coins}% coins</b> · <b>+{xp}% XP</b>
-          </p>
+        {held.length > 0 && (
+          <ul class="track-chips">
+            {held.map((k) => {
+              const cnt = pickCount(s, cropId, k);
+              const cap = masteryCap(cropId, k, c);
+              return (
+                <li key={k} class={`track-chip ${TRACKS[k].cls}`}>
+                  <Icon name={TRACKS[k].icon} size={16} /> {trackText(k, crop.sell, cnt).total}
+                  {Number.isFinite(cap) && <small> {cnt}/{cap}</small>}
+                </li>
+              );
+            })}
+          </ul>
         )}
         {pending > 0 ? (
           <>
@@ -1526,25 +1572,102 @@ function MasteryCard({ game, cropId, onClose }: { game: Game; cropId: string; on
               <b>Level up!</b> +1 Ribbon. Pick a bonus for {crop.name.toLowerCase()}
               {pending > 1 ? ` (${pending} to choose)` : ''}:
             </p>
-            <div class="row">
-              <button class="btn gold" onClick={() => game.chooseMastery(cropId, 'coin')}>
-                +{pct}% coins
-              </button>
-              <button class="btn green" onClick={() => game.chooseMastery(cropId, 'xp')}>
-                +{pct}% XP
-              </button>
+            <div class="track-picks">
+              {options.map((o) => {
+                const t = TRACKS[o.kind];
+                const cap = masteryCap(cropId, o.kind, c);
+                return (
+                  <button key={o.kind} class={`track-pick ${t.cls}`} disabled={!o.open} onClick={() => game.chooseMastery(cropId, o.kind)}>
+                    <Icon name={t.icon} size={28} />
+                    <b>{t.name}</b>
+                    <small>{o.mastered ? 'Mastered ✓' : trackText(o.kind, crop.sell, 1).per}</small>
+                    {Number.isFinite(cap) && !o.mastered && <span class="pips">{pickCount(s, cropId, o.kind)}/{cap}</span>}
+                  </button>
+                );
+              })}
             </div>
-            <p class="muted small">Coins: crate, market, auto-ship and Fresh tips. XP: every harvest.</p>
+            {!almanac && <p class="muted small">Hazel's Almanac will add more kinds of mastery later in the story.</p>}
             <button class="link-btn small" onClick={onClose}>
               Decide later (tap the ★ on the seed)
             </button>
           </>
-        ) : (
+        ) : null}
+        {almanac && lv > 0 && (
+          <dl class="crop-stats">
+            <div>
+              <dt>Harvests</dt>
+              <dd>{n.toLocaleString()}</dd>
+            </div>
+            {!!st.bonus && (
+              <div>
+                <dt>Bountiful extras</dt>
+                <dd>{st.bonus.toLocaleString()}</dd>
+              </div>
+            )}
+            {!!st.saved && (
+              <div>
+                <dt>Seeds saved</dt>
+                <dd>{st.saved.toLocaleString()} coins</dd>
+              </div>
+            )}
+            {st.fastest !== undefined && st.fastest < crop.grow_s && (
+              <div>
+                <dt>Fastest grown</dt>
+                <dd>{formatDuration(st.fastest)}</dd>
+              </div>
+            )}
+          </dl>
+        )}
+        {almanac && (
+          <div class="hazel-notes">
+            <h3>Hazel's notes</h3>
+            {notes.length ? (
+              notes
+                .slice()
+                .reverse()
+                .map((x) => (
+                  <p key={x.star}>
+                    <span class="stamp-mark">★{x.star}</span> {x.text}
+                  </p>
+                ))
+            ) : (
+              <p class="muted small">Hazel writes her first note at ★1.</p>
+            )}
+            {notes.length > 0 && <p class="muted small">Next note at ★{nextNoteStar(lv)}.</p>}
+          </div>
+        )}
+        {almanac && picks.length > 0 && (
+          <p class="redo-line small">
+            {ready ? (
+              <button class="btn small" onClick={() => setAskRedo(true)}>
+                ↺ Re-do {crop.name.toLowerCase()}'s stars (free this week)
+              </button>
+            ) : (
+              <span class="muted">Re-do used this week · next one Monday</span>
+            )}
+          </p>
+        )}
+        {pending === 0 && (
           <button class="btn green" onClick={onClose}>
             OK
           </button>
         )}
       </div>
+      {askRedo && (
+        <ConfirmCard
+          title={`Re-do ${crop.name.toLowerCase()}?`}
+          yes="Re-do stars"
+          onNo={() => setAskRedo(false)}
+          onYes={() => {
+            setAskRedo(false);
+            game.redoMastery(cropId);
+          }}
+        >
+          <p>
+            All {picks.length} of its picks are cleared and you choose them again. You keep the Ribbons. Your free re-do then comes back on Monday.
+          </p>
+        </ConfirmCard>
+      )}
     </div>
   );
 }
@@ -2598,12 +2721,14 @@ function AlmanacTab({ game }: { game: Game }) {
   const c = game.content;
   const found = c.crops.filter((x) => s.seen.includes(x.id)).length;
   const [open, setOpen] = useState<string | null>(null);
-  const pct = Math.round(MASTERY_STEP * 100);
+  const ready = redoReady(s, game.day());
+  const gold = c.crops.filter((x) => hasSignature(s, x.id)).length;
   return (
     <>
       <p class="muted small">
-        Hazel's Almanac · <b>{found}/{c.crops.length}</b> crops recorded · <b>{lifetimeHarvests(s).toLocaleString()}</b> crops grown. Each mastery level earns a Ribbon and lets you pick +{pct}% coins or +{pct}% XP for that crop. Tap a crop to see its mastery.
+        Hazel's Almanac · <b>{found}/{c.crops.length}</b> crops recorded · <b>{lifetimeHarvests(s).toLocaleString()}</b> crops grown{gold ? <> · <b>{gold}</b> gold {gold === 1 ? 'page' : 'pages'}</> : null}. Each star earns a Ribbon and a bonus: Coins, XP, Quick Growth, Bountiful or Thrifty. Tap a crop for its page.
       </p>
+      <p class={`redo-status small${ready ? ' ready' : ''}`}>{ready ? '↺ Free re-do ready: redo one crop’s stars from its page' : '↺ Re-do used this week · next one Monday'}</p>
       <ul class="almanac">
         {c.crops.map((x) => {
           const seen = s.seen.includes(x.id);
@@ -2612,11 +2737,23 @@ function AlmanacTab({ game }: { game: Game }) {
           const next = masteryThreshold(lv + 1);
           const prev = lv ? masteryThreshold(lv) : 0;
           const pending = masteryPending(s, x.id);
+          const capped = (['speed', 'bounty', 'thrift'] as MasteryPick[]).filter((k) => masteryCap(x.id, k, c) > 0 && pickCount(s, x.id, k) >= masteryCap(x.id, k, c));
           return (
-            <li key={x.id} class={`almanac-card${seen ? '' : ' unknown'}${pending ? ' pending' : ''}`} onClick={() => seen && setOpen(x.id)}>
+            <li key={x.id} class={`almanac-card${seen ? '' : ' unknown'}${pending ? ' pending' : ''}${seen && hasSignature(s, x.id) ? ' signature' : ''}`} onClick={() => seen && setOpen(x.id)}>
               {seen ? <ItemIcon id={x.id} color={x.color} /> : <span class="seed-icon" style={{ background: '#cfc4b0' }} aria-hidden="true" />}
               <span class="almanac-name">{seen ? x.name : '???'}</span>
-              {seen && <span class="stars">{lv ? <span class="on">★ {lv}</span> : '★ 0'}</span>}
+              {seen && (
+                <span class="stars">
+                  {lv ? <span class="on">★ {lv}</span> : '★ 0'}
+                  {capped.length > 0 && (
+                    <span class="capped" aria-label={`Mastered: ${capped.map((k) => TRACKS[k].name).join(', ')}`}>
+                      {capped.map((k) => (
+                        <Icon key={k} name={TRACKS[k].icon} size={13} />
+                      ))}
+                    </span>
+                  )}
+                </span>
+              )}
               {seen && (
                 <span class="mini-bar" aria-hidden="true">
                   <i style={{ width: `${Math.round(((n - prev) / (next - prev)) * 100)}%` }} />

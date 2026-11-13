@@ -1,5 +1,5 @@
 import { itemValue, type BarnTier, type Content, type ToolDef } from './content';
-import { addItem, hasItems, sellBonus, takeItems, unlockedCrops, type FarmState } from './farm';
+import { addItem, hasItems, saleCoins, takeItems, unlockedCrops, type FarmState } from './farm';
 import { fnv1a } from './save';
 import { rng } from './time';
 
@@ -75,7 +75,7 @@ export function marketSell(state: FarmState, content: Content, itemId: string, n
   const price = marketPrice(state, content, itemId, day);
   if (qty <= 0 || !price) return 0;
   addItem(state, itemId, -qty);
-  const coins = Math.round(price * qty * sellBonus(state, itemId));
+  const coins = saleCoins(state, content, itemId, price * qty);
   state.coins += coins;
   return coins;
 }
