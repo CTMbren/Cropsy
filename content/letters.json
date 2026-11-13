@@ -111,5 +111,53 @@
     "from": "bruno",
     "subject": "Found something in the rubble",
     "body": "Morning, neighbour.\n\nThe crew went back over the rubble from all those boulders we cleared for you. Turns out we'd been tossing gold nuggets in with the stone. Embarrassing. My cousin says I need glasses. My cousin is wrong.\n\nI've put what we found in your barn. From now on, about one boulder in ten has a nugget, and we'll hand it straight over.\n\nBruno"
+  },
+  {
+    "id": "goldie_crocks",
+    "from": "goldie",
+    "subject": "Tobias's pickle crocks",
+    "body": "Hello, dear!\n\nI was tidying my cellar and found Tobias's old pickle crocks, still smelling faintly of dill. He used to bring me a jar of pickled radishes every autumn.\n\nBring me 12 radishes and 6 carrots and I'll start a crock of each, the way he showed me. I've pinned it on the Board.\n\nGoldie"
+  },
+  {
+    "id": "goldie_crocks_bruno",
+    "from": "goldie",
+    "subject": "The crocks need a home",
+    "body": "Dear,\n\nThe crocks are bubbling away nicely. But they're far too heavy for my little store, and pickles want a cool, dark spot.\n\nI asked Bruno to build you proper shelves on the farm. He's pinned what he needs on the Board: wood and stone, the usual.\n\nGoldie"
+  },
+  {
+    "id": "goldie_crocks_done",
+    "from": "goldie",
+    "subject": "Your Pickling Station",
+    "body": "Dear,\n\nBruno's shelves are up, and the crocks are yours now. Come and look: the first jar of pickled radishes is ready on the shelf.\n\nHere's how it's done. Tap the Pickling Station, choose what to pickle, and leave it. Pickles take a few hours, so start a crock before bed and it'll be ready in the morning.\n\nTobias always said patience is the secret ingredient. I always said it was salt.\n\nGoldie"
+  },
+  {
+    "id": "juniper_loom",
+    "from": "juniper",
+    "subject": "Grandma's loom",
+    "body": "Hi!\n\nYou're growing cotton now? Then you need my grandma's loom. It's been sitting in the corner of my studio under a pile of canvases.\n\nBruno says he can move it to your farm and fix it up. Ask him in Town. Thread is quick, cloth takes a while, and a quilt takes all night. I'll show you the quilt pattern when we know each other better.\n\nJuniper"
+  },
+  {
+    "id": "card_carrot_cake",
+    "from": "goldie",
+    "subject": "A recipe card for you",
+    "body": "Dear,\n\nI've copied out my carrot cake recipe for you. Six carrots, two scoops of flour, and a bakery that's warm. Tobias asked for it every birthday.\n\nIt's in your bakery now. Don't tell Pip I gave it away.\n\nGoldie"
+  },
+  {
+    "id": "card_corn_relish",
+    "from": "bruno",
+    "subject": "Corn relish",
+    "body": "Neighbour,\n\nThe crew lives on my corn relish. Three ears of corn and a tomato, and six hours in a crock. I wrote it on the back of an invoice. Don't pay the invoice.\n\nIt's on your Pickling Station now.\n\nBruno"
+  },
+  {
+    "id": "card_pumpkin_pie",
+    "from": "pip",
+    "subject": "Pumpkin pie!!",
+    "body": "Hello! It's Pip.\n\nYou've been so kind that I'm giving you my pumpkin pie recipe. One pumpkin, two flour. That's it. That's the secret. There is no other secret. Okay, there's a pinch of something, but I can't tell you.\n\nIt's in your bakery now.\n\nPip"
+  },
+  {
+    "id": "card_patchwork_quilt",
+    "from": "juniper",
+    "subject": "The quilt pattern",
+    "body": "Hi!\n\nAs promised: Grandma's patchwork quilt pattern. Five cotton and a whole night on the loom. It's slow, but it's the most beautiful thing you'll ever make. And it sells for a lot, which Grandma would want me to mention.\n\nIt's on your loom now.\n\nJuniper"
   }
 ]

@@ -5,12 +5,13 @@ import { goodsReady } from '../core/processing';
 import { itemName, itemValue, shortName, type Content, type VillagerDef } from '../core/content';
 import { almanacNotes, nextNoteStar } from '../core/almanac';
 import { notesOpen, notesPages, unreadPages, type PageView } from '../core/notes';
+import { sideQuest } from '../core/crafting';
 import { barnCapacity, barnUsed, cratePrice, hasFlag, newFarm, type FarmState, hasItems, lifetimeHarvests, BOUNTY_STEP, coinStep, cropStats, growTimeFor, hasSignature, MASTERY_PICKS, masteryCap, masteryLevel, masteryOptions, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, pickCount, redoReady, SIGNATURE_LEVEL, SPEED_STEP, speedMult, THRIFT_STEP, type MasteryPick, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
 import { xpToNext } from '../core/progression';
 import { fromSaveCode, toSaveCode } from '../core/save';
 import { rawSaveDump } from '../platform/storage';
 import { canGiftToday, chatter, friends, heartProgress, hearts, pendingEvents, seenEvents, taste } from '../core/friendship';
-import { buildingPrice, canAffordBuilding, queueView, readyCount, slotUpgradeCost } from '../core/processing';
+import { buildingPrice, canAffordBuilding, linesOf, queueView, readyCount, recipeLock, recipeTime, slotUpgradeCost, upgradeStatus } from '../core/processing';
 import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, priceFactor, toolPrice } from '../core/shop';
 import { blockerAt, clearCost, clearReward, clearTime, landOpen, nextCapLevel, plotCap, plotCount, touchesField } from '../core/land';
 import { activeQuest, canHandIn, inbox, itemsWanted, letterStatus, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
@@ -184,6 +185,7 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
   };
 
   const unread = unreadPages(s, game.content).length;
+  const side = sideQuest(s);
   /** Opens where a page's "Try it" or a tip's "Show me" points: the farm, a sheet, a Town tab or a notes page. */
   const go = (target: string) => {
     if (target === 'farm') setSheet(null);
@@ -221,6 +223,7 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
         </button>
       </header>
 
+      <div class="trackers">
       {quest && active && (
         <button class="tracker" onClick={() => (giver ? openTalk() : setSheet('mail'))}>
           <span class="tracker-title">{quest.title}</span>
@@ -254,6 +257,13 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
           </div>
         );
       })()}
+      {side && (
+        <button class="tracker side" onClick={() => setSheet('board')}>
+          <span class="tracker-title">Side quest: {side.title}</span>
+          <span class="tracker-obj">{side.text}</span>
+        </button>
+      )}
+      </div>
 
       <div class="sr-only" aria-live="polite">
         {`Farm: ${ripeKeys.length} ripe, ${Object.values(s.plots).filter((p) => p.crop).length - ripeKeys.length} growing${ready !== null ? `, next ready in ${formatDuration(ready)}` : ''}${goods.length ? `, ${goods.reduce((a, g) => a + g.n, 0)} goods ready` : ''}.`}
@@ -2297,7 +2307,7 @@ function TownSheet({ game, onClose, onScene, initialTab }: { game: Game; onClose
           <h3>Buildings</h3>
           <ul class="rows">
             {[...c.buildings.values()]
-              .filter((b) => b.where === 'farm')
+              .filter((b) => b.where === 'farm' && !b.granted)
               .map((b) => {
                 const owned = !!s.buildings[b.id];
                 const locked = (b.unlock_level ?? 1) > s.level;
@@ -3033,15 +3043,31 @@ function BuildingSheet({ game, id, now, onClose }: { game: Game; id: string; now
           </button>
         )}
       </div>
+      <p class="muted small">{linesOf(b) >= 2 ? 'Two lines: two recipes work at the same time.' : 'One line: recipes work one at a time, in order.'}</p>
       <h3>Make</h3>
       <ul class="rows">
         {def.recipes.map((r) => {
+          const lock = recipeLock(s, r);
           const ok = Object.entries(r.inputs).every(([k, n]) => (s.inventory[k] ?? 0) >= n);
+          const out = c.goods.get(r.output);
+          if (lock.kind !== 'open') {
+            const who = lock.kind === 'card' ? c.villagers.get(lock.villager)?.name.split(' ')[0] : '';
+            return (
+              <li key={r.id} class="row-item locked">
+                <ItemIcon id={r.output} color={out?.color} small />
+                <span class="row-name">
+                  {itemName(c, r.output)} <small>{formatDuration(recipeTime(s, id, r))}</small>
+                  <small class="needs">{lock.kind === 'card' ? `${who}'s recipe card: reach 3 ♥ with ${who}` : `Opens at level ${lock.level}`}</small>
+                </span>
+                <Icon name="lock" size={22} />
+              </li>
+            );
+          }
           return (
             <li key={r.id} class="row-item">
-              <ItemIcon id={r.output} color={c.goods.get(r.output)?.color} small />
+              <ItemIcon id={r.output} color={out?.color} small />
               <span class="row-name">
-                {itemName(c, r.output)} <small>{formatDuration(r.dur_s)}</small>
+                {itemName(c, r.output)} <small>{formatDuration(recipeTime(s, id, r))} · sells {out?.sell}</small>
                 <small class="needs">
                   {Object.entries(r.inputs).map(([k, n]) => (
                     <Need key={k} have={s.inventory[k] ?? 0} need={n} label={itemName(c, k)} />
@@ -3055,7 +3081,48 @@ function BuildingSheet({ game, id, now, onClose }: { game: Game; id: string; now
           );
         })}
       </ul>
+      {def.upgrade && <UpgradeCard game={game} id={id} />}
     </Sheet>
+  );
+}
+
+/** The building's 40,000+ upgrade: a second line, so two recipes work at once. */
+function UpgradeCard({ game, id }: { game: Game; id: string }) {
+  const s = game.state;
+  const c = game.content;
+  const u = c.buildings.get(id)!.upgrade!;
+  const st = upgradeStatus(s, c, id);
+  const done = !st.ok && st.reason === 'done';
+  return (
+    <>
+      <h3>Upgrade</h3>
+      <div class={`order upgrade-card${done ? ' done' : ''}`}>
+        <Icon name="building" size={40} />
+        <div class="order-body">
+          <div class="order-who">{u.name}</div>
+          <div class="muted small">{done ? 'Built: two recipes work at the same time.' : 'A second line: two recipes work at the same time.'}</div>
+          {!done && (
+            <div class="order-wants">
+              {s.level < u.level ? (
+                <span class="need">Opens at level {u.level}</span>
+              ) : (
+                <>
+                  <Need have={s.coins} need={u.coins} label="coins" />
+                  {Object.entries(u.items ?? {}).map(([k, n]) => (
+                    <Need key={k} have={s.inventory[k] ?? 0} need={n} label={itemName(c, k)} />
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        {!done && (
+          <button class="btn small green" disabled={!st.ok} onClick={() => game.buyUpgrade(id)}>
+            Build
+          </button>
+        )}
+      </div>
+    </>
   );
 }
 

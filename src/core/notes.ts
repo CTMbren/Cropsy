@@ -20,7 +20,7 @@ import { townProjectOpen } from './town';
  */
 
 // ── Unlock rules ─────────────────────────────────────────────────
-export type Unlock = 'start' | 'market' | 'board' | 'special' | 'soil' | 'land' | 'buildings' | 'friends' | 'ziggy' | 'almanac' | 'meadow' | 'creek' | 'town';
+export type Unlock = 'start' | 'market' | 'board' | 'special' | 'soil' | 'land' | 'buildings' | 'friends' | 'ziggy' | 'almanac' | 'meadow' | 'creek' | 'town' | 'pickling' | 'loom' | 'upgrade';
 
 export const UNLOCK_HINT: Record<Unlock, string> = {
   start: '',
@@ -36,6 +36,9 @@ export const UNLOCK_HINT: Record<Unlock, string> = {
   meadow: 'Opens at level 3',
   creek: 'Opens when the creek dock is rebuilt',
   town: 'Opens at level 10',
+  pickling: "Opens with Goldie's pickle crocks",
+  loom: 'Opens at level 17',
+  upgrade: 'Opens at level 15',
 };
 
 export function unlocked(state: FarmState, content: Content, u: Unlock): boolean {
@@ -66,6 +69,12 @@ export function unlocked(state: FarmState, content: Content, u: Unlock): boolean
       return fishingOpen(state);
     case 'town':
       return townProjectOpen(state, content);
+    case 'pickling':
+      return !!state.buildings.pickling;
+    case 'loom':
+      return state.level >= (content.buildings.get('loom')?.unlock_level ?? 17);
+    case 'upgrade':
+      return state.level >= 15 && Object.keys(state.buildings).length > 0;
   }
 }
 

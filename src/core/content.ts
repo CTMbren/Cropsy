@@ -37,6 +37,18 @@ export interface RecipeDef {
   output: string;
   dur_s: number;
   xp: number;
+  /** Opens at this level (otherwise with the building). */
+  level?: number;
+  /** A recipe card this villager gives at 3 hearts. */
+  card?: string;
+}
+
+/** One expensive upgrade: a second crafting line, so two recipes work at once. */
+export interface BuildingUpgradeDef {
+  name: string;
+  level: number;
+  coins: number;
+  items?: Record<string, number>;
 }
 
 export interface BuildingDef {
@@ -48,6 +60,9 @@ export interface BuildingDef {
   cost?: { coins?: number; items?: Record<string, number> };
   slots: number;
   recipes: RecipeDef[];
+  /** Given by a quest rather than bought (the Pickling Station). */
+  granted?: boolean;
+  upgrade?: BuildingUpgradeDef;
 }
 
 export interface ToolDef {
@@ -275,7 +290,10 @@ export function validateStory(c: Omit<Content, 'questById'>): void {
     for (const r of b.recipes) {
       if (!c.goods.has(r.output)) throw new Error(`economy.json building "${b.id}": unknown output "${r.output}"`);
       for (const k of Object.keys(r.inputs)) if (!isItem(k)) throw new Error(`economy.json building "${b.id}": unknown input "${k}"`);
+      if (r.card && !c.villagers.has(r.card)) throw new Error(`economy.json recipe "${r.id}": unknown card villager "${r.card}"`);
+      if (r.card && !c.letters.has(`card_${r.id}`)) throw new Error(`economy.json recipe "${r.id}": its card needs a letter "card_${r.id}"`);
     }
+    for (const k of Object.keys(b.upgrade?.items ?? {})) if (!isItem(k)) throw new Error(`economy.json building "${b.id}": unknown upgrade item "${k}"`);
   }
   for (const p of c.projects.values()) {
     for (const st of p.stages) for (const k of Object.keys(st.items ?? {})) if (!isItem(k)) throw new Error(`projects.json "${p.id}": unknown item "${k}"`);

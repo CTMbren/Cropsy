@@ -317,6 +317,104 @@ function crate(g: G, x: number, y: number, fruit: number): void {
     ball(g, x + dx, y + dy, 2.4, fruit, 1.2);
 }
 
+export const PICKLING = { a: 50, h: 48, peak: 28 };
+export const LOOM = { a: 52, h: 54, peak: 30 };
+
+/** A stoneware pickle crock with a wooden lid. */
+function crock(g: G, x: number, y: number, r = 7, glaze = 0xc9a86a): void {
+  ball(g, x, y, r, glaze, 1.8, r, r * 1.1);
+  g.fillStyle(shade(glaze, 0.35), 1);
+  g.fillRect(x - r * 0.7, y - r * 0.35, r * 1.4, 2);
+  ball(g, x, y - r * 1.05, r * 0.75, 0x8a5a33, 1.6, r * 0.75, r * 0.3);
+}
+
+/** A glass jar of pickles: green brine, a little dill. */
+function pickleJar(g: G, x: number, y: number, fill = 0x9ccf5a): void {
+  poly(g, [V(x - 4, y - 10), V(x + 4, y - 10), V(x + 4.5, y), V(x - 4.5, y)], fill, 1.5);
+  g.fillStyle(0xffffff, 0.45);
+  g.fillRect(x - 3, y - 8, 1.5, 6);
+  poly(g, [V(x - 4.5, y - 12.5), V(x + 4.5, y - 12.5), V(x + 4.5, y - 10), V(x - 4.5, y - 10)], 0xe8323c, 1.4);
+}
+
+/** Goldie's old crocks, under a little cellar-house with a green roof and dill drying by the door. */
+export function drawPickling(g: G, cx: number, cy: number, upgraded = false): void {
+  const b: Box = { cx, cy, a: PICKLING.a, h: PICKLING.h };
+  contact(g, cx + 6, cy + 4, 62, 24, 0.18);
+  const stoneWall = 0xd8cdb8;
+  walls(g, b, stoneWall, 'stone');
+  doorOn(g, (u, v) => L(b, u, v), 0.55, 0.28, 28, 0x3f7f4a);
+  windowOn(g, (u, v) => L(b, u, v), 0.12, 16, 0.26, 14);
+  windowOn(g, (u, v) => R(b, u, v), 0.35, 18, 0.3, 14);
+  roof(g, b, PICKLING.peak, 0x3fa34d, stoneWall);
+  // dill hanging by the door
+  const d = L(b, 0.5, 40);
+  stem(g, d.x - 2, d.y - 4, d.x + 1, d.y + 10, 0x6a8f3a, 1.8);
+  for (const k of [0, 4, 8]) leaf(g, d.x + 1, d.y + k, 6, 3, -0.7 + k * 0.08, 0x8cc63f, 1.2);
+  // crocks and jars out front
+  crock(g, cx + 30, cy + 10);
+  pickleJar(g, cx + 42, cy + 6);
+  pickleJar(g, cx + 48, cy + 1, 0xe8892a);
+  if (upgraded) {
+    // the cellar expansion: a second row of crocks and a lean-to
+    crock(g, cx - 38, cy + 14, 8, 0xb48a50);
+    crock(g, cx - 26, cy + 18, 7);
+    pickleJar(g, cx - 16, cy + 20, 0xd6304a);
+  }
+}
+
+/** Juniper's grandmother's loom, in a timber workshop with bolts of cloth outside. */
+export function drawLoom(g: G, cx: number, cy: number, upgraded = false): void {
+  const b: Box = { cx, cy, a: LOOM.a, h: LOOM.h };
+  contact(g, cx + 6, cy + 4, 64, 24, 0.18);
+  const plaster = 0xf1e6d2;
+  walls(g, b, plaster, 'timber');
+  windowOn(g, (u, v) => L(b, u, v), 0.08, 14, 0.46, 22, true);
+  doorOn(g, (u, v) => L(b, u, v), 0.64, 0.24, 30, 0x2f6fb0);
+  windowOn(g, (u, v) => R(b, u, v), 0.3, 22, 0.32, 16, true);
+  roof(g, b, LOOM.peak, 0x2f6fb0, plaster);
+  // a loom frame seen through the big window
+  const w = L(b, 0.3, 30);
+  g.lineStyle(2, 0x7a4f2a, 1);
+  g.lineBetween(w.x - 6, w.y - 2, w.x - 6, w.y + 14);
+  g.lineBetween(w.x + 6, w.y - 6, w.x + 6, w.y + 10);
+  g.lineStyle(1, 0xf4f1ea, 1);
+  for (let i = -4; i <= 4; i += 2) g.lineBetween(w.x + i, w.y - 3 - i / 3, w.x + i, w.y + 12 - i / 3);
+  // bolts of cloth by the door
+  ball(g, cx + 32, cy + 10, 6, 0xd9604a, 1.6, 9, 5);
+  ball(g, cx + 40, cy + 3, 6, 0xe9e2d2, 1.6, 9, 5);
+  if (upgraded) {
+    // a second loom under a little awning outside
+    const x = cx - 36;
+    const y = cy + 12;
+    poly(g, [V(x - 12, y - 26), V(x + 12, y - 32), V(x + 14, y - 26), V(x - 10, y - 20)], 0x2f6fb0, 1.8);
+    g.lineStyle(2.2, 0x7a4f2a, 1);
+    g.lineBetween(x - 9, y - 21, x - 9, y + 2);
+    g.lineBetween(x + 9, y - 27, x + 9, y - 4);
+    g.lineBetween(x - 9, y - 8, x + 9, y - 14);
+    g.lineStyle(1, 0xf4f1ea, 1);
+    for (let i = -6; i <= 6; i += 2) g.lineBetween(x + i, y - 20 - i / 3, x + i, y - 2 - i / 3);
+  }
+}
+
+/** Extra pieces a building's second-line upgrade adds (drawn on top of the base building). */
+export function drawUpgrade(g: G, id: string, cx: number, cy: number): void {
+  if (id === 'jam_maker') {
+    // a second copper kettle on a little stove outside
+    poly(g, [V(cx - 44, cy + 6), V(cx - 32, cy), V(cx - 20, cy + 6), V(cx - 32, cy + 12)], 0x6b6b6b, 1.8);
+    ball(g, cx - 32, cy - 2, 9, 0xd08a4a, 2, 10, 8);
+    stem(g, cx - 32, cy - 10, cx - 30, cy - 16, INK, 1.6);
+  } else if (id === 'bakery') {
+    // a second chimney
+    const c = { cx: cx - 18, cy: cy - 72, a: 7, h: 26 };
+    walls(g, c, 0x9a9a9a, 'stone');
+    poly(g, [V(c.cx - c.a, c.cy - c.h), V(c.cx, c.cy - c.h - c.a / 2), V(c.cx + c.a, c.cy - c.h), V(c.cx, c.cy - c.h + c.a / 2)], 0x3a3a3a, 2.2);
+  } else if (id === 'mill') {
+    // a second millstone leaning by the door
+    ball(g, cx + 34, cy + 6, 11, 0xa8a29a, 2, 11, 12);
+    ball(g, cx + 34, cy + 6, 3, 0x6b6b6b, 1.4);
+  }
+}
+
 /** A ready badge: a green check, bobbed by the scene. */
 export function drawBadge(g: G, cx: number, cy: number): void {
   contact(g, cx, cy + 16, 8, 2.5, 0.12);
