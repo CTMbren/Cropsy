@@ -163,10 +163,10 @@
     }
   ],
   "market": {
-    "unlock_level": 5,
     "min": 0.8,
     "max": 1.4,
-    "featured_bonus": 1.5
+    "featured_price": 1.65,
+    "period_hours": 8
   },
   "slot_upgrade_ribbons": [
     2,

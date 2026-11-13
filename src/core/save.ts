@@ -69,6 +69,13 @@ const migrations: ((d: Record<string, unknown>) => Record<string, unknown>)[] = 
     for (const n of Object.values(harvests)) owed += Math.max(0, masteryLevelFor(n, masteryThreshold) - masteryLevelFor(n, oldMasteryThreshold));
     return { ...d, ribbons: ((d.ribbons as number) ?? 0) + owed };
   },
+  // v5 → v6 (Tobias's notes): the market now opens when the story rebuilds it. Farms that
+  // already had it (level 5+) keep it.
+  (d) => {
+    const flags = [...((d.flags as string[]) ?? [])];
+    if (((d.level as number) ?? 1) >= 5 && !flags.includes('market_early')) flags.push('market_early');
+    return { ...d, flags };
+  },
 ];
 
 export class SaveTooNewError extends Error {}

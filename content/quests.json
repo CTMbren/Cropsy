@@ -129,7 +129,8 @@
         }
       ],
       "flags": [
-        "met_bruno"
+        "met_bruno",
+        "notes_open"
       ]
     }
   },

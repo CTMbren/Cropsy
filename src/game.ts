@@ -15,6 +15,7 @@ import {
   unplant,
   chooseMastery,
   redoMastery,
+  masteryToChoose,
   type MasteryPick,
   replantAll,
   sell,
@@ -30,6 +31,7 @@ import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, 
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
 import { markBackedUp, snoozeBackup } from './core/backup';
 import { syncAlmanac } from './core/almanac';
+import { did, masteryWaitingADay, notesOpen, nudge, readPage, syncNotes, tipOfTheDay, type Banner } from './core/notes';
 import { syncCritters, tapCritter, type SyncResult, type TapResult } from './core/critters';
 import { catchFish, rollFish, syncBites, type CatchResult, type FishDef } from './core/fishing';
 import { startClearing, syncLand, type ClearResult } from './core/land';
@@ -37,9 +39,9 @@ import { coachHint, type CoachHint } from './core/coach';
 import { buildImprovement, deliverTownProject, raiseTownLevel, syncTownProject, townLevel } from './core/town';
 import { buyDecor, claimGift, decorDef, grantDecor, pickUpDecor, placeDecor, type CalendarReward } from './core/decor';
 import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merchant';
-import { buyBarn, buyMaterial, buyTool, deliverStage, marketSell, type BuyResult } from './core/shop';
+import { buyBarn, buyMaterial, buyTool, deliverStage, featuredCrop, marketOpen, marketPrice, marketSell, type BuyResult } from './core/shop';
 import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, restoreQuestFlags, ensureQuestMail, itemsWanted, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
-import { dayIndex, gameNow, localOffsetMinutes, systemNow } from './core/time';
+import { dayIndex, gameNow, localOffsetMinutes, marketPeriod, nextMarketPeriod, systemNow } from './core/time';
 import { dailyBackup, loadSave, readBackup, requestPersistence, unblockSaves, writeBackup, writeSave } from './platform/storage';
 import { recordError } from './platform/errors';
 
@@ -54,6 +56,7 @@ export type FxEvent =
   | { kind: 'ribbon'; amount: number; why: string }
   | { kind: 'keepsake'; villager: string; name: string }
   | { kind: 'meadow'; text: string }
+  | { kind: 'toast'; text: string }
   | { kind: 'heart'; villager: string; hearts: number; perk?: string }
   | { kind: 'gift'; villager: string; taste: string }
   | { kind: 'shipped'; n: number; coins: number }
@@ -80,6 +83,7 @@ export type FxEvent =
 export type ScreenFx = { kind: 'coin-fly'; x: number; y: number; amount: number } | { kind: 'open-building'; id: string } | { kind: 'open-crop'; key: string } | { kind: 'open-land'; cell: string } | { kind: 'pick-seed'; key: string }
   | { kind: 'confirm-soil'; key: string; tier: number; name: string; coins: number; items: Record<string, number> }
   | { kind: 'barn-full' }
+  | { kind: 'open-notes'; page?: string }
   | { kind: 'focus-plots'; keys: string[] }
   | { kind: 'reset-camera' }
   | { kind: 'gesture-end' };
@@ -98,6 +102,14 @@ export class Game {
   /** In decorate mode: the decoration a tap on an empty spot places. */
   selectedDecor: string | null = null;
   away: AwaySummary | null = null;
+  /** The tip or nudge banner above the seed tray (one at a time). */
+  banner: Banner | null = null;
+  /** A tip or nudge has shown this session (the tip of the day waits for the next one). */
+  private sessionBanner = false;
+  /** When the app last went to the background; a new session starts after 15 minutes away. */
+  private hiddenAt: number | undefined;
+  /** Crops harvested past their Fresh Pick window this session. */
+  private lateHarvests = 0;
   private listeners = new Set<Listener>();
   private fxListeners = new Set<(e: FxEvent) => void>();
   private screenListeners = new Set<(e: ScreenFx) => void>();
@@ -156,11 +168,13 @@ export class Game {
     this.applyStory(advance(this.state, this.content, now, this.tz()));
     refreshQuest(this.state, this.content);
     syncAlmanac(this.state, now, this.tz());
+    syncNotes(this.state, this.content, now, this.tz());
     this.checkAway();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         this.saveNow();
         this.selectedCrop = null;
+        this.hiddenAt = this.now();
       }
       else this.checkAway();
     });
@@ -274,6 +288,8 @@ export class Game {
       if (r.bloom) this.fx({ kind: 'bloom', id: r.bloom, xp: r.xp, isNew: !!r.bloomNew });
       if (r.star) this.fx({ kind: 'star', crop: r.crop.name, id: r.crop.id, stars: r.star });
       if (r.shipped) this.fx({ kind: 'shipped', n: r.shipped, coins: r.tip });
+      if (r.fresh) did(this.state, 'fresh');
+      else if (!r.bloom && ++this.lateHarvests >= 5) this.offerNudge('fresh');
       this.checkBarn();
       this.levelUps(r.levelsGained);
       this.event({ type: 'harvest', crop: r.crop.id });
@@ -281,6 +297,7 @@ export class Game {
       void requestPersistence();
     } else if (r.kind === 'planted') {
       this.fx({ kind: 'plant', key });
+      if (r.crop.grow_s >= 4 * 3600) did(this.state, 'long');
     } else if (r.kind === 'cleared') {
       this.fx({ kind: 'clear', key, obstacle: r.obstacle, item: r.item, qty: r.qty, gold: r.gold });
       this.levelUps(r.levelsGained);
@@ -293,16 +310,21 @@ export class Game {
 
   replantAll(): number {
     const planted = replantAll(this.state, this.content, this.now());
-    planted.forEach((key) => this.fx({ kind: 'plant', key }));
+    planted.forEach((key) => {
+      this.fx({ kind: 'plant', key });
+      if ((this.content.cropById.get(this.state.plots[key]?.crop ?? '')?.grow_s ?? 0) >= 4 * 3600) did(this.state, 'long');
+    });
     if (planted.length) this.changed();
     return planted.length;
   }
 
   sell(cropId: string, n: number): number {
     const before = this.state.inventory[cropId] ?? 0;
+    const wanted = this.state.board.orders.some((o) => !o.story && (o.wants[cropId] ?? 0) > 0);
     const coins = sell(this.state, this.content, cropId, n);
     if (!coins) return 0;
     const sold = before - (this.state.inventory[cropId] ?? 0);
+    this.crateNudges(cropId, sold, coins, wanted);
     this.fx({ kind: 'coins', amount: coins });
     log(this.state, this.now(), `sell ${sold} ${cropId}`);
     this.event({ type: 'sell', n: sold });
@@ -355,6 +377,7 @@ export class Game {
     this.levelUps(r.levelsGained);
     this.friendFx(r.friendship);
     log(this.state, this.now(), `order ${id}`);
+    did(this.state, 'orders');
     this.event({ type: 'order_done', id });
     this.changed();
   }
@@ -363,9 +386,22 @@ export class Game {
     return dayIndex(this.now(), this.tz());
   }
 
+  /** The market's 8-hour price period. */
+  marketPeriod(): number {
+    return marketPeriod(this.now(), this.tz());
+  }
+
+  /** When the market's prices next change (Unix seconds). */
+  nextPrices(): number {
+    return nextMarketPeriod(this.now(), this.tz());
+  }
+
   marketSell(itemId: string, n: number): number {
-    const coins = marketSell(this.state, this.content, itemId, n, this.day());
+    const coins = marketSell(this.state, this.content, itemId, n, this.marketPeriod());
     if (!coins) return 0;
+    if (!this.state.tipState?.did.market) log(this.state, this.now(), 'first market sale');
+    did(this.state, 'market');
+    if (itemId === featuredCrop(this.state, this.content, this.marketPeriod())) did(this.state, 'featured');
     this.fx({ kind: 'coins', amount: coins });
     log(this.state, this.now(), `market ${itemId} ${coins}`);
     this.event({ type: 'sell', n: Math.min(n, 999) });
@@ -644,6 +680,7 @@ export class Game {
     else if (!this.barnWarned && used < cap) {
       this.barnWarned = true;
       this.fx({ kind: 'barn-nearly', used, cap });
+      this.offerNudge('barn_full');
     }
   }
 
@@ -669,6 +706,7 @@ export class Game {
   /** Spend a mastery level on one of that crop's bonuses. */
   chooseMastery(cropId: string, pick: MasteryPick): void {
     if (!chooseMastery(this.state, cropId, pick, this.content)) return;
+    did(this.state, 'picks');
     log(this.state, this.now(), `mastery ${cropId} ${pick}`);
     this.changed();
   }
@@ -700,6 +738,7 @@ export class Game {
   buyBarn(): BuyResult {
     const r = buyBarn(this.state, this.content);
     if (r.ok) {
+      did(this.state, 'barn');
       this.fx({ kind: 'quest', title: 'Barn upgraded', done: true });
       this.changed();
     }
@@ -887,9 +926,79 @@ export class Game {
     const meadow = this.syncVisitors(true);
     const s = awaySummary(this.state, this.content, now, refreshed, { visitors: meadow.arrived.length, jar: meadow.banked });
     log(this.state, now, 'session');
+    if (this.hiddenAt === undefined || now - this.hiddenAt >= 15 * 60) this.newSession(s.awaySeconds);
     if (s.awaySeconds >= 60 && (s.ripe.length || s.newMail || s.newOrders || s.visitors || s.jar)) this.away = s;
     else this.state.lastSeen = now;
     this.emit();
+  }
+
+  // ── Tips and nudges ─────────────────────────────────────────────
+  /** A new session: maybe a nudge about what happened while away, otherwise maybe a tip of the day. */
+  private newSession(awaySeconds: number): void {
+    const now = this.now();
+    this.sessionBanner = false;
+    this.lateHarvests = 0;
+    if (this.banner) return;
+    const s = this.state;
+    const field = Object.entries(s.plots).filter(([k]) => !s.obstacles[k]);
+    // mastery stars waiting a whole day
+    if (masteryWaitingADay(s, masteryToChoose(s).length > 0, now)) this.offerNudge('mastery_wait');
+    // the field sat empty while away
+    if (!this.banner && awaySeconds >= 4 * 3600 && s.level >= 6 && field.length && field.every(([, p]) => !p.crop)) this.offerNudge('overnight');
+    // the featured crop is in the barn
+    if (!this.banner) this.featuredNudge();
+    if (!this.banner && !this.sessionBanner) this.showBanner(tipOfTheDay(s, this.content, now));
+  }
+
+  private featuredNudge(): void {
+    if (!marketOpen(this.state, this.content)) return;
+    const f = featuredCrop(this.state, this.content, this.marketPeriod());
+    if (!f || !(this.state.inventory[f] ?? 0)) return;
+    const until = new Date(this.nextPrices() * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    this.offerNudge('featured', { crop: this.content.cropById.get(f)?.name ?? f, market: marketPrice(this.state, this.content, f, this.marketPeriod()), until });
+  }
+
+  /** After a crate sale: point at the market (if it pays more now) or the Board (if an order wanted it). */
+  private crateNudges(cropId: string, sold: number, coins: number, wanted: boolean): void {
+    const crop = this.content.cropById.get(cropId);
+    if (!crop || this.banner) return;
+    if (wanted) this.offerNudge('board_best', { crop: crop.name.toLowerCase() });
+    if (this.banner || !marketOpen(this.state, this.content)) return;
+    const market = marketPrice(this.state, this.content, cropId, this.marketPeriod()) * sold;
+    if (market - coins >= 10) this.offerNudge('market_better', { crop: sold === 1 ? `One ${crop.name.toLowerCase()}` : `${sold} ${crop.name.toLowerCase()}`, market, crate: coins });
+  }
+
+  private offerNudge(id: string, vars: Record<string, string | number> = {}): void {
+    if (this.banner) return;
+    this.showBanner(nudge(this.state, id, this.now(), vars));
+  }
+
+  private showBanner(b: Banner | null): void {
+    if (!b) return;
+    this.banner = b;
+    this.sessionBanner = true;
+    this.emit();
+  }
+
+  /** The banner's ✕ or Show me. */
+  closeBanner(tapped: boolean): Banner | null {
+    const b = this.banner;
+    if (!b) return null;
+    log(this.state, this.now(), `tip ${tapped ? 'tapped' : 'dismissed'} ${b.id}`);
+    this.banner = null;
+    this.changed();
+    return b;
+  }
+
+  readNotesPage(id: string): void {
+    readPage(this.state, this.content, id, this.now());
+    this.changed();
+  }
+
+  setTips(on: boolean): void {
+    this.state.settings.tips = on;
+    if (!on) this.banner = null;
+    this.changed();
   }
 
   private changed(): void {
@@ -900,6 +1009,8 @@ export class Game {
     this.syncVisitors();
     syncBites(this.state, this.content, this.now());
     syncAlmanac(this.state, this.now(), this.tz());
+    for (const title of syncNotes(this.state, this.content, this.now(), this.tz())) this.fx({ kind: 'toast', text: `Tobias's notes: new page, ${title}` });
+    if (marketOpen(this.state, this.content) && notesOpen(this.state)) this.offerNudge('market_open');
     // keep the active quest possible (places missing weeds, branches or rocks on free plots)
     ensureQuestMaterials(this.state, this.content);
     // quests measured from the farm (crops discovered, mastery) can finish without an event

@@ -44,35 +44,39 @@ export function buyBarn(state: FarmState, content: Content): BuyResult {
 
 // Land is cleared plot by plot now: see land.ts.
 
-// ── Market stall: daily prices ───────────────────────────────────
+// ── Market stall: prices every 8 hours ───────────────────────────
 
-export const marketOpen = (state: FarmState, content: Content) => state.level >= content.economy.market.unlock_level;
+/**
+ * Pip's market opens when the story rebuilds the market square (Pip's letter sets `market_built`).
+ * Farms that already had it at level 5, before Nov 2026, keep it (`market_early`).
+ */
+export const marketOpen = (state: FarmState, _content?: Content) => state.flags.includes('market_built') || state.flags.includes('market_early');
 
-/** Today's featured crop pays a bonus. Chosen from crops the player has unlocked. */
-export function featuredCrop(state: FarmState, content: Content, day: number): string | null {
+/** This 8-hour period's featured crop: always the best price at the market. Chosen from crops the player has unlocked. */
+export function featuredCrop(state: FarmState, content: Content, period: number): string | null {
   const crops = unlockedCrops(state, content);
   if (!crops.length) return null;
-  const r = rng(parseInt(fnv1a(`featured:${day}`), 16));
+  const r = rng(parseInt(fnv1a(`featured:${period}`), 16));
   return crops[Math.floor(r() * crops.length)].id;
 }
 
-/** Price multiplier for an item today: 0.8–1.4, the same all day, plus the featured bonus. */
-export function priceFactor(state: FarmState, content: Content, itemId: string, day: number): number {
+/** Price multiplier for an item this period: 0.8–1.4, or the featured crop's fixed 1.65. Same all period. */
+export function priceFactor(state: FarmState, content: Content, itemId: string, period: number): number {
   const m = content.economy.market;
-  const r = rng(parseInt(fnv1a(`price:${itemId}:${day}`), 16));
-  const base = m.min + (m.max - m.min) * r();
-  return Math.round((itemId === featuredCrop(state, content, day) ? base * m.featured_bonus : base) * 100) / 100;
+  if (itemId === featuredCrop(state, content, period)) return m.featured_price;
+  const r = rng(parseInt(fnv1a(`price:${itemId}:${period}`), 16));
+  return Math.round((m.min + (m.max - m.min) * r()) * 100) / 100;
 }
 
-export function marketPrice(state: FarmState, content: Content, itemId: string, day: number): number {
+export function marketPrice(state: FarmState, content: Content, itemId: string, period: number): number {
   const v = itemValue(content, itemId);
-  return v === null ? 0 : Math.max(1, Math.round(v * priceFactor(state, content, itemId, day)));
+  return v === null ? 0 : Math.max(1, Math.round(v * priceFactor(state, content, itemId, period)));
 }
 
-export function marketSell(state: FarmState, content: Content, itemId: string, n: number, day: number): number {
+export function marketSell(state: FarmState, content: Content, itemId: string, n: number, period: number): number {
   if (!marketOpen(state, content)) return 0;
   const qty = Math.min(n, state.inventory[itemId] ?? 0);
-  const price = marketPrice(state, content, itemId, day);
+  const price = marketPrice(state, content, itemId, period);
   if (qty <= 0 || !price) return 0;
   addItem(state, itemId, -qty);
   const coins = saleCoins(state, content, itemId, price * qty);

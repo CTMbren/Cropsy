@@ -4,6 +4,7 @@ import { boardOrders, boardSlots, boardTickHours, fillableCount, isSketch, isSpe
 import { goodsReady } from '../core/processing';
 import { itemName, itemValue, shortName, type Content, type VillagerDef } from '../core/content';
 import { almanacNotes, nextNoteStar } from '../core/almanac';
+import { notesOpen, notesPages, unreadPages, type PageView } from '../core/notes';
 import { barnCapacity, barnUsed, cratePrice, hasFlag, newFarm, type FarmState, hasItems, lifetimeHarvests, BOUNTY_STEP, coinStep, cropStats, growTimeFor, hasSignature, MASTERY_PICKS, masteryCap, masteryLevel, masteryOptions, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, pickCount, redoReady, SIGNATURE_LEVEL, SPEED_STEP, speedMult, THRIFT_STEP, type MasteryPick, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
 import { xpToNext } from '../core/progression';
 import { fromSaveCode, toSaveCode } from '../core/save';
@@ -54,7 +55,7 @@ const seenHint = (): boolean => {
 };
 const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-type Sheet = 'barn' | 'board' | 'mail' | 'settings' | 'town' | `building:${string}` | null;
+type Sheet = 'barn' | 'board' | 'mail' | 'settings' | 'town' | `town:${string}` | 'notes' | `notes:${string}` | `building:${string}` | null;
 type Dialogue = { villager: VillagerDef; lines: string[]; index: number; done?: string; title?: string };
 type Flyer = { id: number; x: number; y: number; go: boolean };
 
@@ -106,7 +107,7 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
       if (e.kind === 'star') whenIdle(() => setMasteryCard(e.id));
       if (e.kind === 'bloom') setToast(`${e.isNew ? 'New! ' : ''}The mystery seed bloomed: ${itemName(game.content, e.id)}! +${e.xp} XP`);
       if (e.kind === 'barn-nearly') setToast(`Barn almost full: ${e.used}/${e.cap}. Sell some crops soon.`);
-      if (e.kind === 'meadow') setToast(e.text);
+      if (e.kind === 'meadow' || e.kind === 'toast') setToast(e.text);
       if (e.kind === 'critter' && e.result.pageDone) setToast(`Sketchbook page ${e.result.pageDone} complete! +1 Ribbon`);
       else if (e.kind === 'critter' && e.result.stamp) setToast(`★ ${e.result.species.name}: ${e.result.stamp.n} sightings! +1 pollen and a new note from Hazel`);
       else if (e.kind === 'critter' && e.result.firstTime) setToast(`Sketched the ${e.result.species.name}! See it in Town → Sketchbook`);
@@ -133,6 +134,7 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
     const offScreen = game.onScreenFx((e) => {
       if (e.kind === 'coin-fly') fly(e.x, e.y, e.amount);
       if (e.kind === 'open-building') setSheet(`building:${e.id}`);
+      if (e.kind === 'open-notes') setSheet(e.page ? `notes:${e.page}` : 'notes');
       if (e.kind === 'open-crop') setCropInfo(e.key);
       if (e.kind === 'open-land') setLandCell(e.cell);
       if (e.kind === 'pick-seed') setSeedPick(e.key);
@@ -181,6 +183,16 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
     setDialogue({ villager: giver, lines: r.lines.length ? r.lines : ['…'], index: 0, done: r.kind === 'outro' ? r.quest.title : undefined });
   };
 
+  const unread = unreadPages(s, game.content).length;
+  /** Opens where a page's "Try it" or a tip's "Show me" points: the farm, a sheet, a Town tab or a notes page. */
+  const go = (target: string) => {
+    if (target === 'farm') setSheet(null);
+    else setSheet(target as Sheet);
+  };
+  const giftUp = !!gift || (!giftLater && canClaim(s, game.day()));
+  const backupUp = !backupLater && needsBackupNudge(s, now) && !canClaim(s, game.day());
+  const bannerUp = !!game.banner && !giftUp && !backupUp && !barnFull && !soilAsk && sheet === null && !game.away && levelCard === null && chapterCard === null && !dialogue && !seedPick && !masteryCard && !coach && game.mode === 'plant';
+
   return (
     <div class={`ui ts-${Math.round((s.settings.textScale ?? 1) * 100)}`}>
       <header class="hud">
@@ -203,8 +215,9 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
           <Icon name="ribbon" size={22} />
           {s.ribbons}
         </div>
-        <button class="round" aria-label="Settings" onClick={() => setSheet('settings')}>
+        <button class="round" aria-label={unread ? "Menu: new page in Tobias's notes" : 'Menu'} onClick={() => setSheet('settings')}>
           <Icon name="menu" />
+          {unread > 0 && <span class="dot" aria-hidden="true" />}
         </button>
       </header>
 
@@ -304,6 +317,8 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
           {coach.text}
         </div>
       )}
+
+      {bannerUp && game.banner && <TipBanner game={game} onShow={go} />}
 
       {(game.mode === 'soil' || game.mode === 'fertilize') && (
         <div class="mode-banner" role="status">
@@ -448,13 +463,15 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
         <NavBtn icon="mail" label="Mail" pulse={coach?.target === 'mail'} badge={mailUnread} active={sheet === 'mail'} onClick={() => setSheet('mail')} />
       </nav>
 
-      {sheet === 'barn' && <BarnSheet game={game} onClose={() => setSheet(null)} />}
+      {sheet === 'barn' && <BarnSheet game={game} onClose={() => setSheet(null)} onMarket={() => setSheet('town:market')} />}
       {sheet === 'board' && <BoardSheet game={game} onClose={() => setSheet(null)} />}
       {sheet === 'mail' && <MailSheet game={game} now={now} onClose={() => setSheet(null)} />}
       {sheet === 'settings' && <Settings game={game} onClose={() => setSheet(null)} debug={debug} updateReady={updateReady} onUpdate={onUpdate} checkUpdate={checkUpdate} lastUpdateCheck={lastUpdateCheck} />}
-      {sheet === 'town' && (
+      {(sheet === 'notes' || sheet?.startsWith('notes:')) && <NotesSheet game={game} page={sheet.startsWith('notes:') ? sheet.slice(6) : undefined} onGo={go} onClose={() => setSheet(null)} />}
+      {(sheet === 'town' || sheet?.startsWith('town:')) && (
         <TownSheet
           game={game}
+          initialTab={sheet.startsWith('town:') ? sheet.slice(5) : undefined}
           onClose={() => setSheet(null)}
           onScene={(villager, title, lines) => {
             setSheet(null);
@@ -626,6 +643,128 @@ export function moodOf(line: string): Mood {
   return 'neutral';
 }
 
+/** The "?" on a screen: opens the matching page in Tobias's notes (once he's handed them over). */
+function HelpBtn({ game, page }: { game: Game; page: string }) {
+  if (!notesOpen(game.state)) return null;
+  return (
+    <button class="help-btn" aria-label="Tobias's notes about this" onClick={() => game.screenFx({ kind: 'open-notes', page })}>
+      ?
+    </button>
+  );
+}
+
+/** A tip from Tobias's notes, or a one-time nudge from a neighbour, above the seed tray. */
+function TipBanner({ game, onShow }: { game: Game; onShow: (target: string) => void }) {
+  const b = game.banner;
+  if (!b) return null;
+  const v = game.content.villagers.get(b.from);
+  return (
+    <div class={`tip-banner${b.tip ? ' from-notes' : ''}`} role="status">
+      {v && <Portrait v={v} size={44} />}
+      <div class="tip-text">
+        <small>{b.tip ? "From Tobias's notes" : v?.name.split(' ')[0]}</small>
+        <span>{b.text}</span>
+      </div>
+      <div class="tip-actions">
+        <button
+          class="btn small green"
+          onClick={() => {
+            const t = game.closeBanner(true);
+            if (t) onShow(t.show);
+          }}
+        >
+          Show me
+        </button>
+        <button class="x" aria-label="Dismiss tip" onClick={() => game.closeBanner(false)}>
+          ×
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Tobias's old notebook: a contents page, and one page at a time. */
+function NotesSheet({ game, page, onGo, onClose }: { game: Game; page?: string; onGo: (target: string) => void; onClose: () => void }) {
+  const s = game.state;
+  const c = game.content;
+  const [open, setOpen] = useState<string | null>(page ?? null);
+  const views = notesPages(s, c);
+  const v = views.find((x) => x.page.id === open && x.open);
+  useEffect(() => {
+    if (v) game.readNotesPage(v.page.id);
+  }, [v?.page.id, v?.bullets.length]);
+  if (v) return <NotesPageView game={game} v={v} onBack={() => setOpen(null)} onGo={onGo} onClose={onClose} />;
+  return (
+    <Sheet title="Tobias's notes" onClose={onClose}>
+      <p class="notes-intro">My dear sprout, everything I know about this farm, more or less. The pages fill in as you go. — T.</p>
+      <ul class="notes-toc">
+        {views.map((x) => (
+          <li key={x.page.id}>
+            <button class={`notes-entry${x.open ? '' : ' locked'}`} disabled={!x.open} onClick={() => setOpen(x.page.id)}>
+              <Icon name={x.open ? x.page.icon : 'lock'} size={26} />
+              <span>
+                <b>{x.page.title}</b>
+                {!x.open && <small>{x.hint}</small>}
+              </span>
+              {x.isNew && <span class="chip new">New</span>}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Sheet>
+  );
+}
+
+function NotesPageView({ game, v, onBack, onGo, onClose }: { game: Game; v: PageView; onBack: () => void; onGo: (target: string) => void; onClose: () => void }) {
+  const market = marketOpen(game.state, game.content);
+  const pct = Math.round(game.content.economy.market.featured_price * 100);
+  return (
+    <Sheet title="Tobias's notes" onClose={onClose}>
+      <div class="notes-page">
+        <button class="link-btn small" onClick={onBack}>
+          ‹ All pages
+        </button>
+        <h3>
+          <Icon name={v.page.icon} size={28} /> {v.page.title}
+        </h3>
+        <p class="notes-intro">{v.page.intro}</p>
+        <ul class="notes-bullets">
+          {v.bullets.map((b) => (
+            <li key={b}>{b}</li>
+          ))}
+        </ul>
+        {v.page.table && (
+          <table class="notes-table">
+            <thead>
+              <tr>
+                <th>Where</th>
+                <th>Pays</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Shipping crate</td>
+                <td>70%</td>
+              </tr>
+              <tr class={market ? '' : 'locked'}>
+                <td>Pip's market</td>
+                <td>{market ? `80–140%, featured ${pct}%` : 'Not open yet'}</td>
+              </tr>
+              <tr>
+                <td>Board orders</td>
+                <td>The most</td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+        <button class="btn green" onClick={() => onGo(v.page.try)}>
+          Try it
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
 function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: preact.ComponentChildren }) {
   return (
     <div class="sheet-back" onClick={onClose}>
@@ -642,7 +781,7 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
+function BarnSheet({ game, onClose, onMarket }: { game: Game; onClose: () => void; onMarket: () => void }) {
   const s = game.state;
   const crops = [...game.content.crops, ...game.content.goods.values()].filter((c) => (s.inventory[c.id] ?? 0) > 0);
   const materials = game.content.economy.materials.map((m) => m.id).filter((m) => (s.inventory[m] ?? 0) > 0);
@@ -652,6 +791,9 @@ function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
   const total = crops.reduce((a, c) => a + cratePrice(c) * (s.inventory[c.id] ?? 0), 0);
   const [askAll, setAskAll] = useState(false);
   const full = barnUsed(s, game.content) >= barnCapacity(s, game.content);
+  const market = marketOpen(s, game.content);
+  const period = game.marketPeriod();
+  const featured = market ? featuredCrop(s, game.content, period) : null;
   return (
     <Sheet title="Barn" onClose={onClose}>
       <div class="capacity" aria-label={`Barn ${barnUsed(s, game.content)} of ${barnCapacity(s, game.content)}`}>
@@ -666,17 +808,26 @@ function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
       {!crops.length && !materials.length && <p class="muted">Your barn is empty. Harvested crops land here.</p>}
       {crops.length > 0 && (
         <>
-          <h3>Crops and goods</h3>
+          <h3>
+            Crops and goods <HelpBtn game={game} page="selling" />
+          </h3>
           <ul class="rows">
             {crops.map((c) => {
               const n = s.inventory[c.id] ?? 0;
               const needed = want[c.id] ?? 0;
+              const mp = market ? marketPrice(s, game.content, c.id, period) : 0;
               return (
                 <li key={c.id} class="row-item">
                   <ItemIcon id={c.id} color={c.color} small />
                   <span class="row-name">
                     {c.name} <b>×{n}</b>
                     {needed > 0 && <small class="needed">Orders need {needed}</small>}
+                    {market && mp > cratePrice(c) && (
+                      <small class="up">
+                        Market now: {mp}
+                        {c.id === featured ? ' · featured' : ''}
+                      </small>
+                    )}
                   </span>
                   <button class="btn small" onClick={() => game.sell(c.id, 1)} aria-label={`Sell 1 ${c.name} for ${cratePrice(c)} coins`}>
                     Sell 1 · {cratePrice(c)}
@@ -703,7 +854,14 @@ function BarnSheet({ game, onClose }: { game: Game; onClose: () => void }) {
               Ship everything, including what orders need ({total} coins)
             </button>
           )}
-          <p class="muted small">The shipping crate pays 70% of a crop's value. Board orders pay much more, so "Ship extras" keeps what your orders and quest need.</p>
+          {market && (
+            <button class="btn" onClick={onMarket}>
+              Sell at Pip's market instead
+            </button>
+          )}
+          <p class="muted small">
+            The shipping crate pays 70% of a crop's value.{market ? " Pip's market pays more, and board orders pay most." : ' Board orders pay much more.'} "Ship extras" keeps what your orders and quest need.
+          </p>
           {askAll && (
             <ConfirmCard
               title="Ship everything?"
@@ -778,6 +936,7 @@ function BoardSheet({ game, onClose }: { game: Game; onClose: () => void }) {
   return (
     <Sheet title="Request board" onClose={onClose}>
       <p class="muted small board-status">
+        <HelpBtn game={game} page="board" />
         {regular >= slots ? 'The board is full. Fill or pass an order to make room.' : `Next request in ${formatDuration(nextIn)} · ${regular}/${slots} posted`}
         {!special && s.level >= c.board.special_level && ' · The next Special arrives at midnight.'}
         {s.level < c.board.special_level && ` · Daily Specials start at level ${c.board.special_level}.`}
@@ -1124,6 +1283,12 @@ function Settings({ game, onClose, debug, updateReady, onUpdate, checkUpdate, la
   const backedUp = s.backup?.lastAt;
   return (
     <Sheet title="Settings" onClose={onClose}>
+      {notesOpen(s) && (
+        <button class="btn notes-open" onClick={() => game.screenFx({ kind: 'open-notes' })}>
+          <Icon name="notes" size={26} /> Tobias's notes
+          {unreadPages(s, game.content).length > 0 && <span class="chip new">New</span>}
+        </button>
+      )}
       <h3>Sound</h3>
       <label class="toggle">
         <input type="checkbox" checked={!st.muted} onChange={(e) => game.setMuted(!(e.target as HTMLInputElement).checked)} />
@@ -1164,6 +1329,13 @@ function Settings({ game, onClose, debug, updateReady, onUpdate, checkUpdate, la
           Reset camera
         </button>
       </div>
+
+      <h3>Tips</h3>
+      <label class="toggle">
+        <input type="checkbox" checked={st.tips !== false} onChange={(e) => game.setTips((e.target as HTMLInputElement).checked)} />
+        <span>Tips from Tobias and the neighbours</span>
+      </label>
+      <p class="muted small">Now and then, a short tip above the seed tray. Off: no tips, but Tobias's notes stay in this menu.</p>
 
       <h3>Display and battery</h3>
       <div class="field">
@@ -1678,7 +1850,6 @@ function LevelCard({ content, level, onClose }: { content: Content; level: numbe
   for (const b of content.buildings.values()) if (b.unlock_level === level) items.push(`New building in Town: ${b.name}`);
   for (const t of content.tools.values()) if (t.unlock_level === level) items.push(`New tool in Town: ${t.name}`);
   for (const cap of (content.economy as unknown as { land: { caps: { level: number; plots: number }[] } }).land.caps) if (cap.level === level && level > 1) items.push(`Bruno can clear land up to ${cap.plots} plots`);
-  if (content.economy.market.unlock_level === level) items.push('The market stall is open in Town');
   for (const q of content.quests) if (q.min_level === level && content.quests.find((x) => x.chapter === q.chapter && x.giver !== 'mail')?.id === q.id) items.push(`Chapter ${q.chapter} of the story can begin`);
   for (const d of decorDefs(content)) if (!d.story && d.level === level) items.push(`New decoration: ${d.name}`);
   return (
@@ -2031,7 +2202,7 @@ function Need({ have, need, label }: { have: number; need: number; label: string
 
 type SceneFn = (v: VillagerDef, title: string, lines: string[]) => void;
 
-function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void; onScene: SceneFn }) {
+function TownSheet({ game, onClose, onScene, initialTab }: { game: Game; onClose: () => void; onScene: SceneFn; initialTab?: string }) {
   const s = game.state;
   const c = game.content;
   const day = game.day();
@@ -2045,7 +2216,7 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
   const creek = fishingOpen(s);
   const tabs = ['store', ...(cart ? ['cart'] : []), ...(friends(s, c).length ? ['friends'] : []), ...(almanac ? ['almanac'] : []), ...(sketch ? ['sketchbook'] : []), ...(creek ? ['creek'] : []), 'land', ...(marketOpen(s, c) ? ['market'] : []), ...(projects.length || townOpen ? ['projects'] : [])];
   const fishQuest = creek && (activeQuest(s, c)?.objectives.some((o) => o.type === 'fish' || o.type === 'fish_species') ?? false);
-  const [tab, setTab] = useState<string>(projectDue ? 'projects' : fishQuest ? 'creek' : scenes ? 'friends' : cart && merchantHere(c, day, s) && !boughtToday(s, day).length ? 'cart' : 'store');
+  const [tab, setTab] = useState<string>(initialTab && tabs.includes(initialTab) ? initialTab : projectDue ? 'projects' : fishQuest ? 'creek' : scenes ? 'friends' : cart && merchantHere(c, day, s) && !boughtToday(s, day).length ? 'cart' : 'store');
   return (
     <Sheet title="Bramblewick" onClose={onClose}>
       <div class="tabs" role="tablist">
@@ -2186,7 +2357,7 @@ function TownSheet({ game, onClose, onScene }: { game: Game; onClose: () => void
         </div>
       )}
 
-      {tab === 'market' && <MarketTab game={game} day={day} />}
+      {tab === 'market' && <MarketTab game={game} />}
       {tab === 'cart' && <CartTab game={game} day={day} />}
       {tab === 'friends' && <FriendsTab game={game} day={day} onScene={onScene} />}
       {tab === 'almanac' && <AlmanacTab game={game} />}
@@ -2726,6 +2897,7 @@ function AlmanacTab({ game }: { game: Game }) {
   return (
     <>
       <p class="muted small">
+        <HelpBtn game={game} page="almanac" />
         Hazel's Almanac · <b>{found}/{c.crops.length}</b> crops recorded · <b>{lifetimeHarvests(s).toLocaleString()}</b> crops grown{gold ? <> · <b>{gold}</b> gold {gold === 1 ? 'page' : 'pages'}</> : null}. Each star earns a Ribbon and a bonus: Coins, XP, Quick Growth, Bountiful or Thrifty. Tap a crop for its page.
       </p>
       <p class={`redo-status small${ready ? ' ready' : ''}`}>{ready ? '↺ Free re-do ready: redo one crop’s stars from its page' : '↺ Re-do used this week · next one Monday'}</p>
@@ -2769,32 +2941,40 @@ function AlmanacTab({ game }: { game: Game }) {
   );
 }
 
-function MarketTab({ game, day }: { game: Game; day: number }) {
+function MarketTab({ game }: { game: Game }) {
   const s = game.state;
   const c = game.content;
-  const featured = featuredCrop(s, c, day);
+  const period = game.marketPeriod();
+  const featured = featuredCrop(s, c, period);
   const sellable = Object.keys(s.inventory).filter((id) => itemValue(c, id) !== null);
+  const pct = Math.round(c.economy.market.featured_price * 100);
   return (
     <>
-      <p class="muted small">Prices change every morning. The featured crop pays extra today.</p>
+      <p class="muted small">
+        <HelpBtn game={game} page="selling" />
+        Pip's prices change every 8 hours (midnight, 8 am and 4 pm). New prices in <b>{formatDuration(game.nextPrices() - game.now())}</b>. Pip never pays less than the shipping crate.
+      </p>
       {featured && (
         <div class="featured">
           <ItemIcon id={featured} color={c.cropById.get(featured)?.color} small />
-          Today's featured crop: <b>{itemName(c, featured)}</b> · {marketPrice(s, c, featured, day)} each
+          <span>
+            Featured: <b>{itemName(c, featured)}</b>, {marketPrice(s, c, featured, period)} each. At {pct}%, it's the best price at the market.
+          </span>
         </div>
       )}
       {!sellable.length && <p class="muted">Nothing to sell yet. Harvested crops and goods from your barn can be sold here.</p>}
       <ul class="rows">
         {sellable.map((id) => {
-          const f = priceFactor(s, c, id, day);
-          const price = marketPrice(s, c, id, day);
+          const f = priceFactor(s, c, id, period);
+          const price = marketPrice(s, c, id, period);
+          const item = c.cropById.get(id) ?? c.goods.get(id);
           return (
-            <li key={id} class="row-item">
+            <li key={id} class={`row-item${id === featured ? ' is-featured' : ''}`}>
               <ItemIcon id={id} color={c.cropById.get(id)?.color ?? c.goods.get(id)?.color} small />
               <span class="row-name">
                 {itemName(c, id)} <b>×{s.inventory[id]}</b>
                 <small class={f >= 1 ? 'up' : 'down'}>
-                  {f >= 1 ? '▲' : '▼'} {price} each ({Math.round(f * 100)}%)
+                  {f >= 1 ? '▲' : '▼'} {price} each ({Math.round(f * 100)}%){item ? ` · crate ${cratePrice(item)}` : ''}
                 </small>
               </span>
               <button class="btn small" onClick={() => game.marketSell(id, 1)}>

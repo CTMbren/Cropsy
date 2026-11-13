@@ -40,6 +40,16 @@ export function dayIndex(now: number, offsetMin: number): number {
   return Math.floor((now - offsetMin * 60) / 86400);
 }
 
+/** Market price period: local midnight, 8 am and 4 pm each start a new one. */
+export const MARKET_PERIOD_S = 8 * 3600;
+export function marketPeriod(now: number, offsetMin: number): number {
+  return Math.floor((now - offsetMin * 60) / MARKET_PERIOD_S);
+}
+/** Unix seconds when the next market period starts. */
+export function nextMarketPeriod(now: number, offsetMin: number): number {
+  return (marketPeriod(now, offsetMin) + 1) * MARKET_PERIOD_S + offsetMin * 60;
+}
+
 /** Unix seconds of the next local midnight after `now`. */
 export function nextLocalMidnight(now: number, offsetMin: number): number {
   return (dayIndex(now, offsetMin) + 1) * 86400 + offsetMin * 60;
