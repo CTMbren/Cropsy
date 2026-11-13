@@ -260,10 +260,10 @@ describe('request board: the Daily Special', () => {
 
   it('honey is only asked for once you have some', () => {
     const s = farmAt(12, 49);
-    const asks = (n: number) => Array.from({ length: 300 }, (_, t) => generateOrder(s, content, t, 0)!).filter((o) => o.wants.honey).length;
-    expect(asks(0)).toBe(0);
+    const asks = () => Array.from({ length: 300 }, (_, t) => generateOrder(s, content, t, 0)!).filter((o) => o.wants.honey).length;
+    expect(asks()).toBe(0);
     s.inventory.honey = 1;
-    const n = asks(1);
+    const n = asks();
     expect(n).toBeGreaterThan(0);
     expect(n / 300).toBeLessThan(0.06);
   });
