@@ -2,7 +2,7 @@ import type { Content, CropDef, ObstacleKind, OrderDef, OrderTier } from './cont
 import { addXp } from './progression';
 import type { TimeState } from './time';
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 export type { ObstacleKind };
 
@@ -75,6 +75,8 @@ export interface QueueItem {
 export interface BuildingState {
   slots: number;
   queue: QueueItem[];
+  /** Crafting lines working at once: 1, or 2 after the building's upgrade. */
+  lines?: number;
 }
 
 export interface FarmState {
@@ -156,6 +158,8 @@ export interface FarmState {
   coinDust?: number;
   /** Tobias's notes: pages read and pages known to be open (signatures "page:bullets"). */
   notes?: { read: string[]; known?: string[] };
+  /** Side quests: steps reached (Tobias's Pickle Crocks: 0–3). */
+  side?: { pickles?: number };
   /** Tips and nudges shown, habit counters. */
   tipState?: import('./notes').TipState;
   merchant?: { day: number; bought: number[]; stock?: import('./merchant').MerchantSlot[] };

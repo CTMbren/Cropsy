@@ -93,6 +93,8 @@ const migrations: ((d: Record<string, unknown>) => Record<string, unknown>)[] = 
     if (!mail.some((m) => m.id === 'bruno_gold')) mail.push({ id: 'bruno_gold', arrivesAt: (d.lastSeen as number) ?? 0, read: false });
     return { ...d, inventory, mail };
   },
+  // v7 → v8 (crafting update): buildings may have a second line (`lines`); old ones have one.
+  (d) => d,
 ];
 
 export class SaveTooNewError extends Error {}

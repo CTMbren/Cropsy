@@ -21,9 +21,18 @@
     "bullets": [
       "The shipping crate in the Barn pays 70% of a crop's value. Quick, but the worst price in town.",
       "Board orders pay the most. Keep what an order wants, sell the rest.",
-      { "text": "Pip's market in Town pays 80% to 140% of value, and never less than the crate.", "needs": "market" },
-      { "text": "Market prices change every 8 hours: midnight, 8 am and 4 pm. If today's price is low, it may be better later.", "needs": "market" },
-      { "text": "The featured crop always pays 165%, the best price at the market. It changes with the prices.", "needs": "market" },
+      {
+        "text": "Pip's market in Town pays 80% to 140% of value, and never less than the crate.",
+        "needs": "market"
+      },
+      {
+        "text": "Market prices change every 8 hours: midnight, 8 am and 4 pm. If today's price is low, it may be better later.",
+        "needs": "market"
+      },
+      {
+        "text": "The featured crop always pays 165%, the best price at the market. It changes with the prices.",
+        "needs": "market"
+      },
       "When the barn is full, crops ship themselves at crate price. Sell before that happens."
     ],
     "table": true,
@@ -37,7 +46,10 @@
     "bullets": [
       "A new order goes up every 2 hours, even while you're away. Orders never expire.",
       "Pass on an order you don't like. It's free, and a new one comes on the next tick.",
-      { "text": "The gold Daily Special asks for three things and pays a Ribbon. Hand in each line as you get it.", "needs": "special" },
+      {
+        "text": "The gold Daily Special asks for three things and pays a Ribbon. Hand in each line as you get it.",
+        "needs": "special"
+      },
       "Filling orders makes friends, too. Every order adds to that villager's hearts."
     ],
     "try": "board"
@@ -63,7 +75,10 @@
     "bullets": [
       "Tap weeds, branches and rocks to clear them. Branches give wood, rocks give stone.",
       "Bruno's crew clears stumps and boulders past the fence, one plot at a time, if you pay them.",
-      { "text": "Better soil grows crops faster, and rich soil sometimes gives an extra crop.", "needs": "soil" },
+      {
+        "text": "Better soil grows crops faster, and rich soil sometimes gives an extra crop.",
+        "needs": "soil"
+      },
       "Fertilizer doubles one harvest. Save it for your most valuable crops."
     ],
     "try": "town:land"
@@ -77,7 +92,23 @@
       "Buildings turn crops into goods. Goods are worth more than the crops they're made from.",
       "Start a batch, then come back. Buildings work while you're away, too.",
       "Board orders and the story often ask for goods. Keep a few on hand.",
-      "Ribbons buy extra slots, so a building can work on more at once."
+      "Ribbons buy extra slots, so a building can work on more at once.",
+      {
+        "text": "Goldie's old crocks became a Pickling Station. Pickles take hours: start a crock before bed.",
+        "needs": "pickling"
+      },
+      {
+        "text": "Friends share recipe cards at 3 hearts. Look for the locked recipes with a name on them.",
+        "needs": "friends"
+      },
+      {
+        "text": "Juniper's loom turns cotton into thread, cloth or a quilt. The longer it takes, the more each cotton is worth.",
+        "needs": "loom"
+      },
+      {
+        "text": "For 40,000 coins and up, Bruno adds a second line to a building, so two recipes work at once.",
+        "needs": "upgrade"
+      }
     ],
     "try": "town:store"
   },

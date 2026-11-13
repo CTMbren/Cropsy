@@ -29,6 +29,78 @@
       "name": "Honey Berry Jam",
       "sell": 750,
       "color": "#e89a2a"
+    },
+    {
+      "id": "pickled_radishes",
+      "name": "Pickled Radishes",
+      "sell": 60,
+      "color": "#e86a8a"
+    },
+    {
+      "id": "pickled_carrots",
+      "name": "Pickled Carrots",
+      "sell": 100,
+      "color": "#f08a2a"
+    },
+    {
+      "id": "tomato_chutney",
+      "name": "Tomato Chutney",
+      "sell": 480,
+      "color": "#c8402a"
+    },
+    {
+      "id": "corn_relish",
+      "name": "Corn Relish",
+      "sell": 600,
+      "color": "#e8c23a"
+    },
+    {
+      "id": "cornmeal",
+      "name": "Cornmeal",
+      "sell": 440,
+      "color": "#f2cf5b"
+    },
+    {
+      "id": "carrot_cake",
+      "name": "Carrot Cake",
+      "sell": 570,
+      "color": "#d98a4a"
+    },
+    {
+      "id": "potato_bread",
+      "name": "Potato Bread",
+      "sell": 690,
+      "color": "#c9955c"
+    },
+    {
+      "id": "pumpkin_pie",
+      "name": "Pumpkin Pie",
+      "sell": 930,
+      "color": "#e8892a"
+    },
+    {
+      "id": "grape_jelly",
+      "name": "Grape Jelly",
+      "sell": 1680,
+      "color": "#7a3a9a"
+    },
+    {
+      "id": "cotton_thread",
+      "name": "Cotton Thread",
+      "sell": 1120,
+      "color": "#f4f1ea"
+    },
+    {
+      "id": "cotton_cloth",
+      "name": "Cotton Cloth",
+      "sell": 1850,
+      "color": "#e9e2d2"
+    },
+    {
+      "id": "patchwork_quilt",
+      "name": "Patchwork Quilt",
+      "sell": 3400,
+      "color": "#d9604a"
     }
   ],
   "materials": [
@@ -68,8 +140,26 @@
           "output": "flour",
           "dur_s": 300,
           "xp": 4
+        },
+        {
+          "id": "cornmeal",
+          "inputs": {
+            "corn": 3
+          },
+          "output": "cornmeal",
+          "dur_s": 600,
+          "xp": 7,
+          "level": 7
         }
-      ]
+      ],
+      "upgrade": {
+        "name": "Second Millstone",
+        "level": 15,
+        "coins": 40000,
+        "items": {
+          "stone": 40
+        }
+      }
     },
     {
       "id": "jam_maker",
@@ -99,8 +189,27 @@
           "output": "honey_jam",
           "dur_s": 2400,
           "xp": 10
+        },
+        {
+          "id": "grape_jelly",
+          "inputs": {
+            "grapes": 2
+          },
+          "output": "grape_jelly",
+          "dur_s": 10800,
+          "xp": 28,
+          "level": 20
         }
-      ]
+      ],
+      "upgrade": {
+        "name": "Second Kettle",
+        "level": 15,
+        "coins": 40000,
+        "items": {
+          "wood": 20,
+          "stone": 20
+        }
+      }
     },
     {
       "id": "bakery",
@@ -125,6 +234,161 @@
           "output": "pastry",
           "dur_s": 2700,
           "xp": 15
+        },
+        {
+          "id": "carrot_cake",
+          "inputs": {
+            "carrot": 6,
+            "flour": 2
+          },
+          "output": "carrot_cake",
+          "dur_s": 3600,
+          "xp": 10,
+          "card": "goldie"
+        },
+        {
+          "id": "potato_bread",
+          "inputs": {
+            "potato": 2,
+            "flour": 1
+          },
+          "output": "potato_bread",
+          "dur_s": 3600,
+          "xp": 12,
+          "level": 10
+        },
+        {
+          "id": "pumpkin_pie",
+          "inputs": {
+            "pumpkin": 1,
+            "flour": 2
+          },
+          "output": "pumpkin_pie",
+          "dur_s": 5400,
+          "xp": 15,
+          "card": "pip"
+        }
+      ],
+      "upgrade": {
+        "name": "Second Oven",
+        "level": 15,
+        "coins": 50000,
+        "items": {
+          "wood": 20,
+          "stone": 30,
+          "gold": 1
+        }
+      }
+    },
+    {
+      "id": "pickling",
+      "name": "Pickling Station",
+      "where": "farm",
+      "granted": true,
+      "slots": 2,
+      "upgrade": {
+        "name": "Cellar Expansion",
+        "level": 15,
+        "coins": 45000,
+        "items": {
+          "wood": 30,
+          "stone": 20
+        }
+      },
+      "recipes": [
+        {
+          "id": "pickled_radishes",
+          "inputs": {
+            "radish": 12
+          },
+          "output": "pickled_radishes",
+          "dur_s": 7200,
+          "xp": 4
+        },
+        {
+          "id": "pickled_carrots",
+          "inputs": {
+            "carrot": 6
+          },
+          "output": "pickled_carrots",
+          "dur_s": 10800,
+          "xp": 4
+        },
+        {
+          "id": "tomato_chutney",
+          "inputs": {
+            "tomato": 4
+          },
+          "output": "tomato_chutney",
+          "dur_s": 14400,
+          "xp": 9,
+          "level": 8
+        },
+        {
+          "id": "corn_relish",
+          "inputs": {
+            "corn": 3,
+            "tomato": 1
+          },
+          "output": "corn_relish",
+          "dur_s": 21600,
+          "xp": 11,
+          "card": "bruno"
+        }
+      ]
+    },
+    {
+      "id": "loom",
+      "name": "Loom",
+      "where": "farm",
+      "unlock_level": 17,
+      "cost": {
+        "coins": 4000,
+        "items": {
+          "wood": 30,
+          "stone": 15
+        }
+      },
+      "slots": 2,
+      "upgrade": {
+        "name": "Second Loom",
+        "level": 20,
+        "coins": 60000,
+        "items": {
+          "wood": 40,
+          "gold": 1
+        }
+      },
+      "recipes": [
+        {
+          "id": "cotton_thread",
+          "inputs": {
+            "cotton": 2
+          },
+          "output": "cotton_thread",
+          "dur_s": 3600,
+          "xp": 16,
+          "level": 17
+        },
+        {
+          "id": "cotton_cloth",
+          "inputs": {
+            "cotton": 3
+          },
+          "output": "cotton_cloth",
+          "dur_s": 14400,
+          "xp": 30,
+          "level": 17
+        },
+        {
+          "id": "patchwork_quilt",
+          "inputs": {
+            "cotton": 5
+          },
+          "output": "patchwork_quilt",
+          "dur_s": 43200,
+          "xp": 50,
+          "card": "juniper"
         }
       ]
     }
@@ -544,7 +808,10 @@
     "unlock_level": 3,
     "hazel_points": 10,
     "overflow_max": 10,
-    "stamps": [3, 10],
+    "stamps": [
+      3,
+      10
+    ],
     "page_hazel_points": 30,
     "first_s": 20,
     "melon_weight": 3

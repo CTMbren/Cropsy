@@ -9,7 +9,8 @@
       "strawberry",
       "jam",
       "pastry",
-      "honey_jam"
+      "honey_jam",
+      "carrot_cake"
     ],
     "likes": [
       "carrot",
@@ -76,7 +77,8 @@
       "corn",
       "potato",
       "wood",
-      "old_whiskers"
+      "old_whiskers",
+      "corn_relish"
     ],
     "likes": [
       "wheat",
@@ -146,7 +148,9 @@
       "corn",
       "stone",
       "honey",
-      "brook_trout"
+      "brook_trout",
+      "cornmeal",
+      "potato_bread"
     ],
     "dislikes": [
       "radish",
@@ -206,7 +210,8 @@
     "loves": [
       "wheat",
       "blueberry",
-      "pastry"
+      "pastry",
+      "pumpkin_pie"
     ],
     "likes": [
       "flour",
@@ -273,7 +278,8 @@
     "loves": [
       "golden_melon",
       "grapes",
-      "coffee"
+      "coffee",
+      "grape_jelly"
     ],
     "likes": [
       "pumpkin",
@@ -344,7 +350,9 @@
       "tomato",
       "lettuce",
       "coffee",
-      "rainbow_pike"
+      "rainbow_pike",
+      "cotton_cloth",
+      "pickled_radishes"
     ],
     "dislikes": [
       "jam",
@@ -404,7 +412,8 @@
       "carrot",
       "pumpkin",
       "golden_melon",
-      "honey_jam"
+      "honey_jam",
+      "patchwork_quilt"
     ],
     "likes": [
       "strawberry",
@@ -412,7 +421,8 @@
       "pastry",
       "wood",
       "honey",
-      "minnow"
+      "minnow",
+      "pickled_carrots"
     ],
     "dislikes": [
       "lettuce",
@@ -476,7 +486,9 @@
     "likes": [
       "corn",
       "potato",
-      "honey_jam"
+      "honey_jam",
+      "tomato_chutney",
+      "cotton_thread"
     ],
     "dislikes": [
       "golden_melon"

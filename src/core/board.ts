@@ -1,3 +1,4 @@
+import { recipeOpen } from './processing';
 import type { BoardDef, Content, OrderTier } from './content';
 import { CRITTERS, critterById, crittersOpen } from './critters';
 import { addItem, grantXp, hasFlag, takeItems, unlockedCrops, type FarmState, type OrderState } from './farm';
@@ -56,6 +57,7 @@ function makeableGoods(state: FarmState, content: Content): Pick[] {
     const usable = state.buildings[id] && (def.where === 'farm' || hasFlag(state, `${id}_built`));
     if (!usable) continue;
     for (const r of def.recipes) {
+      if (!recipeOpen(state, r)) continue;
       const g = content.goods.get(r.output);
       // goods made from honey (honey berry jam) stay off the board: honey is too slow to gather
       if (g && !r.inputs.honey) out.push({ id: g.id, value: g.sell, xp: r.xp, kind: 'good' });

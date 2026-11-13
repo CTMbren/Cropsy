@@ -28,7 +28,8 @@ import {
   type FarmState,
 } from './core/farm';
 import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, type MossFind } from './core/friendship';
-import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
+import { buyBuilding, buyUpgrade, collect, startRecipe, upgradeSlots } from './core/processing';
+import { sideQuestOrderDone, syncLoomLetter, syncRecipeCards, syncSideQuest } from './core/crafting';
 import { markBackedUp, snoozeBackup } from './core/backup';
 import { syncAlmanac } from './core/almanac';
 import { did, masteryWaitingADay, notesOpen, nudge, readPage, syncNotes, tipOfTheDay, type Banner } from './core/notes';
@@ -169,6 +170,7 @@ export class Game {
     refreshQuest(this.state, this.content);
     syncAlmanac(this.state, now, this.tz());
     syncNotes(this.state, this.content, now, this.tz());
+    this.syncCrafting();
     this.checkAway();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
@@ -378,6 +380,7 @@ export class Game {
     this.friendFx(r.friendship);
     log(this.state, this.now(), `order ${id}`);
     did(this.state, 'orders');
+    if (sideQuestOrderDone(this.state, this.content, id, this.now(), this.tz())) this.fx({ kind: 'toast', text: 'The Pickling Station is yours! Goldie left a letter.' });
     this.event({ type: 'order_done', id });
     this.changed();
   }
@@ -462,6 +465,16 @@ export class Game {
     if (r.leftForSpace) this.screenFx({ kind: 'barn-full' });
     else this.checkBarn();
     return n;
+  }
+
+  /** The building's 40,000+ upgrade: a second line, so two recipes work at once. */
+  buyUpgrade(buildingId: string): boolean {
+    const r = buyUpgrade(this.state, this.content, buildingId);
+    if (!r.ok) return false;
+    log(this.state, this.now(), `upgrade ${buildingId}`);
+    this.fx({ kind: 'toast', text: `${this.content.buildings.get(buildingId)?.upgrade?.name} built: two at once!` });
+    this.changed();
+    return true;
   }
 
   upgradeSlots(buildingId: string): boolean {
@@ -932,6 +945,18 @@ export class Game {
     this.emit();
   }
 
+  /** Recipe cards from friends, Juniper's loom letter and the Pickle Crocks side quest. */
+  private syncCrafting(): void {
+    const now = this.now();
+    for (const id of syncRecipeCards(this.state, this.content, now, this.tz())) {
+      const r = [...this.content.buildings.values()].flatMap((b) => b.recipes).find((x) => x.id === id);
+      const who = this.content.villagers.get(r?.card ?? '')?.name.split(' ')[0] ?? 'A friend';
+      this.fx({ kind: 'toast', text: `Recipe card from ${who}: ${this.content.goods.get(r?.output ?? '')?.name ?? id}` });
+    }
+    syncLoomLetter(this.state, this.content, now, this.tz());
+    syncSideQuest(this.state, now, this.tz());
+  }
+
   // ── Tips and nudges ─────────────────────────────────────────────
   /** A new session: maybe a nudge about what happened while away, otherwise maybe a tip of the day. */
   private newSession(awaySeconds: number): void {
@@ -1010,6 +1035,7 @@ export class Game {
     syncBites(this.state, this.content, this.now());
     syncAlmanac(this.state, this.now(), this.tz());
     for (const title of syncNotes(this.state, this.content, this.now(), this.tz())) this.fx({ kind: 'toast', text: `Tobias's notes: new page, ${title}` });
+    this.syncCrafting();
     if (marketOpen(this.state, this.content) && notesOpen(this.state)) this.offerNudge('market_open');
     // keep the active quest possible (places missing weeds, branches or rocks on free plots)
     ensureQuestMaterials(this.state, this.content);

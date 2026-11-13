@@ -12,7 +12,9 @@ import { loadContent, type Content } from '../src/core/content';
 import { barnCapacity, barnUsed, chooseMastery, clearObstacle, coinStep, cratePrice, growTimeFor, harvest, masteryOptions, masteryPending, masteryPicks, masteryToChoose, newFarm, OBSTACLES, plant, redoMastery, redoReady, seedCost, sell, stageOf, unlockedCrops, upgradeSoil, type FarmState, type MasteryPick } from '../src/core/farm';
 import { syncAlmanac } from '../src/core/almanac';
 import { dayIndex as day0 } from '../src/core/time';
-import { buyBuilding, collect, startRecipe } from '../src/core/processing';
+import { pendingEvents, watchEvent } from '../src/core/friendship';
+import { sideQuestOrderDone, syncLoomLetter, syncRecipeCards, syncSideQuest } from '../src/core/crafting';
+import { buyBuilding, buyUpgrade, collect, recipeOpen, startRecipe } from '../src/core/processing';
 import { marketOpen, marketSell, priceFactor } from '../src/core/shop';
 import { marketPeriod } from '../src/core/time';
 import { buyBarn, buyMaterial, buyTool, deliverStage, nextBarn } from '../src/core/shop';
@@ -89,7 +91,18 @@ function reserve(s: FarmState, c: Content, withOrders = true, extras = true): Re
   if (extras && townProjectOpen(s, c)) want(nextTownLevel(s, c).wants);
   if (extras && s.town?.project && !s.town.done) want(s.town.project.wants);
   // recipe inputs for buildings we own
-  if (extras) for (const id of Object.keys(s.buildings)) for (const r of c.buildings.get(id)?.recipes ?? []) want(Object.fromEntries(Object.entries(r.inputs).map(([k, n]) => [k, n * 2])));
+  // (each building's first recipe, the everyday one: a player doesn't stock up for every recipe at
+  // once; goods the story or board want pull in their own inputs below)
+  if (extras)
+    for (const id of Object.keys(s.buildings)) {
+      const first = (c.buildings.get(id)?.recipes ?? []).filter((r) => recipeOpen(s, r)).sort((a, b) => (c.goods.get(b.output)?.sell ?? 0) - (c.goods.get(a.output)?.sell ?? 0))[0];
+      if (first) want(Object.fromEntries(Object.entries(first.inputs).map(([k, n]) => [k, n * 2])));
+    }
+  // goods the story asks for need their inputs grown too (Rufus's flour → wheat)
+  for (const [id, n] of Object.entries({ ...keep })) {
+    const src = c.goods.has(id) ? [...c.buildings.values()].flatMap((b) => b.recipes).find((r) => r.output === id) : undefined;
+    for (const [k, m] of Object.entries(src?.inputs ?? {})) keep[k] = Math.max(keep[k] ?? 0, m * Math.max(1, n - (s.inventory[id] ?? 0)));
+  }
   // board orders come on top of everything else (so planting grows enough for both), and goods
   // the board wants that we're short of need their inputs too (pastry → flour and jam → wheat)
   if (withOrders) {
@@ -206,9 +219,23 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
     ev({ type: 'fish', fish: r.fish.id });
   }
   // collect and restart buildings
+  // what the story and the board need, including the inputs of goods we're short of (pastry → flour, jam)
+  const storyNeeds = reserve(s, c, true, false);
+  for (let depth = 0; depth < 2; depth++)
+    for (const [k, n] of Object.entries({ ...storyNeeds })) {
+      const short = n - (s.inventory[k] ?? 0);
+      if (short <= 0 || !c.goods.has(k)) continue;
+      const src = [...c.buildings.values()].flatMap((b) => b.recipes).find((x) => x.output === k);
+      for (const [i, m] of Object.entries(src?.inputs ?? {})) storyNeeds[i] = (storyNeeds[i] ?? 0) + m * short;
+    }
+  // goods the story or the board is waiting for (minus what we have or are making) come first
+  const goodWant: Record<string, number> = {};
+  for (const [k, n] of Object.entries(storyNeeds)) if (c.goods.has(k)) goodWant[k] = n - (s.inventory[k] ?? 0);
+  for (const b of Object.values(s.buildings)) for (const q of b.queue) if (goodWant[q.recipe] !== undefined) goodWant[q.recipe] -= 1;
   for (const id of Object.keys(s.buildings)) {
     collect(s, c, id, now);
-    for (const r of c.buildings.get(id)!.recipes) {
+    const recipes = [...c.buildings.get(id)!.recipes].filter((r) => recipeOpen(s, r)).sort((a, b) => ((goodWant[b.output] ?? 0) > 0 ? 1 : 0) - ((goodWant[a.output] ?? 0) > 0 ? 1 : 0));
+    for (const r of recipes) {
       // don't bake away what the current quest asks for (e.g. Pip's flour)
       const handIn: Record<string, number> = {};
       for (const o of activeQuest(s, c)?.objectives ?? []) if (o.type === 'hand_in') Object.assign(handIn, o.items);
@@ -216,6 +243,8 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
         const st = p.stages[s.projects[p.id] ?? 0];
         if (st && s.flags.includes(`${p.id}_project`)) for (const [k, n] of Object.entries(st.items ?? {})) handIn[k] = Math.max(handIn[k] ?? 0, n);
       }
+      // and a recipe nobody's asked for never uses up a good an order is waiting for (flour for flour orders)
+      if ((goodWant[r.output] ?? 0) <= 0) for (const [k, n] of Object.entries(storyNeeds)) handIn[k] = Math.max(handIn[k] ?? 0, n);
       const spare = () => Object.entries(r.inputs).every(([k, n]) => (s.inventory[k] ?? 0) - n >= (handIn[k] ?? 0));
       while (spare() && startRecipe(s, c, id, r.id, now).ok);
     }
@@ -279,10 +308,16 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
     const r = fulfilOrder(s, c, o.id);
     if (r.ok) {
       paid(r, now);
+      if (sideQuestOrderDone(s, c, o.id, now, TZ)) log('side quest: pickling station');
       ev({ type: 'order_done', id: o.id });
     }
   }
   talk(s, c, now, TZ);
+  // heart moments (and the recipe cards that come with them), the side quest, the loom letter
+  for (const e of pendingEvents(s, c)) watchEvent(s, c, e.villager, e.hearts);
+  for (const id of syncRecipeCards(s, c, now, TZ)) log(`recipe card ${id}`);
+  syncSideQuest(s, now, TZ);
+  syncLoomLetter(s, c, now, TZ);
   // sell surplus
   const keep = reserve(s, c);
   let sold = 0;
@@ -314,6 +349,13 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
   if (b && (barnWasFull || barnUsed(s, c) > barnCapacity(s, c) * 0.7) && s.coins > (b.coins ?? 0) + 300) {
     for (const [id, n] of Object.entries(b.items ?? {})) while ((s.inventory[id] ?? 0) < n && s.coins > (b.coins ?? 0) + 300 && buyMaterial(s, c, id).ok);
     if (buyBarn(s, c).ok) log(`barn ${barnCapacity(s, c)}`);
+  }
+  // a second line for buildings, once comfortably affordable
+  for (const id of Object.keys(s.buildings)) {
+    const u = c.buildings.get(id)?.upgrade;
+    if (!u || (s.buildings[id].lines ?? 1) >= 2 || s.level < u.level || s.coins < u.coins * 1.5) continue;
+    for (const [k, n] of Object.entries(u.items ?? {})) while ((s.inventory[k] ?? 0) < n && s.coins > u.coins * 1.2 && buyMaterial(s, c, k).ok);
+    if (buyUpgrade(s, c, id).ok) log(`upgrade ${id}`);
   }
   // the weekly town project, Bramblewick improvements and the odd decoration
   const day = dayIndex(now, TZ);

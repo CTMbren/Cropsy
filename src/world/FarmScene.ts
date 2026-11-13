@@ -21,6 +21,9 @@ import {
   drawDecor as drawDecorArt,
   drawDecorPart,
   drawJamMaker,
+  drawLoom,
+  drawPickling,
+  drawUpgrade,
   drawMill,
   drawMoss as drawMossArt,
   drawPuff,
@@ -940,6 +943,8 @@ export class FarmScene extends Phaser.Scene {
     if (id === 'mill') return { x: -2.3, y: 0.8 };
     if (id === 'jam_maker') return { x: 1.0, y: -2.2 };
     if (id === 'bakery') return { x: 3.2, y: -2.2 };
+    if (id === 'pickling') return { x: 5.4, y: -2.2 };
+    if (id === 'loom') return { x: 7.6, y: -2.2 };
     return null;
   }
 
@@ -1023,6 +1028,11 @@ export class FarmScene extends Phaser.Scene {
     art.placeholder('building/mill/wheel', WHEEL_BOUNDS, (g, cx, cy) => drawWheel(g, cx, cy));
     art.placeholder('building/jam_maker', SHOP_BOUNDS, (g, cx, cy) => drawJamMaker(g, cx, cy));
     art.placeholder('building/bakery', SHOP_BOUNDS, (g, cx, cy) => drawBakery(g, cx, cy));
+    art.placeholder('building/pickling', SHOP_BOUNDS, (g, cx, cy) => drawPickling(g, cx, cy));
+    art.placeholder('building/pickling@up', SHOP_BOUNDS, (g, cx, cy) => drawPickling(g, cx, cy, true));
+    art.placeholder('building/loom', SHOP_BOUNDS, (g, cx, cy) => drawLoom(g, cx, cy));
+    art.placeholder('building/loom@up', SHOP_BOUNDS, (g, cx, cy) => drawLoom(g, cx, cy, true));
+    for (const id of ['jam_maker', 'bakery', 'mill']) art.placeholder(`building/${id}/upgrade`, id === 'mill' ? MILL_BOUNDS : SHOP_BOUNDS, (g, cx, cy) => drawUpgrade(g, id, cx, cy));
     art.placeholder('fx/badge', BADGE_BOUNDS, (g, cx, cy) => drawBadge(g, cx, cy));
     art.placeholder('fx/puff', PUFF_BOUNDS, (g, cx, cy) => drawPuff(g, cx, cy));
     art.placeholder('moss/body', MOSS_BOUNDS, (g, cx, cy) => drawMossArt(g, cx, cy));
@@ -1039,12 +1049,21 @@ export class FarmScene extends Phaser.Scene {
     const mill = at('mill');
     const jam = at('jam_maker');
     const bakery = at('bakery');
+    const pickling = at('pickling');
+    const loom = at('loom');
     const place: [string, string, number, number][] = [
+      ['pickling', 'building/pickling', pickling.x, pickling.y],
+      ['loom', 'building/loom', loom.x, loom.y],
+      ['picklingBadge', 'fx/badge', pickling.x, pickling.y - 124],
+      ['loomBadge', 'fx/badge', loom.x, loom.y - 130],
       ['mill', 'building/mill/0', mill.x, mill.y],
       ['wheel', 'building/mill/wheel', mill.x + MILL_WHEEL_AT.x, mill.y + MILL_WHEEL_AT.y],
       ['jam', 'building/jam_maker', jam.x, jam.y],
       ['bakery', 'building/bakery', bakery.x, bakery.y],
       ['smoke', 'fx/puff', bakery.x + CHIMNEY_TOP.x, bakery.y + CHIMNEY_TOP.y - 6],
+      ['millUp', 'building/mill/upgrade', mill.x, mill.y],
+      ['jamUp', 'building/jam_maker/upgrade', jam.x, jam.y],
+      ['bakeryUp', 'building/bakery/upgrade', bakery.x, bakery.y],
       ['millBadge', 'fx/badge', mill.x, mill.y - 172],
       ['jamBadge', 'fx/badge', jam.x, jam.y - 124],
       ['bakeryBadge', 'fx/badge', bakery.x - 10, bakery.y - 140],
@@ -1080,6 +1099,15 @@ export class FarmScene extends Phaser.Scene {
     st.bakery.setVisible(!!s.buildings.bakery);
     st.smoke.setVisible(!!s.buildings.bakery);
     st.bakeryBadge.setVisible(!!s.buildings.bakery && ready('bakery') > 0);
+    const up = (id: string) => (s.buildings[id]?.lines ?? 1) >= 2;
+    st.millUp.setVisible(working && up('mill'));
+    st.jamUp.setVisible(up('jam_maker'));
+    st.bakeryUp.setVisible(up('bakery'));
+    for (const id of ['pickling', 'loom']) {
+      if (s.buildings[id]) this.show(st[id], `building/${id}${up(id) ? '@up' : ''}`);
+      st[id].setVisible(!!s.buildings[id]);
+      st[`${id}Badge`].setVisible(!!s.buildings[id] && ready(id) > 0);
+    }
     // Moss naps just outside the fence, on the left; a bone bubble when he has something to dig up
     const moss = s.flags.includes('moss_visits');
     const mc = this.mossCell();
@@ -1137,7 +1165,7 @@ export class FarmScene extends Phaser.Scene {
     const base = this.stBase;
     if (st.wheel.visible) st.wheel.setRotation(this.millWorking ? t / 900 : 0.3);
     const bob = Math.sin(t / 250) * 3;
-    for (const k of ['millBadge', 'jamBadge', 'bakeryBadge']) if (st[k].visible) st[k].y = base[k].y + bob;
+    for (const k of ['millBadge', 'jamBadge', 'bakeryBadge', 'picklingBadge', 'loomBadge']) if (st[k].visible) st[k].y = base[k].y + bob;
     if (st.smoke.visible) {
       const puff = (t / 600) % 1;
       const sc = st.smoke.getData('artScale') as number;

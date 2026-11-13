@@ -154,8 +154,12 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 }
 
 /* Quest tracker */
+.trackers { position: absolute; top: calc(var(--safe-top) + 62px); left: calc(var(--safe-left) + 10px); max-width: min(62%, 260px); display: grid; gap: 6px; justify-items: start; pointer-events: none; }
+.trackers > * { pointer-events: auto; }
+.tracker.side { background: rgba(240, 250, 228, 0.95); }
+.tracker.side .tracker-title { color: #3f7f4a; }
 .tracker {
-  position: absolute; top: calc(var(--safe-top) + 62px); left: calc(var(--safe-left) + 10px); max-width: min(62%, 260px);
+  position: relative;
   display: grid; gap: 1px; padding: 6px 10px; text-align: left;
   background: rgba(255, 248, 230, 0.95); border: 2.5px solid var(--ink); border-radius: 14px; box-shadow: 0 3px 0 var(--ink);
 }
@@ -632,3 +636,6 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .tip-banner .x { position: absolute; top: -2px; right: 0; background: none; border: 0; font-size: 22px; line-height: 1; color: #6d5440; padding: 4px 8px; }
 @keyframes tip-in { from { transform: translateY(12px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .tip-banner { animation: none; } }
+.row-item.locked { opacity: 0.7; }
+.row-item.locked .needs { color: #8a5a2b; }
+.upgrade-card.done { background: #eef6e2; }

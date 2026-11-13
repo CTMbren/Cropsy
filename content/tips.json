@@ -1,44 +1,292 @@
 {
   "nudges": [
-    { "id": "market_open", "from": "pip", "text": "My market is open! I pay more than the shipping crate for anything you grow.", "show": "town:market", "retire": { "market": 1 } },
-    { "id": "market_better", "from": "pip", "text": "{crop} sells for {market} at my market right now. The crate only gave you {crate}.", "show": "town:market", "retire": { "market": 3 } },
-    { "id": "featured", "from": "pip", "text": "{crop} is featured at my market: {market} each, the best price in town until {until}.", "show": "town:market", "retire": { "featured": 1 } },
-    { "id": "board_best", "from": "goldie", "text": "Wait! An order on the Board wants {crop}, and it pays much more than the crate.", "show": "board", "retire": { "orders": 5 } },
-    { "id": "fresh", "from": "goldie", "text": "Pick crops soon after they ripen and you get a Fresh Pick: a tip and extra XP.", "show": "notes:planting", "retire": { "fresh": 10 } },
-    { "id": "barn_full", "from": "bruno", "text": "Your barn's nearly full. I can build it bigger: find me in Town, under Land.", "show": "town:land", "retire": { "barn": 1 } },
-    { "id": "mastery_wait", "from": "hazel", "text": "One of your crops has a mastery star waiting. Tap the ★ on its seed to pick a bonus.", "show": "farm", "retire": { "picks": 1 } },
-    { "id": "overnight", "from": "goldie", "text": "Your field sat empty while you were away. Plant a long crop before you go, and it'll be ready when you're back.", "show": "notes:planning", "retire": { "long": 3 } }
+    {
+      "id": "market_open",
+      "from": "pip",
+      "text": "My market is open! I pay more than the shipping crate for anything you grow.",
+      "show": "town:market",
+      "retire": {
+        "market": 1
+      }
+    },
+    {
+      "id": "market_better",
+      "from": "pip",
+      "text": "{crop} sells for {market} at my market right now. The crate only gave you {crate}.",
+      "show": "town:market",
+      "retire": {
+        "market": 3
+      }
+    },
+    {
+      "id": "featured",
+      "from": "pip",
+      "text": "{crop} is featured at my market: {market} each, the best price in town until {until}.",
+      "show": "town:market",
+      "retire": {
+        "featured": 1
+      }
+    },
+    {
+      "id": "board_best",
+      "from": "goldie",
+      "text": "Wait! An order on the Board wants {crop}, and it pays much more than the crate.",
+      "show": "board",
+      "retire": {
+        "orders": 5
+      }
+    },
+    {
+      "id": "fresh",
+      "from": "goldie",
+      "text": "Pick crops soon after they ripen and you get a Fresh Pick: a tip and extra XP.",
+      "show": "notes:planting",
+      "retire": {
+        "fresh": 10
+      }
+    },
+    {
+      "id": "barn_full",
+      "from": "bruno",
+      "text": "Your barn's nearly full. I can build it bigger: find me in Town, under Land.",
+      "show": "town:land",
+      "retire": {
+        "barn": 1
+      }
+    },
+    {
+      "id": "mastery_wait",
+      "from": "hazel",
+      "text": "One of your crops has a mastery star waiting. Tap the ★ on its seed to pick a bonus.",
+      "show": "farm",
+      "retire": {
+        "picks": 1
+      }
+    },
+    {
+      "id": "overnight",
+      "from": "goldie",
+      "text": "Your field sat empty while you were away. Plant a long crop before you go, and it'll be ready when you're back.",
+      "show": "notes:planning",
+      "retire": {
+        "long": 3
+      }
+    }
   ],
   "tips": [
-    { "id": "t_crate", "text": "The crate is for when you're in a hurry. Pip's market pays better, and the Board pays best.", "page": "selling", "needs": "market", "retire": { "market": 3 } },
-    { "id": "t_prices", "text": "Market prices change at midnight, 8 am and 4 pm. A bad price now might be a good one later.", "page": "selling", "needs": "market" },
-    { "id": "t_featured", "text": "The featured crop at the market always pays 165%. Worth growing a few extra.", "page": "selling", "needs": "market", "retire": { "featured": 3 } },
-    { "id": "t_full_barn", "text": "A full barn ships crops at crate price. Sell what you don't need before it fills.", "page": "selling" },
-    { "id": "t_orders", "text": "Orders never expire. Fill the ones that suit you and pass on the rest.", "page": "board", "needs": "board", "retire": { "orders": 20 } },
-    { "id": "t_pass", "text": "Passing on an order is free. A new one goes up on the next tick.", "page": "board", "needs": "board" },
-    { "id": "t_special", "text": "Hand in each line of the gold Special as soon as you have it. It doesn't all have to be at once.", "page": "board", "needs": "special" },
-    { "id": "t_fresh", "text": "Harvest soon after crops ripen for a Fresh Pick. Neighbours tip for fresh food.", "page": "planting", "retire": { "fresh": 25 } },
-    { "id": "t_undo", "text": "Planted the wrong seed? Tap it again within 3 seconds for a full refund.", "page": "planting" },
-    { "id": "t_replant", "text": "Replant All puts the last crop back in every empty plot. One tap and you're done.", "page": "planting" },
-    { "id": "t_drag", "text": "Drag your finger across plots to plant or harvest a whole row at once.", "page": "planting" },
-    { "id": "t_overnight", "text": "Before bed, plant your longest crop. It'll be waiting in the morning.", "page": "planning", "retire": { "long": 5 } },
-    { "id": "t_short", "text": "Short crops pay more per hour, but only if you're around to replant them.", "page": "planning" },
-    { "id": "t_check", "text": "Look at a seed's grow time and ask yourself when you'll be back. Plant for that.", "page": "planning" },
-    { "id": "t_weeds", "text": "Branches give wood and rocks give stone. Clear them even when you don't need the space.", "page": "land" },
-    { "id": "t_soil", "text": "Better soil grows crops faster. Upgrade the plots you use most first.", "page": "land", "needs": "soil" },
-    { "id": "t_fertilizer", "text": "Fertilizer doubles one harvest. Use it on your most valuable crop, not radishes.", "page": "land" },
-    { "id": "t_goods", "text": "Flour is worth more than the wheat that made it. Let your buildings do the work.", "page": "buildings", "needs": "buildings" },
-    { "id": "t_batch", "text": "Start a batch in every building before you put the phone down.", "page": "buildings", "needs": "buildings" },
-    { "id": "t_gifts", "text": "Everybody has a favourite gift. Loved gifts count far more than ordinary ones.", "page": "friends", "needs": "friends" },
-    { "id": "t_perks", "text": "Five hearts with a friend brings a perk that lasts forever.", "page": "friends", "needs": "friends" },
-    { "id": "t_ziggy", "text": "Ziggy sells seeds before you could normally grow them. Expensive, but sometimes worth it.", "page": "ziggy", "needs": "ziggy" },
-    { "id": "t_mastery", "text": "Each mastery star is a choice. Coins is safe; Quick Growth suits a farmer who checks in often.", "page": "almanac", "needs": "almanac" },
-    { "id": "t_redo", "text": "Not happy with a crop's stars? Redo them once a week from its page in the Almanac.", "page": "almanac", "needs": "almanac" },
-    { "id": "t_visitors", "text": "Tap the little visitors on your crops. Five pollen makes a honey.", "page": "meadow", "needs": "meadow" },
-    { "id": "t_honey", "text": "Honey sells well and neighbours ask for it. Keep a jar or two in the barn.", "page": "meadow", "needs": "meadow" },
-    { "id": "t_fish", "text": "Bites build up at the creek while you're away. Stop by when you check your crops.", "page": "creek", "needs": "creek" },
-    { "id": "t_dusk", "text": "Some fish only bite in the evening. Nell knows which.", "page": "creek", "needs": "creek" },
-    { "id": "t_town", "text": "Every town level raises the price of everything you sell. Help with the weekly project.", "page": "town", "needs": "town" },
-    { "id": "t_ribbons", "text": "Ribbons buy extra building slots. More slots, more goods while you're away.", "page": "ribbons" }
+    {
+      "id": "t_crate",
+      "text": "The crate is for when you're in a hurry. Pip's market pays better, and the Board pays best.",
+      "page": "selling",
+      "needs": "market",
+      "retire": {
+        "market": 3
+      }
+    },
+    {
+      "id": "t_prices",
+      "text": "Market prices change at midnight, 8 am and 4 pm. A bad price now might be a good one later.",
+      "page": "selling",
+      "needs": "market"
+    },
+    {
+      "id": "t_featured",
+      "text": "The featured crop at the market always pays 165%. Worth growing a few extra.",
+      "page": "selling",
+      "needs": "market",
+      "retire": {
+        "featured": 3
+      }
+    },
+    {
+      "id": "t_full_barn",
+      "text": "A full barn ships crops at crate price. Sell what you don't need before it fills.",
+      "page": "selling"
+    },
+    {
+      "id": "t_orders",
+      "text": "Orders never expire. Fill the ones that suit you and pass on the rest.",
+      "page": "board",
+      "needs": "board",
+      "retire": {
+        "orders": 20
+      }
+    },
+    {
+      "id": "t_pass",
+      "text": "Passing on an order is free. A new one goes up on the next tick.",
+      "page": "board",
+      "needs": "board"
+    },
+    {
+      "id": "t_special",
+      "text": "Hand in each line of the gold Special as soon as you have it. It doesn't all have to be at once.",
+      "page": "board",
+      "needs": "special"
+    },
+    {
+      "id": "t_fresh",
+      "text": "Harvest soon after crops ripen for a Fresh Pick. Neighbours tip for fresh food.",
+      "page": "planting",
+      "retire": {
+        "fresh": 25
+      }
+    },
+    {
+      "id": "t_undo",
+      "text": "Planted the wrong seed? Tap it again within 3 seconds for a full refund.",
+      "page": "planting"
+    },
+    {
+      "id": "t_replant",
+      "text": "Replant All puts the last crop back in every empty plot. One tap and you're done.",
+      "page": "planting"
+    },
+    {
+      "id": "t_drag",
+      "text": "Drag your finger across plots to plant or harvest a whole row at once.",
+      "page": "planting"
+    },
+    {
+      "id": "t_overnight",
+      "text": "Before bed, plant your longest crop. It'll be waiting in the morning.",
+      "page": "planning",
+      "retire": {
+        "long": 5
+      }
+    },
+    {
+      "id": "t_short",
+      "text": "Short crops pay more per hour, but only if you're around to replant them.",
+      "page": "planning"
+    },
+    {
+      "id": "t_check",
+      "text": "Look at a seed's grow time and ask yourself when you'll be back. Plant for that.",
+      "page": "planning"
+    },
+    {
+      "id": "t_weeds",
+      "text": "Branches give wood and rocks give stone. Clear them even when you don't need the space.",
+      "page": "land"
+    },
+    {
+      "id": "t_soil",
+      "text": "Better soil grows crops faster. Upgrade the plots you use most first.",
+      "page": "land",
+      "needs": "soil"
+    },
+    {
+      "id": "t_fertilizer",
+      "text": "Fertilizer doubles one harvest. Use it on your most valuable crop, not radishes.",
+      "page": "land"
+    },
+    {
+      "id": "t_goods",
+      "text": "Flour is worth more than the wheat that made it. Let your buildings do the work.",
+      "page": "buildings",
+      "needs": "buildings"
+    },
+    {
+      "id": "t_batch",
+      "text": "Start a batch in every building before you put the phone down.",
+      "page": "buildings",
+      "needs": "buildings"
+    },
+    {
+      "id": "t_gifts",
+      "text": "Everybody has a favourite gift. Loved gifts count far more than ordinary ones.",
+      "page": "friends",
+      "needs": "friends"
+    },
+    {
+      "id": "t_perks",
+      "text": "Five hearts with a friend brings a perk that lasts forever.",
+      "page": "friends",
+      "needs": "friends"
+    },
+    {
+      "id": "t_ziggy",
+      "text": "Ziggy sells seeds before you could normally grow them. Expensive, but sometimes worth it.",
+      "page": "ziggy",
+      "needs": "ziggy"
+    },
+    {
+      "id": "t_mastery",
+      "text": "Each mastery star is a choice. Coins is safe; Quick Growth suits a farmer who checks in often.",
+      "page": "almanac",
+      "needs": "almanac"
+    },
+    {
+      "id": "t_redo",
+      "text": "Not happy with a crop's stars? Redo them once a week from its page in the Almanac.",
+      "page": "almanac",
+      "needs": "almanac"
+    },
+    {
+      "id": "t_visitors",
+      "text": "Tap the little visitors on your crops. Five pollen makes a honey.",
+      "page": "meadow",
+      "needs": "meadow"
+    },
+    {
+      "id": "t_honey",
+      "text": "Honey sells well and neighbours ask for it. Keep a jar or two in the barn.",
+      "page": "meadow",
+      "needs": "meadow"
+    },
+    {
+      "id": "t_fish",
+      "text": "Bites build up at the creek while you're away. Stop by when you check your crops.",
+      "page": "creek",
+      "needs": "creek"
+    },
+    {
+      "id": "t_dusk",
+      "text": "Some fish only bite in the evening. Nell knows which.",
+      "page": "creek",
+      "needs": "creek"
+    },
+    {
+      "id": "t_town",
+      "text": "Every town level raises the price of everything you sell. Help with the weekly project.",
+      "page": "town",
+      "needs": "town"
+    },
+    {
+      "id": "t_ribbons",
+      "text": "Ribbons buy extra building slots. More slots, more goods while you're away.",
+      "page": "ribbons"
+    },
+    {
+      "id": "t_pickles",
+      "text": "Start a crock of pickles before bed. They take hours, and they'll be ready by morning.",
+      "page": "buildings",
+      "needs": "pickling"
+    },
+    {
+      "id": "t_radish_pickles",
+      "text": "Twelve radishes make a jar of pickles. Radishes grow fast, and pickles sell for more.",
+      "page": "buildings",
+      "needs": "pickling"
+    },
+    {
+      "id": "t_cards",
+      "text": "Get to 3 hearts with a friend and they might share a recipe card.",
+      "page": "friends",
+      "needs": "friends"
+    },
+    {
+      "id": "t_quilt",
+      "text": "A quilt takes all night, but it pays the most for each cotton.",
+      "page": "buildings",
+      "needs": "loom"
+    },
+    {
+      "id": "t_lines",
+      "text": "A second line lets a building make two things at once. Expensive, but it doubles what you make.",
+      "page": "buildings",
+      "needs": "upgrade"
+    }
   ]
 }

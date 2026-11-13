@@ -1,4 +1,4 @@
-import type { JSX } from 'preact';
+import type { ComponentChildren, JSX } from 'preact';
 import { FISH, type FishDef } from '../core/fishing';
 
 /**
@@ -50,6 +50,36 @@ const twinkle = (x: number, y: number, r: number, fill = '#fff') => (
 
 const G1 = '#4caf50';
 const G2 = '#3fa34d';
+
+/** A glass jar with a cloth lid and a label: pickles, chutney, relish, jelly. */
+function Jar({ fill, lid, children }: { fill: string; lid: string; children?: ComponentChildren }) {
+  return (
+    <>
+      <rect x="8" y="11" width="16" height="17" rx="4" fill={shade(fill)} />
+      <rect x="8.5" y="11" width="13.5" height="15.5" rx="3.6" fill={fill} />
+      {children}
+      <ellipse cx="11" cy="14.5" rx="1.2" ry="2.4" fill="#fff" opacity="0.55" />
+      <rect x="8" y="11" width="16" height="17" rx="4" fill="none" stroke={INK} stroke-width="2" />
+      <path d="M7 8.5q9-3 18 0l-1 3.5H8z" fill={lid} stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+      <path d="M7.5 12.2h17" stroke={INK} stroke-width="2.4" stroke-linecap="round" />
+    </>
+  );
+}
+
+/** A round pie or cake seen from the side, with a top colour and a crust or sponge colour. */
+function Round({ top, side, children }: { top: string; side: string; children?: ComponentChildren }) {
+  return (
+    <>
+      <path d="M4 17v5c0 3 5 5 12 5s12-2 12-5v-5z" fill={side} />
+      <path d="M4 22c0 3 5 5 12 5s12-2 12-5" fill="none" stroke={shade(side, 0.3)} stroke-width="1.2" />
+      <ellipse cx="16" cy="17" rx="12" ry="5" fill={top} />
+      {children}
+      <ellipse cx="12" cy="15.5" rx="4" ry="1.3" fill="#fff" opacity="0.45" />
+      <path d="M4 17v5c0 3 5 5 12 5s12-2 12-5v-5" fill="none" stroke={INK} stroke-width="2" stroke-linejoin="round" />
+      <ellipse cx="16" cy="17" rx="12" ry="5" fill="none" stroke={INK} stroke-width="2" />
+    </>
+  );
+}
 
 const ICONS: Record<string, () => JSX.Element> = {
   radish: () => (
@@ -301,6 +331,115 @@ const ICONS: Record<string, () => JSX.Element> = {
       <rect x="8" y="11" width="16" height="17" rx="4" fill="none" stroke={INK} stroke-width="2" />
       <path d="M7 8.5q9-3 18 0l-1 3.5H8z" fill="#f5b32a" stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
       <path d="M7.5 12.2h17" stroke={INK} stroke-width="2.4" stroke-linecap="round" />
+    </>
+  ),
+  pickled_radishes: () => (
+    <Jar fill="#cfe6a8" lid="#f4f1ea">
+      <circle cx="13" cy="21" r="2.6" fill="#e86a8a" stroke={INK} stroke-width="1" />
+      <circle cx="18.5" cy="18" r="2.4" fill="#f2a0b4" stroke={INK} stroke-width="1" />
+      <circle cx="18" cy="24" r="2.2" fill="#e86a8a" stroke={INK} stroke-width="1" />
+      <path d="M11 15l3 3M20 14l-2 3" stroke="#5c9a3a" stroke-width="1.2" stroke-linecap="round" />
+    </Jar>
+  ),
+  pickled_carrots: () => (
+    <Jar fill="#d8eab0" lid="#f4f1ea">
+      <path d="M11.5 14l1.4 12M15.5 13.5l.6 13M19.5 14l-.8 12" stroke={INK} stroke-width="3.8" stroke-linecap="round" />
+      <path d="M11.5 14l1.4 12M15.5 13.5l.6 13M19.5 14l-.8 12" stroke="#f08a2a" stroke-width="2.2" stroke-linecap="round" />
+      <path d="M17.5 16q2 2 1 5" stroke="#5c9a3a" stroke-width="1.1" fill="none" />
+    </Jar>
+  ),
+  tomato_chutney: () => (
+    <Jar fill="#c8402a" lid="#e8c890">
+      <rect x="10" y="17.5" width="12" height="6.5" rx="1.5" fill="#fff8e6" stroke={INK} stroke-width="1.2" />
+      <circle cx="16" cy="20.7" r="2" fill="#e8323c" stroke={INK} stroke-width="0.9" />
+      <path d="M15 18.8l1 .6 1-.6" stroke="#3fa34d" stroke-width="1" fill="none" />
+    </Jar>
+  ),
+  corn_relish: () => (
+    <Jar fill="#e8c23a" lid="#3fa34d">
+      {[12, 15, 18, 21].map((x) => (
+        <circle key={x} cx={x} cy={19 + (x % 2)} r="1.4" fill="#fff1a0" stroke={shade('#e8c23a', 0.4)} stroke-width="0.6" />
+      ))}
+      {[13.5, 16.5, 19.5].map((x) => (
+        <circle key={x} cx={x} cy={23.5} r="1.2" fill="#e8323c" />
+      ))}
+    </Jar>
+  ),
+  grape_jelly: () => (
+    <Jar fill="#7a3a9a" lid="#f4f1ea">
+      <rect x="10" y="17" width="12" height="7" rx="1.5" fill="#fff8e6" stroke={INK} stroke-width="1.3" />
+      {[
+        [14, 19.3],
+        [18, 19.3],
+        [16, 21.8],
+      ].map(([x, y]) => (
+        <circle key={`${x}${y}`} cx={x} cy={y} r="1.5" fill="#8e44ad" />
+      ))}
+    </Jar>
+  ),
+  cornmeal: () => (
+    <>
+      <path d="M9 11c-2 5-3 12-1 16 1 2 15 2 16 0 2-4 1-11-1-16z" fill={shade('#f2cf5b', 0.15)} />
+      <path d="M9.5 11.5c-1.8 4.6-2.6 11-.9 14.5 1.2 1.3 12 1.4 14 .6.5-3.7-.2-10.4-1.9-15.1z" fill="#f2cf5b" />
+      <path d="M9 11c-2 5-3 12-1 16 1 2 15 2 16 0 2-4 1-11-1-16z" fill="none" stroke={INK} stroke-width="2" stroke-linejoin="round" />
+      <path d="M9 11c1-3 3-5 7-5s6 2 7 5" fill="#f2cf5b" stroke={INK} stroke-width="2" />
+      <path d="M11 11h10" stroke={INK} stroke-width="3.4" stroke-linecap="round" />
+      <path d="M11 11h10" stroke="#3fa34d" stroke-width="1.6" stroke-linecap="round" />
+      <ellipse cx="16" cy="20" rx="2.6" ry="4.2" fill="#ffe14d" stroke={INK} stroke-width="1.1" />
+      <path d="M14.6 18h2.8M14.4 20h3.2M14.6 22h2.8" stroke={shade('#ffe14d', 0.35)} stroke-width="0.8" />
+    </>
+  ),
+  carrot_cake: () => (
+    <Round top="#fff3e0" side="#d98a4a">
+      <path d="M8 18q2-1.5 4 0t4 0 4 0 4 0" stroke="#fff3e0" stroke-width="2" fill="none" />
+      <path d="M13 15.5l3 1.8M18.5 15l-1.5 2" stroke="#f08a2a" stroke-width="2" stroke-linecap="round" />
+      <path d="M16.2 14.6l.8-1.6" stroke="#3fa34d" stroke-width="1.2" stroke-linecap="round" />
+    </Round>
+  ),
+  pumpkin_pie: () => (
+    <Round top="#e8892a" side="#e8c890">
+      <path d="M5 17.5q2 2 4 .5t4 .5 4 0 4 0 4 0 3-.5" stroke="#f5dca8" stroke-width="2.2" fill="none" stroke-linecap="round" />
+      <ellipse cx="16" cy="16.5" rx="3" ry="1.3" fill="#fff8e6" stroke={INK} stroke-width="0.9" />
+    </Round>
+  ),
+  potato_bread: () => (
+    <>
+      <path d="M4 22c0-7 5-12 12-12s12 5 12 12c0 3-5 4-12 4s-12-1-12-4z" fill={shade('#c9955c', 0.2)} />
+      <path d="M4.6 21.5c0-6.5 4.8-11 11.4-11s11 4.3 11.3 10.6c-.4 2.5-5 3.4-11.3 3.4s-11-.8-11.4-3z" fill="#c9955c" />
+      <path d="M10 15l3 3M15 13l3 3M20 14l3 3" stroke={light('#c9955c', 0.45)} stroke-width="1.8" stroke-linecap="round" />
+      <ellipse cx="11" cy="14" rx="3" ry="1.2" fill="#fff" opacity="0.45" />
+      <path d="M4 22c0-7 5-12 12-12s12 5 12 12c0 3-5 4-12 4s-12-1-12-4z" fill="none" stroke={INK} stroke-width="2" stroke-linejoin="round" />
+    </>
+  ),
+  cotton_thread: () => (
+    <>
+      <path d="M10 7h12l-1 3H11zM10 25h12l-1-3H11z" fill="#c98a4b" stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+      <rect x="11" y="10" width="10" height="12" fill={shade('#f4f1ea', 0.12)} />
+      <rect x="11" y="10" width="8.5" height="12" fill="#f4f1ea" />
+      <path d="M11 12.5h10M11 15h10M11 17.5h10M11 20h10" stroke={shade('#f4f1ea', 0.25)} stroke-width="0.9" />
+      <rect x="11" y="10" width="10" height="12" fill="none" stroke={INK} stroke-width="1.8" />
+      <path d="M21 18q5 2 4 7" stroke={INK} stroke-width="1.2" fill="none" />
+    </>
+  ),
+  cotton_cloth: () => (
+    <>
+      <path d="M5 12l15-4 7 4-15 4z" fill={light('#e9e2d2', 0.3)} stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+      <path d="M5 12v9l7 4v-9z" fill={shade('#e9e2d2', 0.12)} stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+      <path d="M12 16l15-4v9l-15 4z" fill="#e9e2d2" stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+      <path d="M12 19l15-4M12 22l15-4" stroke={shade('#e9e2d2', 0.25)} stroke-width="0.9" />
+      <path d="M17 14.5v8.5" stroke="#2f6fb0" stroke-width="1.6" />
+    </>
+  ),
+  patchwork_quilt: () => (
+    <>
+      <path d="M4 12l12-5 12 5-12 5z" fill="#f4f1ea" stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+      <path d="M4 12v10l12 5V17z" fill="#d9604a" />
+      <path d="M16 17l12-5v10l-12 5z" fill="#2f6fb0" />
+      <path d="M4 17l12 5M16 22l12-5M10 14.5v10M22 14.5v10" stroke="#fff8e6" stroke-width="1" stroke-dasharray="1.6 1.4" />
+      <path d="M4 12l6 2.5M10 14.5V24.5L4 22z" fill="#ffc531" opacity="0.9" />
+      <path d="M22 14.5l6-2.5v10l-6 2.5z" fill="#3fa34d" opacity="0.9" />
+      <path d="M4 12v10l12 5 12-5V12" fill="none" stroke={INK} stroke-width="1.8" stroke-linejoin="round" />
+      <path d="M16 17v10" stroke={INK} stroke-width="1.4" />
     </>
   ),
   // decorations

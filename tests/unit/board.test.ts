@@ -285,7 +285,7 @@ describe('request board: the Daily Special', () => {
             expect(c.grow_s).toBeLessThanOrEqual(b.tiers.special.max_grow_s);
             cropPlots += n;
           } else if (content.goods.get(id) && !['honey', 'minnow', 'perch', 'brook_trout', 'crayfish'].includes(id)) {
-            expect(['jam', 'honey_jam']).toContain(id);
+            expect(content.buildings.get('jam_maker')!.recipes.filter((r) => (r.level ?? 1) <= level).map((r) => r.output)).toContain(id);
           }
           if (['minnow', 'perch', 'brook_trout', 'crayfish'].includes(id)) expect(level).toBeGreaterThanOrEqual(19);
         }
