@@ -22,8 +22,9 @@ his homecoming:
 - Chapter title cards, and a Story tab in Mail to re-read every quest and letter
 - Crop Mastery: stars at 50 / 200 / 600 harvests of a crop (cheaper seeds, bonus XP, an extra crop)
 - Heart events: two short scenes with each villager at 3 and 6 hearts; portraits react to what they say
-- Meadow Visitors: critters drop by growing crops every 5–10 minutes (up to 5 at once); tap for
-  pollen and honey, and fill Hazel's Field Sketchbook
+- Meadow Visitors: critters drop by your crops every 5–10 minutes, even while you're away (up to 6
+  at once; past that they drop pollen in the jar); tap for pollen and honey, fill Hazel's Field
+  Sketchbook, and earn stamps for the 3rd and 10th sighting
 - Moss naps by the fence and digs up a find every day
 - Decorations beside the field (Farm Beauty raises Fresh Pick tips) and a 7-day gift calendar that never
   resets when you miss a day

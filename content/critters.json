@@ -8,7 +8,11 @@
     "crops": "any",
     "min": 0,
     "weight": 10,
-    "note": "Seven spots. I counted twice. Bruno counted nine and refuses to discuss it."
+    "note": "Seven spots. I counted twice. Bruno counted nine and refuses to discuss it.",
+    "stamps": [
+      "Third one this week. Bruno now insists they're following him. They are following the aphids, Bruno.",
+      "Ten ladybugs. I've named them all. Nine are called Dot. The tenth is called Also Dot."
+    ]
   },
   {
     "id": "honeybee",
@@ -25,7 +29,11 @@
     ],
     "min": 0.25,
     "weight": 10,
-    "note": "Works harder than anyone in Bramblewick. Present company included. Especially present company."
+    "note": "Works harder than anyone in Bramblewick. Present company included. Especially present company.",
+    "stamps": [
+      "Back again. She visits the same flowers in the same order every day. Rufus calls that 'a routine'. I call it rude to copy.",
+      "Ten visits. I think she recognises your farm now. Bees remember faces. Mine she pretends not to."
+    ]
   },
   {
     "id": "garden_snail",
@@ -41,7 +49,11 @@
     ],
     "min": 0,
     "weight": 8,
-    "note": "Moves slower than Rufus on a Monday. An admirable commitment to the bit."
+    "note": "Moves slower than Rufus on a Monday. An admirable commitment to the bit.",
+    "stamps": [
+      "It has crossed one plot since Tuesday. I've started cheering. Quietly. Snails startle.",
+      "Ten sightings. I've begun to suspect it's the same snail, simply very well travelled. Slowly."
+    ]
   },
   {
     "id": "green_caterpillar",
@@ -57,7 +69,11 @@
     ],
     "min": 0.25,
     "weight": 8,
-    "note": "Eats its own body weight in lettuce daily. Juniper is taking notes, which worries me."
+    "note": "Eats its own body weight in lettuce daily. Juniper is taking notes, which worries me.",
+    "stamps": [
+      "Third sighting, and it's visibly larger. So is the hole in your lettuce. Science has costs.",
+      "Ten. One of them will be a butterfly soon. I'll pretend I'm not emotional about it."
+    ]
   },
   {
     "id": "cabbage_white",
@@ -73,7 +89,11 @@
     ],
     "min": 0.25,
     "weight": 7,
-    "note": "Elegant, plain, and entirely too fond of lettuce. Like Goldie."
+    "note": "Elegant, plain, and entirely too fond of lettuce. Like Goldie.",
+    "stamps": [
+      "Another one. They flutter like they've forgotten something. Goldie says that's her every morning.",
+      "Ten cabbage whites. My notebook is mostly lettuce stains and admiration now."
+    ]
   },
   {
     "id": "bumblebee",
@@ -89,7 +109,11 @@
     ],
     "min": 0.5,
     "weight": 6,
-    "note": "Aerodynamically impossible. Flies anyway. Pip says this is her whole personality."
+    "note": "Aerodynamically impossible. Flies anyway. Pip says this is her whole personality.",
+    "stamps": [
+      "Third bumblebee, and still no one has explained the physics to it. I won't be the one.",
+      "Ten. It hums in a slightly flat B. Juniper wants to tune it. I've told her no."
+    ]
   },
   {
     "id": "shield_beetle",
@@ -105,7 +129,11 @@
     ],
     "min": 0.25,
     "weight": 6,
-    "note": "Built like a tiny knight. Smells like a tiny knight who has been to war."
+    "note": "Built like a tiny knight. Smells like a tiny knight who has been to war.",
+    "stamps": [
+      "Third shield beetle. It held its ground against Moss. Moss lost. Moss is fine.",
+      "Ten sightings. If they ever form an army, I'd like it noted I was always respectful."
+    ]
   },
   {
     "id": "blue_dragonfly",
@@ -121,7 +149,11 @@
     ],
     "min": 0.5,
     "weight": 5,
-    "note": "Hovers like it owns the place. Ziggy has tried to sell me one. Twice."
+    "note": "Hovers like it owns the place. Ziggy has tried to sell me one. Twice.",
+    "stamps": [
+      "It caught a gnat mid-air while I was sketching it. Show-off. Beautiful, but a show-off.",
+      "Ten blue dragonflies. Ziggy has offered me a 'very fair price' for my notes. Still no."
+    ]
   },
   {
     "id": "golden_ladybug",
@@ -132,7 +164,11 @@
     "crops": "any",
     "min": 0.5,
     "weight": 2,
-    "note": "Rare. Lucky, according to Goldie. Unremarkable, according to science. I am keeping it anyway."
+    "note": "Rare. Lucky, according to Goldie. Unremarkable, according to science. I am keeping it anyway.",
+    "stamps": [
+      "A third golden ladybug. Goldie says I'm due a lucky streak. My pencil just broke.",
+      "Ten golden ladybugs. Either luck is real or your farm is. I'm choosing your farm."
+    ]
   },
   {
     "id": "monarch",
@@ -147,7 +183,11 @@
     ],
     "min": 0.5,
     "weight": 5,
-    "note": "Travels thousands of miles every year. Tobias managed one trip in forty. Just saying."
+    "note": "Travels thousands of miles every year. Tobias managed one trip in forty. Just saying.",
+    "stamps": [
+      "Another monarch, resting on its long trip. I gave it a crumb of encouragement. Metaphorically.",
+      "Ten monarchs. Your farm is on their map now. That's a bigger honour than any ribbon."
+    ]
   },
   {
     "id": "tiger_caterpillar",
@@ -163,7 +203,11 @@
     ],
     "min": 0.5,
     "weight": 5,
-    "note": "Striped as a warning. The warning is: I am adorable. It works on Moss every time."
+    "note": "Striped as a warning. The warning is: I am adorable. It works on Moss every time.",
+    "stamps": [
+      "Third tiger caterpillar. Moss tried to herd it. It was not herded.",
+      "Ten sightings. I've stopped warning people about the stripes. Nobody listens. They just say 'aww'."
+    ]
   },
   {
     "id": "ruby_dragonfly",
@@ -178,7 +222,11 @@
     ],
     "min": 0.5,
     "weight": 4,
-    "note": "Faster than the eye can follow. I sketched it from memory and a strong suspicion."
+    "note": "Faster than the eye can follow. I sketched it from memory and a strong suspicion.",
+    "stamps": [
+      "Third ruby dragonfly. I sketched one wing this time before it left. Progress.",
+      "Ten. I finally have a complete drawing, assembled from ten partial ones. Like a quilt. A fast quilt."
+    ]
   },
   {
     "id": "stag_beetle",
@@ -193,7 +241,11 @@
     ],
     "min": 0.5,
     "weight": 3,
-    "note": "Enormous jaws, gentle nature. Bruno says it reminds him of himself. Nobody has argued."
+    "note": "Enormous jaws, gentle nature. Bruno says it reminds him of himself. Nobody has argued.",
+    "stamps": [
+      "Third stag beetle. Two of them squared off over a pumpkin. Bruno took sides. Loudly.",
+      "Ten. I gave this one a tiny bow. Bruno says that's undignified. Bruno is jealous."
+    ]
   },
   {
     "id": "luna_moth",
@@ -208,7 +260,11 @@
     ],
     "min": 0.6,
     "weight": 3,
-    "note": "Lives one week and never eats. Rufus asked if it was a miller. I laughed. He did not."
+    "note": "Lives one week and never eats. Rufus asked if it was a miller. I laughed. He did not.",
+    "stamps": [
+      "Another luna moth. It sat on your fence like a lantern someone forgot to light.",
+      "Ten luna moths. Rufus has stopped asking if they mill things. Growth, for both of us."
+    ]
   },
   {
     "id": "purple_emperor",
@@ -222,7 +278,11 @@
     ],
     "min": 0.6,
     "weight": 3,
-    "note": "Iridescent, imperious, and very hard to impress. We understand each other."
+    "note": "Iridescent, imperious, and very hard to impress. We understand each other.",
+    "stamps": [
+      "Third emperor. It landed on my hat. I have never been so honoured or so still.",
+      "Ten purple emperors. It finally let me sketch it from the front. We're friends now. Practically."
+    ]
   },
   {
     "id": "violet_snail",
@@ -237,7 +297,11 @@
     ],
     "min": 0.5,
     "weight": 3,
-    "note": "Purple shell. No idea why. I have written four papers on it and still have no idea why."
+    "note": "Purple shell. No idea why. I have written four papers on it and still have no idea why.",
+    "stamps": [
+      "Third violet snail. Still purple. Still no idea why. Paper five is underway.",
+      "Ten. I've decided the shell is purple because it can be. That's the whole paper now. It's my best one."
+    ]
   },
   {
     "id": "golden_moth",
@@ -251,6 +315,10 @@
     "min": 0.5,
     "weight": 10,
     "secret": true,
-    "note": "Tobias drew this moth in the margin of his almanac in 1979. I told him he'd imagined it. I owe him an apology. And a pie."
+    "note": "Tobias drew this moth in the margin of his almanac in 1979. I told him he'd imagined it. I owe him an apology. And a pie.",
+    "stamps": [
+      "It came back. Tobias wrote 'told you so' in the margin of my notes. In ink.",
+      "Ten golden moths. Tobias and I watched one together from your fence. Neither of us said anything. Neither of us needed to."
+    ]
   }
 ]

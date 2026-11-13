@@ -27,7 +27,7 @@
     {
       "id": "honey_jam",
       "name": "Honey Berry Jam",
-      "sell": 520,
+      "sell": 750,
       "color": "#e89a2a"
     }
   ],
@@ -539,10 +539,15 @@
   "critters": {
     "min_s": 300,
     "max_s": 600,
-    "cap": 5,
+    "cap": 6,
     "pollen_per_honey": 5,
     "unlock_level": 3,
-    "hazel_points": 10
+    "hazel_points": 10,
+    "overflow_max": 10,
+    "stamps": [3, 10],
+    "page_hazel_points": 30,
+    "first_s": 20,
+    "melon_weight": 3
   },
   "land": {
     "max_size": 9,

@@ -217,6 +217,7 @@ describe('request board: the Daily Special', () => {
 
   it('rotates posters and gives a keepsake the first time a written Special is done', () => {
     const s = farmAt(20, 64, ['met_bruno', 'met_rufus', 'met_pip', 'met_hazel', 'met_juniper', 'creek_open']);
+    s.critters = { out: [], nextAt: 0, n: 0, seen: [], pollen: 0 };
     for (const id of ['mill', 'jam_maker', 'bakery']) grantBuilding(s, content, id);
     setFlag(s, 'mill_built');
     let last = '';
@@ -226,13 +227,45 @@ describe('request board: the Daily Special', () => {
       const sp = s.board.orders.find(isSpecial)!;
       expect(sp.villager).not.toBe(last);
       last = sp.villager;
-      giveItems(s, sp.wants);
+      for (const id of Object.keys(sp.wants)) if (id.startsWith('sketch:')) s.critters!.seen.push(id.slice(7));
+      giveItems(s, Object.fromEntries(Object.entries(sp.wants).filter(([id]) => !id.startsWith('sketch:'))));
       const r = fulfilOrder(s, content, sp.id);
       if (r.ok && r.keepsake) keepsakes.push(r.keepsake.name);
     }
     expect(keepsakes.length).toBeGreaterThanOrEqual(5);
     expect(new Set(keepsakes).size).toBe(keepsakes.length);
     expect(s.board.keepsakes!.length).toBe(keepsakes.length);
+  });
+
+  it("Hazel's generated Specials ask you to sketch a critter you haven't seen", () => {
+    const s = farmAt(15, 49, ['met_hazel']);
+    s.critters = { out: [], nextAt: 0, n: 0, seen: ['ladybug'], pollen: 0 };
+    s.board.keepsakes = content.board.specials.filter((x) => x.villager === 'hazel').map((x) => x.id);
+    let sp;
+    for (let d = 0; d < 40 && !sp; d++) {
+      s.board.lastSpecialBy = 'goldie';
+      const o = generateSpecial(s, content, d)!;
+      if (o.villager === 'hazel') sp = o;
+    }
+    const line = Object.keys(sp!.wants).find((id) => id.startsWith('sketch:'))!;
+    expect(line).toBeTruthy();
+    expect(line).not.toBe('sketch:ladybug');
+    s.board.orders = [sp!];
+    giveItems(s, Object.fromEntries(Object.entries(sp!.wants).filter(([id]) => id !== line)));
+    expect(handInLine(s, content, sp!.id, line)).toMatchObject({ ok: false, reason: 'missing' });
+    s.critters.seen.push(line.slice(7));
+    for (const id of Object.keys(sp!.wants)) handInLine(s, content, sp!.id, id);
+    expect(s.board.orders).toHaveLength(0);
+  });
+
+  it('honey is only asked for once you have some', () => {
+    const s = farmAt(12, 49);
+    const asks = (n: number) => Array.from({ length: 300 }, (_, t) => generateOrder(s, content, t, 0)!).filter((o) => o.wants.honey).length;
+    expect(asks(0)).toBe(0);
+    s.inventory.honey = 1;
+    const n = asks(1);
+    expect(n).toBeGreaterThan(0);
+    expect(n / 300).toBeLessThan(0.06);
   });
 
   it('sizing and availability hold across levels 6–30', () => {

@@ -1,6 +1,6 @@
 import type { BoardDef, Content, OrderTier } from './content';
-import { crittersOpen } from './critters';
-import { addItem, grantXp, hasFlag, hasItems, takeItems, unlockedCrops, type FarmState, type OrderState } from './farm';
+import { CRITTERS, critterById, crittersOpen } from './critters';
+import { addItem, grantXp, hasFlag, takeItems, unlockedCrops, type FarmState, type OrderState } from './farm';
 import { fishingOpen } from './fishing';
 import { addFriendship, friends, type FriendshipChange } from './friendship';
 import { merchantHere } from './merchant';
@@ -34,7 +34,20 @@ export const isSpecial = (o: OrderState) => o.tier === 'special';
 const isRegular = (o: OrderState) => !o.story && !isSpecial(o);
 export const specialOpen = (state: FarmState, content: Content) => state.level >= board(content).special_level;
 
-type Pick = { id: string; value: number; xp: number; grow?: number; kind: 'crop' | 'good' | 'honey' | 'fish' };
+type Pick = { id: string; value: number; xp: number; grow?: number; kind: 'crop' | 'good' | 'honey' | 'fish' | 'sketch' };
+
+/** A Special line that asks you to sketch a critter (Hazel's), not to hand in an item. */
+export const SKETCH = 'sketch:';
+export const isSketch = (id: string) => id.startsWith(SKETCH);
+
+/** Is this line ready to hand in? (A sketch line is ready once that critter is in the Sketchbook.) */
+export function lineReady(state: FarmState, id: string, n: number): boolean {
+  if (isSketch(id)) return !!state.critters?.seen.includes(id.slice(SKETCH.length));
+  return (state.inventory[id] ?? 0) >= n;
+}
+
+const itemsOnly = (wants: Record<string, number>) => Object.fromEntries(Object.entries(wants).filter(([id]) => !isSketch(id)));
+const allReady = (state: FarmState, wants: Record<string, number>) => Object.entries(wants).every(([id, n]) => lineReady(state, id, n));
 
 /** Goods the player can make: from buildings they own (the mill counts once it's turning). */
 function makeableGoods(state: FarmState, content: Content): Pick[] {
@@ -56,7 +69,8 @@ function pools(state: FarmState, content: Content) {
   const crops: Pick[] = unlockedCrops(state, content)
     .map((c) => ({ id: c.id, value: c.sell, xp: c.xp, grow: c.grow_s, kind: 'crop' as const }))
     .sort((a, b) => a.grow! - b.grow!);
-  const honey = crittersOpen(state, content) && content.goods.get('honey');
+  // honey is only asked for once you have some: it comes slowly, 5 pollen at a time
+  const honey = crittersOpen(state, content) && (state.inventory.honey ?? 0) >= 1 && content.goods.get('honey');
   // only the shallows fish bite at any hour, so they're always catchable
   const fish = fishingOpen(state) ? ['minnow', 'perch', 'brook_trout', 'crayfish'].map((id) => content.goods.get(id)).filter((g) => !!g) : [];
   return {
@@ -73,6 +87,7 @@ const usablePlots = (state: FarmState) => Object.keys(state.plots).filter((k) =>
 function qty(p: Pick, share: number, plots: number, r: () => number, tier: OrderTier): number {
   if (p.kind === 'crop') return Math.max(2, Math.round(plots * share * (0.6 + 0.4 * r())));
   const big = tier === 'special' ? 1 : 0;
+  if (p.kind === 'sketch') return 1;
   if (p.kind === 'good') return 1 + big + (plots >= 49 && r() < 0.5 ? 1 : 0);
   // honey comes 5 pollen at a time from the meadow visitors, so it's asked for in ones and twos
   if (p.kind === 'honey') return 1 + (big && r() < 0.5 ? 1 : 0);
@@ -113,6 +128,23 @@ function price(lines: [Pick, number][], mult: number) {
   return { coins: Math.round(coins * mult), xp };
 }
 
+/** A critter you haven't sketched that your crops can draw in (never a secret one). */
+function sketchTarget(state: FarmState, content: Content, crops: Pick[], r: () => number): Pick | null {
+  if (!crittersOpen(state, content)) return null;
+  const grown = new Set(crops.map((c) => c.id));
+  const seen = new Set(state.critters?.seen ?? []);
+  const can = CRITTERS.filter((x) => !x.secret && !seen.has(x.id) && (x.crops === 'any' || x.crops.some((id) => grown.has(id))));
+  if (!can.length) return null;
+  const x = pickFrom(can, r);
+  return { id: SKETCH + x.id, value: 120, xp: 10, kind: 'sketch' };
+}
+
+/** A line's display name (a sketch line names the critter). */
+export function lineName(content: Content, id: string): string {
+  if (isSketch(id)) return `Sketch: ${critterById.get(id.slice(SKETCH.length))?.name ?? id}`;
+  return content.cropById.get(id)?.name ?? content.goods.get(id)?.name ?? id;
+}
+
 /** One regular order for a tick. */
 export function generateOrder(state: FarmState, content: Content, tick: number, day: number): OrderState | null {
   const b = board(content);
@@ -136,7 +168,7 @@ export function generateOrder(state: FarmState, content: Content, tick: number, 
     if (P.goods.length && roll < 0.3) {
       const g = choose(P.goods, villager, content, r);
       lines.push([g, qty(g, t.share, plots, r, tier)]);
-    } else if (P.honey.length && roll < 0.36) {
+    } else if (P.honey.length && roll >= 0.3 && roll < 0.36) {
       lines.push([P.honey[0], qty(P.honey[0], t.share, plots, r, tier)]);
     } else {
       const two = crops.length > 1 && r() < 0.5;
@@ -197,8 +229,10 @@ export function generateSpecial(state: FarmState, content: Content, day: number)
     const slow = choose(crops.slice(Math.floor(crops.length / 2)), villager, content, r);
     const rest = crops.filter((c) => c !== slow);
     const good = P.goods.length ? choose(P.goods, villager, content, r) : rest.length ? choose(rest, villager, content, r) : slow;
-    // fish once the creek is open (bites come every few minutes); before that, another crop
-    const wilds = P.fish;
+    // fish once the creek is open (bites come every few minutes); before that, another crop.
+    // Hazel would rather you sketched a critter she hasn't seen on your farm yet.
+    const sketch = villager === 'hazel' ? sketchTarget(state, content, P.crops, r) : null;
+    const wilds = sketch ? [sketch] : P.fish;
     // (a fallback crop line is never one of the quickest few: this is the hard one)
     const left = rest.filter((c) => c !== good && c.grow! > 900);
     const wild = wilds.length ? choose(wilds, villager, content, r) : left.length ? choose(left, villager, content, r) : good;
@@ -277,7 +311,7 @@ export function boardOrders(state: FarmState): OrderState[] {
 
 /** Orders with something you can deliver now (a Special counts if any line can go in). */
 export function fillableCount(state: FarmState): number {
-  return state.board.orders.filter((o) => (isSpecial(o) ? Object.entries(o.wants).some(([id, n]) => hasItems(state, { [id]: n })) : hasItems(state, o.wants))).length;
+  return state.board.orders.filter((o) => (isSpecial(o) ? Object.entries(o.wants).some(([id, n]) => lineReady(state, id, n)) : allReady(state, o.wants))).length;
 }
 
 export type FulfilResult =
@@ -305,8 +339,8 @@ function payOut(state: FarmState, content: Content, order: OrderState): FulfilRe
 export function fulfilOrder(state: FarmState, content: Content, orderId: string): FulfilResult {
   const order = state.board.orders.find((o) => o.id === orderId);
   if (!order) return { ok: false, reason: 'unknown' };
-  if (!hasItems(state, order.wants)) return { ok: false, reason: 'missing' };
-  takeItems(state, order.wants);
+  if (!allReady(state, order.wants)) return { ok: false, reason: 'missing' };
+  takeItems(state, itemsOnly(order.wants));
   if (isSpecial(order)) {
     order.done = { ...order.done, ...order.wants };
     order.wants = {};
@@ -321,8 +355,8 @@ export function handInLine(state: FarmState, content: Content, orderId: string, 
   const order = state.board.orders.find((o) => o.id === orderId);
   const n = order?.wants[itemId];
   if (!order || !isSpecial(order) || !n) return { ok: false, reason: 'unknown' };
-  if (!hasItems(state, { [itemId]: n })) return { ok: false, reason: 'missing' };
-  takeItems(state, { [itemId]: n });
+  if (!lineReady(state, itemId, n)) return { ok: false, reason: 'missing' };
+  if (!isSketch(itemId)) takeItems(state, { [itemId]: n });
   order.done = { ...order.done, [itemId]: n };
   delete order.wants[itemId];
   return { ok: true, paid: Object.keys(order.wants).length ? null : payOut(state, content, order) };

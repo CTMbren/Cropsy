@@ -28,7 +28,7 @@ import {
 import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, type MossFind } from './core/friendship';
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
 import { markBackedUp, snoozeBackup } from './core/backup';
-import { syncCritters, tapCritter, type TapResult } from './core/critters';
+import { syncCritters, tapCritter, type SyncResult, type TapResult } from './core/critters';
 import { catchFish, rollFish, syncBites, type CatchResult, type FishDef } from './core/fishing';
 import { startClearing, syncLand, type ClearResult } from './core/land';
 import { coachHint, type CoachHint } from './core/coach';
@@ -51,6 +51,7 @@ export type FxEvent =
   | { kind: 'coins'; amount: number }
   | { kind: 'ribbon'; amount: number; why: string }
   | { kind: 'keepsake'; villager: string; name: string }
+  | { kind: 'meadow'; text: string }
   | { kind: 'heart'; villager: string; hearts: number; perk?: string }
   | { kind: 'gift'; villager: string; taste: string }
   | { kind: 'shipped'; n: number; coins: number }
@@ -99,6 +100,8 @@ export class Game {
   private fxListeners = new Set<(e: FxEvent) => void>();
   private screenListeners = new Set<(e: ScreenFx) => void>();
   private saveTimer: number | undefined;
+  private leftCount = 0;
+  private leftTimer: number | undefined;
 
   /** A sheet or card covers the farm, so it doesn't need drawing (battery). Set by the UI. */
   uiCovered = false;
@@ -160,13 +163,13 @@ export class Game {
     });
     window.addEventListener('pagehide', () => this.saveNow());
     this.finishClearing();
-    syncCritters(this.state, this.content, this.now());
+    this.syncVisitors();
     syncBites(this.state, this.content, this.now());
     // visitors (and bites at the creek) arrive while the app is open, too
     window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       const before = JSON.stringify(this.state.critters?.out ?? []);
-      syncCritters(this.state, this.content, this.now());
+      this.syncVisitors();
       const bites = syncBites(this.state, this.content, this.now());
       const cleared = this.state.clearing && this.now() >= this.state.clearing.endsAt;
       // a new request goes up on the board every couple of hours, while you play too
@@ -848,12 +851,32 @@ export class Game {
     }
   }
 
+  /** Brings meadow visitors up to date and says what happened (Hazel's hellos, pollen left behind). Quiet: the away card reports the jar. */
+  private syncVisitors(quiet = false): SyncResult {
+    const r = syncCritters(this.state, this.content, this.now());
+    if (r.first) this.fx({ kind: 'meadow', text: 'Hazel: “A visitor on your crops! Tap it, gently, and I’ll sketch it.”' });
+    if (r.moth) this.fx({ kind: 'meadow', text: 'Hazel: “Is that… the Golden Moth? On your melon? Tap it before Tobias sees!”' });
+    if (r.left.length) {
+      // a drag-harvest can send several off one after another: say it once
+      this.leftCount += r.left.length;
+      window.clearTimeout(this.leftTimer);
+      this.leftTimer = window.setTimeout(() => {
+        const n = this.leftCount;
+        this.leftCount = 0;
+        this.fx({ kind: 'meadow', text: n === 1 ? 'A visitor flew off and left you a pollen' : `${n} visitors flew off and left you pollen` });
+      }, 700);
+    }
+    if (r.banked && !quiet) this.fx({ kind: 'meadow', text: `Your pollen jar filled while the farm was full: +${r.banked} pollen` });
+    return r;
+  }
+
   private checkAway(): void {
     const now = this.now();
     const refreshed = refreshBoard(this.state, this.content, now, this.tz());
-    const s = awaySummary(this.state, this.content, now, refreshed);
+    const meadow = this.syncVisitors(true);
+    const s = awaySummary(this.state, this.content, now, refreshed, { visitors: meadow.arrived.length, jar: meadow.banked });
     log(this.state, now, 'session');
-    if (s.awaySeconds >= 60 && (s.ripe.length || s.newMail || s.newOrders)) this.away = s;
+    if (s.awaySeconds >= 60 && (s.ripe.length || s.newMail || s.newOrders || s.visitors || s.jar)) this.away = s;
     else this.state.lastSeen = now;
     this.emit();
   }
@@ -863,7 +886,7 @@ export class Game {
     syncMerchant(this.state, this.content, this.day());
     syncTownProject(this.state, this.content, this.day());
     this.finishClearing();
-    syncCritters(this.state, this.content, this.now());
+    this.syncVisitors();
     syncBites(this.state, this.content, this.now());
     // keep the active quest possible (places missing weeds, branches or rocks on free plots)
     ensureQuestMaterials(this.state, this.content);
