@@ -1,3 +1,4 @@
+import { hash01 } from './rand';
 import type { Content } from './content';
 import { addItem, emptyPlot, key, parseKey, type FarmState } from './farm';
 import { fnv1a } from './save';
@@ -27,13 +28,14 @@ interface LandConfig {
 }
 
 const cfg = (content: Content) => (content.economy as unknown as { land: LandConfig }).land;
-const hash01 = (seed: string) => parseInt(fnv1a(seed), 16) / 0x100000000;
+/** The original (weak) roll. Kept only for the map's stump/boulder layout, so uncleared land never changes. */
+const layoutRoll = (seed: string) => parseInt(fnv1a(seed), 16) / 0x100000000;
 
 /** Bruno clears land once he's rebuilt the gate (the first expansion comes from the story). */
 export const landOpen = (state: FarmState) => state.expansions >= 1;
 
 /** What's growing over a wild cell. Fixed per cell, roughly 60% stumps and 40% boulders. */
-export const blockerAt = (cell: string): Blocker => (hash01(`wild:${cell}`) < 0.4 ? 'boulder' : 'stump');
+export const blockerAt = (cell: string): Blocker => (layoutRoll(`wild:${cell}`) < 0.4 ? 'boulder' : 'stump');
 
 export function inHomestead(content: Content, cell: string): boolean {
   const [x, y] = parseKey(cell);

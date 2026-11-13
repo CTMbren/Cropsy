@@ -1,8 +1,8 @@
+import { hash01 } from './rand';
 import critterJson from '../../content/critters.json';
 import type { Content } from './content';
 import { addItem, hasFlag, progress, type FarmState } from './farm';
 import { addFriendship } from './friendship';
-import { fnv1a } from './save';
 
 /**
  * Meadow Visitors: little critters visit crops. One arrives every 5–10 minutes while anything is
@@ -83,10 +83,6 @@ interface CritterConfig {
 
 const cfg = (content: Content) => (content.economy as unknown as { critters: CritterConfig }).critters;
 
-/** A number in [0, 1) fixed by a seed string, so spawns don't reroll on reload. */
-function hash01(seed: string): number {
-  return parseInt(fnv1a(seed), 16) / 0x100000000;
-}
 
 /** The wait before visitor number n: 5–10 minutes. */
 export function spawnGap(content: Content, n: number): number {

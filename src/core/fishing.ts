@@ -1,8 +1,8 @@
+import { hash01 } from './rand';
 import fishJson from '../../content/fish.json';
 import type { Content } from './content';
 import { addItem, hasFlag, type FarmState } from './farm';
 import { addFriendship, type FriendshipChange } from './friendship';
-import { fnv1a } from './save';
 
 /**
  * Creek Dock fishing (Chapter 6). Bites build up over real time, one every 4–8 minutes (time away
@@ -65,9 +65,6 @@ export function biteCap(state: FarmState, content: Content): number {
   return hasFlag(state, 'perk:nell') ? cfg(content).perk_cap : cfg(content).cap;
 }
 
-function hash01(seed: string): number {
-  return parseInt(fnv1a(seed), 16) / 0x100000000;
-}
 
 /** The wait before bite number n: 4–8 minutes. */
 export function biteGap(content: Content, n: number): number {
