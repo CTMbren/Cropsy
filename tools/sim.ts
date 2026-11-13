@@ -7,7 +7,7 @@
  * what they don't need, clear what they can afford, buy upgrades, and plant the most profitable
  * crop that will be ready by their next check-in.
  */
-import { fulfilOrder, handInLine, isSpecial, refreshBoard, type FulfilResult } from '../src/core/board';
+import { fulfilOrder, handInLine, isSketch, isSpecial, lineReady, refreshBoard, type FulfilResult } from '../src/core/board';
 import { loadContent, type Content } from '../src/core/content';
 import { barnCapacity, barnUsed, upgradeSoil, clearObstacle, harvest, newFarm, OBSTACLES, plant, sell, stageOf, unlockedCrops, type FarmState } from '../src/core/farm';
 import { buyBuilding, collect, startRecipe } from '../src/core/processing';
@@ -189,7 +189,7 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
     if (isSpecial(o)) {
       // the Special: hand in each line as soon as it can be spared
       for (const [id, n] of Object.entries(o.wants)) {
-        if (!spare(id, n)) continue;
+        if (isSketch(id) ? !lineReady(s, id, n) : !spare(id, n)) continue;
         const r = handInLine(s, c, o.id, id);
         if (r.ok && r.paid) {
           paid(r.paid, now);

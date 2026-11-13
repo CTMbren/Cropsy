@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { boardOrders, boardSlots, boardTickHours, fillableCount, isSpecial, nextPostAt } from '../core/board';
+import { boardOrders, boardSlots, boardTickHours, fillableCount, isSketch, isSpecial, lineName, lineReady, nextPostAt } from '../core/board';
 import { goodsReady } from '../core/processing';
 import { itemName, itemValue, shortName, type Content, type VillagerDef } from '../core/content';
 import { barnCapacity, barnUsed, cratePrice, hasFlag, newFarm, type FarmState, hasItems, lifetimeHarvests, MASTERY_STEP, masteryLevel, masteryPending, masteryPicks, masteryThreshold, masteryToChoose, nextReady, progress, remaining, seedCost, stageOf, unlockedCrops } from '../core/farm';
@@ -16,7 +16,7 @@ import { beauty, calendarRewards, canClaim, decorDef, decorDefs, nextGift, place
 import { hasImprovement, improvements, nextTownLevel, TOWN_BONUS_LEVELS, TOWN_BONUS_PER_LEVEL, townLevel, townProject, townProjectOpen, weekOf } from '../core/town';
 import { boughtToday, daysUntilMerchant, merchantHere, merchantStock, merchantUnlocked } from '../core/merchant';
 import { needsBackupNudge } from '../core/backup';
-import { CRITTERS, crittersOpen, nextVisitorIn, PAGE_TITLES, PAGES, pollenPerHoney } from '../core/critters';
+import { CRITTERS, critterCap, crittersOpen, nextVisitorIn, PAGE_TITLES, PAGES, pollenPerHoney, stampThresholds } from '../core/critters';
 import { CritterIcon } from './critterIcons';
 import { biteCap, FISH, FISH_PAGE_TITLES, FISH_PAGES, fishingOpen, nextBiteIn, type CatchResult, type FishDef } from '../core/fishing';
 import { formatDuration, localOffsetMinutes } from '../core/time';
@@ -105,7 +105,9 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
       if (e.kind === 'star') whenIdle(() => setMasteryCard(e.id));
       if (e.kind === 'bloom') setToast(`${e.isNew ? 'New! ' : ''}The mystery seed bloomed: ${itemName(game.content, e.id)}! +${e.xp} XP`);
       if (e.kind === 'barn-nearly') setToast(`Barn almost full: ${e.used}/${e.cap}. Sell some crops soon.`);
+      if (e.kind === 'meadow') setToast(e.text);
       if (e.kind === 'critter' && e.result.pageDone) setToast(`Sketchbook page ${e.result.pageDone} complete! +1 Ribbon`);
+      else if (e.kind === 'critter' && e.result.stamp) setToast(`★ ${e.result.species.name}: ${e.result.stamp.n} sightings! +1 pollen and a new note from Hazel`);
       else if (e.kind === 'critter' && e.result.firstTime) setToast(`Sketched the ${e.result.species.name}! See it in Town → Sketchbook`);
       if (e.kind === 'moss') setToast('coins' in e.find ? `Moss dug up ${e.find.coins} coins!` : `Moss dug up ${e.find.qty} ${itemName(game.content, e.find.item).toLowerCase()}!`);
       if (e.kind === 'keepsake') setToast(`Keepsake: ${e.name}! See it on the Board`);
@@ -545,6 +547,8 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
                 </li>
               ))}
               {game.away.newMail > 0 && <li>{game.away.newMail === 1 ? 'A letter arrived' : `${game.away.newMail} letters arrived`} in your mailbox</li>}
+              {!!game.away.visitors && <li>{game.away.visitors === 1 ? 'A visitor is' : `${game.away.visitors} visitors are`} waiting on your crops</li>}
+              {!!game.away.jar && <li>Your pollen jar filled up: +{game.away.jar} pollen</li>}
               {game.away.newOrders > 0 && <li>{game.away.newOrders === 1 ? 'A new request is' : `${game.away.newOrders} new requests are`} on the board</li>}
             </ul>
             <button class="btn green" onClick={() => game.dismissAway()}>
@@ -801,10 +805,18 @@ function BoardSheet({ game, onClose }: { game: Game; onClose: () => void }) {
                     {lines.map((id) => {
                       const done = o.done?.[id];
                       const n = done ?? o.wants[id];
-                      const can = !done && (s.inventory[id] ?? 0) >= n;
+                      const can = !done && lineReady(s, id, n);
                       return (
                         <li key={id} class={done ? 'line-done' : ''}>
-                          {done ? <span class="have">✓ {n} {itemName(c, id)}</span> : <WantChip game={game} id={id} n={n} onPick={onClose} />}
+                          {done ? (
+                            <span class="have">✓ {isSketch(id) ? lineName(c, id) : `${n} ${itemName(c, id)}`}</span>
+                          ) : isSketch(id) ? (
+                            <span class={can ? 'have' : 'need'} title="Tap it on your farm when it visits">
+                              {lineName(c, id)} {can ? '✓' : '· find it on your farm'}
+                            </span>
+                          ) : (
+                            <WantChip game={game} id={id} n={n} onPick={onClose} />
+                          )}
                           {!done && (
                             <button class={`btn small${can ? ' green' : ''}`} disabled={!can} onClick={() => game.handInLine(o.id, id)}>
                               Give
@@ -2498,7 +2510,7 @@ function SketchbookTab({ game }: { game: Game }) {
   return (
     <>
       <p class="muted small">
-        Little visitors drop by while your crops grow. Tap them on the farm: each one gives pollen, and new ones get sketched here. Finish a page for a Ribbon.
+        Little visitors drop by your crops, even while you're away. Tap them on the farm: each one gives pollen, new ones get sketched here, and the 3rd and 10th sighting earn a stamp. Finish a page for a Ribbon.
       </p>
       <div class="order">
         <ItemIcon id="honey" size={40} />
@@ -2516,7 +2528,9 @@ function SketchbookTab({ game }: { game: Game }) {
               ? `${s.critters!.out.length} visiting your farm now!`
               : next !== null
                 ? `Next visitor in about ${formatDuration(next)}.`
-                : 'Plant something and visitors will come.'}
+                : (s.critters?.out.length ?? 0) >= critterCap(c)
+                  ? 'The farm is full of visitors. Newcomers drop pollen in the jar.'
+                  : 'Plant something and visitors will come.'}
           </p>
         </div>
       </div>
@@ -2531,22 +2545,51 @@ function SketchbookTab({ game }: { game: Game }) {
             <ul class="almanac">
               {list.map((x) => {
                 const got = seen.includes(x.id);
+                const n = s.critters?.counts?.[x.id] ?? (got ? 1 : 0);
+                const stars = stampThresholds(c).filter((t) => n >= t).length;
                 return (
                   <li key={x.id} class={`almanac-card${got ? '' : ' unknown'}`}>
                     <button class="critter-card" disabled={!got} onClick={() => setOpen(open === x.id ? null : x.id)} aria-expanded={open === x.id}>
                       <CritterIcon shape={x.shape} color={x.color} unknown={!got} />
                       <span class="almanac-name">{got ? x.name : x.secret ? '???' : 'Not yet seen'}</span>
-                      {!got && !x.secret && <small>{x.crops === 'any' ? 'Any crop' : x.crops.map((id) => c.cropById.get(id)?.name).join(', ')}</small>}
+                      {got && <small class="stamps" aria-label={`${stars} of 2 stamps, seen ${n} times`}>{'★'.repeat(stars)}{'☆'.repeat(2 - stars)} · seen {n}</small>}
+                      {!got && !x.secret && (
+                        <small>
+                          {x.crops === 'any' ? 'Any crop' : x.crops.map((id) => c.cropById.get(id)?.name).join(', ')}
+                          {x.min >= 0.5 ? ' · half grown or riper' : x.min > 0 ? ' · once sprouted' : ''}
+                        </small>
+                      )}
                     </button>
                   </li>
                 );
               })}
             </ul>
-            {open && list.some((x) => x.id === open) && <p class="story-lines critter-note">“{CRITTERS.find((x) => x.id === open)!.note}” <b>– Hazel</b></p>}
+            {open && list.some((x) => x.id === open) && <CritterNotes game={game} id={open} />}
           </section>
         );
       })}
     </>
+  );
+}
+
+/** Hazel's note on a species, plus the stamp notes earned so far. */
+function CritterNotes({ game, id }: { game: Game; id: string }) {
+  const x = CRITTERS.find((k) => k.id === id)!;
+  const n = game.state.critters?.counts?.[id] ?? 1;
+  const stamps = stampThresholds(game.content);
+  return (
+    <div class="story-lines critter-note">
+      <p>
+        “{x.note}” <b>– Hazel</b>
+      </p>
+      {stamps.map((t, i) =>
+        n >= t ? (
+          <p key={t}>
+            <span class="stamp-mark">★ {t}</span> “{x.stamps[i]}”
+          </p>
+        ) : null,
+      )}
+    </div>
   );
 }
 

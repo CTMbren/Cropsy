@@ -135,7 +135,7 @@ export interface FarmState {
   /** This week's town project and trophies earned so far. */
   town?: { week: number; done: boolean; trophies: number; project?: import('./town').TownProject };
   /** Meadow Visitors: critters on the farm, the arrival clock, species sketched, pollen toward honey. */
-  critters?: { out: import('./critters').Visitor[]; nextAt: number; n: number; seen: string[]; pollen: number };
+  critters?: import('./critters').CritterState;
   /** Creek Dock fishing (Chapter 6); created when the creek opens. */
   fishing?: import('./fishing').FishingState;
   /** Land being cleared by Bruno's crew: one plot at a time. */
@@ -576,10 +576,13 @@ export interface AwaySummary {
   newMail: number;
   /** New requests posted on the board while you were away. */
   newOrders: number;
+  /** Meadow visitors that arrived while you were away, and pollen the jar banked. */
+  visitors?: number;
+  jar?: number;
 }
 
 /** What changed while the player was away — shown on return instead of push notifications. */
-export function awaySummary(state: FarmState, content: Content, now: number, newOrders = 0): AwaySummary {
+export function awaySummary(state: FarmState, content: Content, now: number, newOrders = 0, meadow: { visitors: number; jar: number } = { visitors: 0, jar: 0 }): AwaySummary {
   const counts = new Map<string, number>();
   for (const p of Object.values(state.plots)) {
     if (!p.crop) continue;
@@ -592,6 +595,8 @@ export function awaySummary(state: FarmState, content: Content, now: number, new
     ripe: [...counts].map(([id, count]) => ({ crop: content.cropById.get(id)?.name ?? id, count })),
     newMail,
     newOrders,
+    visitors: meadow.visitors,
+    jar: meadow.jar,
   };
 }
 
