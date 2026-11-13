@@ -260,7 +260,7 @@
     },
     {
       "id": "t_pickles",
-      "text": "Start a crock of pickles before bed. They take hours, and they'll be ready by morning.",
+      "text": "Fill every crock before bed. Pickles all work at once, and they'll be ready by morning.",
       "page": "buildings",
       "needs": "pickling"
     },

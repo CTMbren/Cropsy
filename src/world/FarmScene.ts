@@ -1029,8 +1029,7 @@ export class FarmScene extends Phaser.Scene {
     art.placeholder('building/jam_maker', SHOP_BOUNDS, (g, cx, cy) => drawJamMaker(g, cx, cy));
     art.placeholder('building/bakery', SHOP_BOUNDS, (g, cx, cy) => drawBakery(g, cx, cy));
     art.placeholder('building/pickling', SHOP_BOUNDS, (g, cx, cy) => drawPickling(g, cx, cy));
-    art.placeholder('building/pickling@up', SHOP_BOUNDS, (g, cx, cy) => drawPickling(g, cx, cy, true));
-    art.placeholder('building/loom', SHOP_BOUNDS, (g, cx, cy) => drawLoom(g, cx, cy));
+        art.placeholder('building/loom', SHOP_BOUNDS, (g, cx, cy) => drawLoom(g, cx, cy));
     art.placeholder('building/loom@up', SHOP_BOUNDS, (g, cx, cy) => drawLoom(g, cx, cy, true));
     for (const id of ['jam_maker', 'bakery', 'mill']) art.placeholder(`building/${id}/upgrade`, id === 'mill' ? MILL_BOUNDS : SHOP_BOUNDS, (g, cx, cy) => drawUpgrade(g, id, cx, cy));
     art.placeholder('fx/badge', BADGE_BOUNDS, (g, cx, cy) => drawBadge(g, cx, cy));
@@ -1104,7 +1103,7 @@ export class FarmScene extends Phaser.Scene {
     st.jamUp.setVisible(up('jam_maker'));
     st.bakeryUp.setVisible(up('bakery'));
     for (const id of ['pickling', 'loom']) {
-      if (s.buildings[id]) this.show(st[id], `building/${id}${up(id) ? '@up' : ''}`);
+      if (s.buildings[id]) this.show(st[id], `building/${id}${id === 'loom' && up(id) ? '@up' : ''}`);
       st[id].setVisible(!!s.buildings[id]);
       st[`${id}Badge`].setVisible(!!s.buildings[id] && ready(id) > 0);
     }

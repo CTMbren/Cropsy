@@ -2,7 +2,7 @@ import type { Content, CropDef, ObstacleKind, OrderDef, OrderTier } from './cont
 import { addXp } from './progression';
 import type { TimeState } from './time';
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 export type { ObstacleKind };
 
