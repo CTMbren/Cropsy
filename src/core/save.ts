@@ -1,3 +1,4 @@
+import { blockerAt } from './land';
 import { masteryLevelFor, masteryThreshold, oldMasteryThreshold, SAVE_VERSION, type FarmState } from './farm';
 
 /** A save record as stored in one of the two alternating slots. */
@@ -75,6 +76,22 @@ const migrations: ((d: Record<string, unknown>) => Record<string, unknown>)[] = 
     const flags = [...((d.flags as string[]) ?? [])];
     if (((d.level as number) ?? 1) >= 5 && !flags.includes('market_early')) flags.push('market_early');
     return { ...d, flags };
+  },
+  // v6 → v7 (proper random rolls): Bruno's boulders never held gold because of a weak roll. Pay
+  // one nugget for every 10 boulders his crew already cleared, with a note from Bruno.
+  (d) => {
+    const n = 4 + ((d.expansions as number) ?? 0);
+    const cleared = Object.keys((d.plots as Record<string, unknown>) ?? {}).filter((k) => {
+      const [x, y] = k.split(',').map(Number);
+      return (x >= n || y >= n) && blockerAt(k) === 'boulder';
+    }).length;
+    const owed = Math.floor(cleared / 10);
+    if (!owed) return d;
+    const inventory = { ...((d.inventory as Record<string, number>) ?? {}) };
+    inventory.gold = (inventory.gold ?? 0) + owed;
+    const mail = [...((d.mail as { id: string; arrivesAt: number; read: boolean }[]) ?? [])];
+    if (!mail.some((m) => m.id === 'bruno_gold')) mail.push({ id: 'bruno_gold', arrivesAt: (d.lastSeen as number) ?? 0, read: false });
+    return { ...d, inventory, mail };
   },
 ];
 
