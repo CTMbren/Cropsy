@@ -1,0 +1,171 @@
+[
+  {
+    "id": "planting",
+    "title": "Planting and harvesting",
+    "icon": "farm",
+    "intro": "Every farm starts with dirt under your nails. Here's how I did it.",
+    "bullets": [
+      "Tap empty soil to pick a seed. It stays picked, so drag across more plots to plant them all.",
+      "Planted the wrong thing? Tap it again within 3 seconds and you get your coins back.",
+      "Ripe crops wave at you. Tap or drag across them to harvest.",
+      "Pick crops soon after they ripen for a Fresh Pick: a coin tip and extra XP. Wait too long and the bonus is gone.",
+      "Replant All, at the start of the seed tray, puts the same crops back in every empty plot."
+    ],
+    "try": "farm"
+  },
+  {
+    "id": "selling",
+    "title": "Selling: crate, market and board",
+    "icon": "coin",
+    "intro": "Where you sell matters more than what you grow. I learned that the slow way.",
+    "bullets": [
+      "The shipping crate in the Barn pays 70% of a crop's value. Quick, but the worst price in town.",
+      "Board orders pay the most. Keep what an order wants, sell the rest.",
+      { "text": "Pip's market in Town pays 80% to 140% of value, and never less than the crate.", "needs": "market" },
+      { "text": "Market prices change every 8 hours: midnight, 8 am and 4 pm. If today's price is low, it may be better later.", "needs": "market" },
+      { "text": "The featured crop always pays 165%, the best price at the market. It changes with the prices.", "needs": "market" },
+      "When the barn is full, crops ship themselves at crate price. Sell before that happens."
+    ],
+    "table": true,
+    "try": "barn"
+  },
+  {
+    "id": "board",
+    "title": "Board orders and Specials",
+    "icon": "board",
+    "intro": "Neighbours pin what they need on the Board. Treat it like a shopping list that pays you.",
+    "bullets": [
+      "A new order goes up every 2 hours, even while you're away. Orders never expire.",
+      "Pass on an order you don't like. It's free, and a new one comes on the next tick.",
+      { "text": "The gold Daily Special asks for three things and pays a Ribbon. Hand in each line as you get it.", "needs": "special" },
+      "Filling orders makes friends, too. Every order adds to that villager's hearts."
+    ],
+    "try": "board"
+  },
+  {
+    "id": "planning",
+    "title": "Planning around your day",
+    "icon": "replant",
+    "intro": "Crops grow while you sleep. A good farmer plants for the next time they'll look.",
+    "bullets": [
+      "Before you put the phone down, plant something that will be ready when you come back.",
+      "Short crops while you're playing, long crops overnight or during work.",
+      "A crop left ripe for hours is fine, but you miss its Fresh Pick bonus.",
+      "Longer crops earn more per harvest. Faster ones earn more per hour, if you're around to replant."
+    ],
+    "try": "farm"
+  },
+  {
+    "id": "land",
+    "title": "Growing your farm",
+    "icon": "soil",
+    "intro": "I let half the land go wild. Win it back a plot at a time.",
+    "bullets": [
+      "Tap weeds, branches and rocks to clear them. Branches give wood, rocks give stone.",
+      "Bruno's crew clears stumps and boulders past the fence, one plot at a time, if you pay them.",
+      { "text": "Better soil grows crops faster, and rich soil sometimes gives an extra crop.", "needs": "soil" },
+      "Fertilizer doubles one harvest. Save it for your most valuable crops."
+    ],
+    "try": "town:land"
+  },
+  {
+    "id": "buildings",
+    "title": "Buildings and goods",
+    "icon": "building",
+    "intro": "A sack of flour sells for far more than the wheat that went into it.",
+    "bullets": [
+      "Buildings turn crops into goods. Goods are worth more than the crops they're made from.",
+      "Start a batch, then come back. Buildings work while you're away, too.",
+      "Board orders and the story often ask for goods. Keep a few on hand.",
+      "Ribbons buy extra slots, so a building can work on more at once."
+    ],
+    "try": "town:store"
+  },
+  {
+    "id": "friends",
+    "title": "Friends and gifts",
+    "icon": "heart",
+    "intro": "Bramblewick is small. Everybody remembers who was kind.",
+    "bullets": [
+      "Gifts, orders and quests all add hearts. Each villager has favourite things; loved gifts count the most.",
+      "At 3 and 6 hearts a villager shares a moment with you, and a Ribbon or two.",
+      "At 5 hearts each friend gives you a lasting perk.",
+      "Each villager takes one gift a day."
+    ],
+    "try": "town:friends"
+  },
+  {
+    "id": "ziggy",
+    "title": "Ziggy's cart",
+    "icon": "town",
+    "intro": "Ziggy sells everything and explains nothing. Buy anyway.",
+    "bullets": [
+      "Ziggy's cart comes to town every few days. A badge on Town tells you when.",
+      "He brings seeds you can't grow yet, plus wood, stone, gold and fertilizer.",
+      "Early seeds are pricey, but they can open up a better crop days ahead of time."
+    ],
+    "try": "town:cart"
+  },
+  {
+    "id": "almanac",
+    "title": "Hazel's Almanac and mastery",
+    "icon": "xp",
+    "intro": "Hazel knows plants better than I ever did. Listen to her.",
+    "bullets": [
+      "Every crop earns stars the more you grow it. Each star pays a Ribbon and a bonus.",
+      "Pick Coins, XP, Quick Growth, Bountiful or Thrifty. Coins is the safe pick; the others suit how you play.",
+      "Once a week you can redo one crop's stars for free, from its page in the Almanac.",
+      "Ten stars earns a gold page and a sparkle in the field."
+    ],
+    "try": "town:almanac"
+  },
+  {
+    "id": "meadow",
+    "title": "Meadow visitors",
+    "icon": "decor",
+    "intro": "Bugs aren't pests. Mostly. Hazel will tell you which.",
+    "bullets": [
+      "Little visitors land on your crops while they grow, even while you're away.",
+      "Tap one to sketch it for the Sketchbook and collect pollen.",
+      "Five pollen makes a honey. Honey is worth a lot, and neighbours ask for it.",
+      "Some visitors only come to certain crops. Grow a mix."
+    ],
+    "try": "town:sketchbook"
+  },
+  {
+    "id": "creek",
+    "title": "Creek fishing",
+    "icon": "town",
+    "intro": "I used to fish the creek every evening. Nell still does.",
+    "bullets": [
+      "Bites build up while you're away. Come by and catch them.",
+      "Cast, wait for the bobber to dip, then tap Reel. Missing a fish costs nothing.",
+      "Different fish bite at different times of day.",
+      "Fish make good gifts and fill some orders."
+    ],
+    "try": "town:creek"
+  },
+  {
+    "id": "town",
+    "title": "Town projects",
+    "icon": "town",
+    "intro": "Bramblewick gets back on its feet one project at a time.",
+    "bullets": [
+      "Every week the town asks for some crops and coins. Finish it for Ribbons and a trophy.",
+      "Each town level raises the price of everything you sell.",
+      "Big projects like the bridge give the whole farm a lasting perk."
+    ],
+    "try": "town:projects"
+  },
+  {
+    "id": "ribbons",
+    "title": "Ribbons",
+    "icon": "ribbon",
+    "intro": "Ribbons are the town's way of saying well done. Coins can't buy them.",
+    "bullets": [
+      "You get Ribbons for new crops, mastery stars, heart moments, Daily Specials and town projects.",
+      "Spend them on extra building slots, so a building can work on more at once."
+    ],
+    "try": "barn"
+  }
+]

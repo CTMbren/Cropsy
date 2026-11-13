@@ -96,25 +96,30 @@ describe('tools, obstacles and land', () => {
 });
 
 describe('market stall', () => {
-  it('prices sit between 0.8× and 1.4× (featured crop ×1.5) and stay fixed all day', () => {
+  it('prices sit between 0.8× and 1.4×, the featured crop is always the best at 1.65×, and they hold for the 8-hour period', () => {
     const s = newFarm(T0);
     s.level = 10;
-    for (let day = 100; day < 130; day++) {
+    for (let period = 300; period < 390; period++) {
+      const featured = featuredCrop(s, content, period);
+      expect(featured).not.toBeNull();
+      expect(priceFactor(s, content, featured!, period)).toBe(1.65);
       for (const c of content.crops.slice(0, 7)) {
-        const f = priceFactor(s, content, c.id, day);
-        const featured = featuredCrop(s, content, day) === c.id;
-        expect(f).toBeGreaterThanOrEqual(featured ? 1.2 : 0.8);
-        expect(f).toBeLessThanOrEqual(featured ? 2.1 : 1.4);
-        expect(priceFactor(s, content, c.id, day)).toBe(f);
+        const f = priceFactor(s, content, c.id, period);
+        if (c.id === featured) continue;
+        expect(f).toBeGreaterThanOrEqual(0.8);
+        expect(f).toBeLessThanOrEqual(1.4);
+        expect(priceFactor(s, content, c.id, period)).toBe(f);
+        expect(marketPrice(s, content, c.id, period)).toBeLessThanOrEqual(marketPrice(s, content, featured!, period) * (c.sell / content.cropById.get(featured!)!.sell) + 1);
       }
     }
   });
 
-  it('opens at level 5 and sells crops and goods', () => {
+  it('opens when the story rebuilds the market square, and sells crops and goods', () => {
     const s = newFarm(T0);
     giveItems(s, { carrot: 2, flour: 1 });
+    s.level = 9;
     expect(marketSell(s, content, 'carrot', 2, 100)).toBe(0);
-    s.level = 5;
+    setFlag(s, 'market_built');
     const p = marketPrice(s, content, 'carrot', 100);
     expect(marketSell(s, content, 'carrot', 2, 100)).toBe(p * 2);
     expect(marketSell(s, content, 'flour', 1, 100)).toBeGreaterThan(100);

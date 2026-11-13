@@ -13,6 +13,8 @@ import { barnCapacity, barnUsed, chooseMastery, clearObstacle, coinStep, cratePr
 import { syncAlmanac } from '../src/core/almanac';
 import { dayIndex as day0 } from '../src/core/time';
 import { buyBuilding, collect, startRecipe } from '../src/core/processing';
+import { marketOpen, marketSell, priceFactor } from '../src/core/shop';
+import { marketPeriod } from '../src/core/time';
 import { buyBarn, buyMaterial, buyTool, deliverStage, nextBarn } from '../src/core/shop';
 import { clearCost, landOpen, plotCap, plotCount, startClearing, syncLand, touchesField, wildCells } from '../src/core/land';
 import { buyFromMerchant, merchantStock } from '../src/core/merchant';
@@ -40,6 +42,8 @@ export interface BoardStats {
   picks: Record<string, number>;
   /** Crops auto-shipped because the barn was full. */
   overflow: number;
+  /** Coins from selling at Pip's market. */
+  marketCoins: number;
 }
 
 export interface SimResult {
@@ -49,7 +53,7 @@ export interface SimResult {
   board: BoardStats;
 }
 
-const newStats = (): BoardStats => ({ filled: {}, orderCoins: 0, crateCoins: 0, ribbons: 0, specials: 0, specialsIn24h: 0, peakPlotShare: 0, picks: {}, overflow: 0 });
+const newStats = (): BoardStats => ({ filled: {}, orderCoins: 0, crateCoins: 0, ribbons: 0, specials: 0, specialsIn24h: 0, peakPlotShare: 0, picks: {}, overflow: 0, marketCoins: 0 });
 let stats = newStats();
 const specialSeen = new Map<string, number>();
 
@@ -117,6 +121,26 @@ function reserve(s: FarmState, c: Content, withOrders = true, extras = true): Re
  */
 export type MasteryStrategy = 'none' | 'value' | 'speed' | 'bounty' | 'thrift';
 let strategy: MasteryStrategy = 'value';
+
+/**
+ * Where the simulated player sells spare crops. 'crate' ships everything (the old sim); 'market'
+ * sells at Pip's market once it's open, holding a crop for a better price while the barn has room.
+ */
+export type Seller = 'crate' | 'market';
+let seller: Seller = 'crate';
+
+function sellSpare(s: FarmState, c: Content, id: string, n: number, now: number, mustSell: boolean): number {
+  if (seller === 'market' && marketOpen(s, c)) {
+    const period = marketPeriod(now, TZ);
+    if (!mustSell && priceFactor(s, c, id, period) < 1 && barnUsed(s, c) < barnCapacity(s, c) * 0.5) return -1;
+    const coins = marketSell(s, c, id, n, period);
+    stats.marketCoins += coins;
+    return coins;
+  }
+  const coins = sell(s, c, id, n);
+  stats.crateCoins += coins;
+  return coins;
+}
 
 function pickValue(s: FarmState, c: Content, id: string, kind: MasteryPick): number {
   const crop = c.cropById.get(id)!;
@@ -265,14 +289,12 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
   for (const id of Object.keys(s.inventory)) {
     if (!c.cropById.has(id) && !c.goods.has(id)) continue;
     const extra = (s.inventory[id] ?? 0) - (keep[id] ?? 0);
-    if (extra > 0) {
-      stats.crateCoins += sell(s, c, id, extra);
-      sold += extra;
-    }
+    if (extra > 0 && sellSpare(s, c, id, extra, now, false) >= 0) sold += extra;
   }
   // a barn that's nearly full sells everything the story isn't waiting for (orders included),
   // the way a player clears space so the field can be harvested
-  if (barnUsed(s, c) > barnCapacity(s, c) * 0.9) {
+  const barnWasFull = barnUsed(s, c) > barnCapacity(s, c) * 0.9;
+  if (barnWasFull) {
     const story = reserve(s, c, false, false);
     // (but not what the Daily Special is waiting for)
     for (const o of s.board.orders) if (isSpecial(o)) for (const [id, n] of Object.entries(o.wants)) story[id] = (story[id] ?? 0) + n;
@@ -280,13 +302,19 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
       if (!c.cropById.has(id) && !c.goods.has(id)) continue;
       const extra = (s.inventory[id] ?? 0) - (story[id] ?? 0);
       if (extra > 0) {
-        stats.crateCoins += sell(s, c, id, extra);
+        sellSpare(s, c, id, extra, now, true);
         sold += extra;
       }
     }
   }
   if (sold) ev({ type: 'sell', n: sold });
   talk(s, c, now, TZ);
+  // a bigger barn comes before anything grand: a full barn sells what the story needs
+  const b = nextBarn(s, c);
+  if (b && (barnWasFull || barnUsed(s, c) > barnCapacity(s, c) * 0.7) && s.coins > (b.coins ?? 0) + 300) {
+    for (const [id, n] of Object.entries(b.items ?? {})) while ((s.inventory[id] ?? 0) < n && s.coins > (b.coins ?? 0) + 300 && buyMaterial(s, c, id).ok);
+    if (buyBarn(s, c).ok) log(`barn ${barnCapacity(s, c)}`);
+  }
   // the weekly town project, Bramblewick improvements and the odd decoration
   const day = dayIndex(now, TZ);
   if (townProjectOpen(s, c)) {
@@ -301,7 +329,10 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
   // grow the town when there's plenty in the bank (keeps a cushion for everything else)
   if (townProjectOpen(s, c)) {
     const next = nextTownLevel(s, c);
-    if (s.coins > next.coins * 2 && raiseTownLevel(s, c).ok) log(`town level ${next.level}`);
+    // (only with crops to spare: never with what the story or the board is waiting for)
+    const busy = reserve(s, c, true, false);
+    const spareForTown = Object.entries(next.wants).every(([id, n]) => (s.inventory[id] ?? 0) - n >= (busy[id] ?? 0));
+    if (spareForTown && s.coins > next.coins * 2 && raiseTownLevel(s, c).ok) log(`town level ${next.level}`);
   }
   for (const d of decorDefs(c)) if (!d.story && d.level <= s.level && s.coins > d.coins * 4 && (s.decorStore?.[d.id] ?? 0) + Object.values(s.decor ?? {}).filter((x) => x === d.id).length < 2) buyDecor(s, c, d.id);
   // soil upgrades once there's money to spare
@@ -316,8 +347,7 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
     const next = wildCells(s, c).filter((k) => touchesField(s, k)).sort((a, b) => a.split(',').reduce((m, v) => m + +v, 0) - b.split(',').reduce((m, v) => m + +v, 0))[0];
     if (next && startClearing(s, c, next, now).ok) log(`clearing ${next}`);
   }
-  const b = nextBarn(s, c);
-  if (b && barnUsed(s, c) > barnCapacity(s, c) * 0.7 && s.coins > (b.coins ?? 0) + 300 && buyBarn(s, c).ok) log(`barn ${barnCapacity(s, c)}`);
+
   // clear obstacles we can afford
   for (const [k, kind] of Object.entries(s.obstacles)) {
     if (s.coins < OBSTACLES[kind].cost + 30) continue;
@@ -369,8 +399,9 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
   advance(s, c, now, TZ);
 }
 
-export function simulate(days = 42, mastery: MasteryStrategy = 'value'): SimResult {
+export function simulate(days = 42, mastery: MasteryStrategy = 'value', sells: Seller = 'crate'): SimResult {
   strategy = mastery;
+  seller = sells;
   const c = loadContent();
   const s = newFarm(T0);
   stats = newStats();

@@ -14,4 +14,11 @@ describe('economy pacing (simulated casual player)', () => {
     console.log(`Mastery: picks ${JSON.stringify(b.picks)}, barn overflow shipped ${b.overflow}`);
     expect(r.final.level).toBeGreaterThan(1);
   });
+
+  it('prints the same player selling at the market', () => {
+    const m = simulate(70, 'value', 'market');
+    const q = (id: string) => fmtHours(m.events.find((e) => e.e === `quest ${id}`)?.h ?? NaN);
+    console.log(`Market seller: L22 ${fmtHours(m.levelAt[22])}, L30 ${fmtHours(m.levelAt[30])}, Chapter 5 ends ${q('ch5_tobias')}, Chapter 6 ends ${q('ch6_ferry')}, market coins ${m.board.marketCoins}, crate coins ${m.board.crateCoins}, order coins ${m.board.orderCoins}`);
+    expect(m.board.marketCoins).toBeGreaterThan(0);
+  });
 });

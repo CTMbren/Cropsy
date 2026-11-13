@@ -93,7 +93,7 @@ export interface Economy {
   buildings: BuildingDef[];
   tools: ToolDef[];
   expansions: ExpansionDef[];
-  market: { unlock_level: number; min: number; max: number; featured_bonus: number };
+  market: { min: number; max: number; featured_price: number; period_hours: number };
   slot_upgrade_ribbons: number[];
   soil: SoilDef[];
   barn: BarnTier[];

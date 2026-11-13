@@ -2,7 +2,7 @@ import type { Content, CropDef, ObstacleKind, OrderDef, OrderTier } from './cont
 import { addXp } from './progression';
 import type { TimeState } from './time';
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export type { ObstacleKind };
 
@@ -116,6 +116,8 @@ export interface FarmState {
     motion?: 'system' | 'reduced' | 'full';
     /** 30 fps and no idle animation on the farm. */
     batterySaver?: boolean;
+    /** Tips and nudges (on unless turned off). */
+    tips?: boolean;
     /** Dragging across plots plants/harvests each one (on by default). */
     dragActions?: boolean;
   };
@@ -152,6 +154,10 @@ export interface FarmState {
   cropStats?: Record<string, CropStats>;
   /** Fractions of a coin from coin mastery, paid out once they add up (spare change). */
   coinDust?: number;
+  /** Tobias's notes: pages read and pages known to be open (signatures "page:bullets"). */
+  notes?: { read: string[]; known?: string[] };
+  /** Tips and nudges shown, habit counters. */
+  tipState?: import('./notes').TipState;
   merchant?: { day: number; bought: number[]; stock?: import('./merchant').MerchantSlot[] };
   /** Local-only event log for playtests (capped). */
   log: { t: number; e: string }[];

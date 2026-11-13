@@ -99,5 +99,11 @@
     "from": "hazel",
     "subject": "A gold page",
     "body": "Dear farmer,\n\nOne of your crops has reached its tenth star. In all my years I've only given a handful of gold-leaf pages, and Tobias got none of them. (Don't tell him.)\n\nLook for the gold border in the Almanac, and keep an eye on your field when that crop ripens. It's earned a little sparkle.\n\nProudly,\nHazel"
+  },
+  {
+    "id": "tobias_notes",
+    "from": "tobias",
+    "subject": "My old notebook",
+    "body": "My dear sprout,\n\nGoldie tells me you filled her carrot order. Carrot cake! She hasn't baked that since I left.\n\nI forgot to tell you: my old farming notebook is on the shelf in the barn. It's dog-eared and there's jam on most of it, but most of it is still true. You'll find it in your menu from now on.\n\nThe pages fill in as you go. I never wrote anything down before I needed it.\n\nWith love,\nTobias\n\nP.S. The crate is for when you're in a hurry. Neighbours always pay better."
   }
 ]

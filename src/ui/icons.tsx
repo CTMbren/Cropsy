@@ -172,6 +172,15 @@ export function Icon({ name, size = 22 }: { name: string; size?: number }) {
           <circle cx="16" cy="16" r="5.5" fill="none" stroke="#e09b0e" stroke-width="2" />
         </svg>
       );
+    case 'notes':
+      return (
+        <svg {...common}>
+          <path d="M7 5h16a2 2 0 0 1 2 2v20H9a2 2 0 0 1-2-2z" fill="#c9955c" stroke={INK} stroke-width="2.4" stroke-linejoin="round" />
+          <path d="M10 5v22" stroke={INK} stroke-width="2" />
+          <path d="M14 11h7M14 15h7M14 19h5" stroke="#fff8e6" stroke-width="2" stroke-linecap="round" />
+          <circle cx="21" cy="23" r="2.2" fill="#e8323c" />
+        </svg>
+      );
     case 'xp':
       return (
         <svg {...common}>
