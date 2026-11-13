@@ -14,7 +14,7 @@ import { canGiftToday, chatter, friends, heartProgress, hearts, pendingEvents, s
 import { buildingPrice, canAffordBuilding, linesOf, queueView, readyCount, recipeLock, recipeTime, slotUpgradeCost, upgradeStatus } from '../core/processing';
 import { brunoPrice, featuredCrop, marketOpen, marketPrice, nextBarn, priceFactor, toolPrice } from '../core/shop';
 import { blockerAt, clearCost, clearReward, clearTime, landOpen, nextCapLevel, plotCap, plotCount, touchesField } from '../core/land';
-import { activeQuest, canHandIn, inbox, itemsWanted, letterStatus, objectiveText, target, unreadCount, waitingFor, type TalkResult } from '../core/story';
+import { activeQuest, canHandIn, inbox, itemsWanted, letterStatus, objectiveText, target, storySkipCooldown, storyWaitLetter, unreadCount, waitingFor, type TalkResult } from '../core/story';
 import { beauty, calendarRewards, canClaim, decorDef, decorDefs, nextGift, placed, stored, tipBonus, type CalendarReward } from '../core/decor';
 import { hasImprovement, improvements, nextTownLevel, TOWN_BONUS_LEVELS, TOWN_BONUS_PER_LEVEL, townLevel, townProject, townProjectOpen, weekOf } from '../core/town';
 import { boughtToday, daysUntilMerchant, merchantHere, merchantStock, merchantUnlocked } from '../core/merchant';
@@ -186,6 +186,8 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
 
   const unread = unreadPages(s, game.content).length;
   const side = sideQuest(s);
+  const waitLetter = storyWaitLetter(s, game.content, now);
+  const skipIn = storySkipCooldown(s, now);
   /** Opens where a page's "Try it" or a tip's "Show me" points: the farm, a sheet, a Town tab or a notes page. */
   const go = (target: string) => {
     if (target === 'farm') setSheet(null);
@@ -257,6 +259,12 @@ export function App({ game, updateReady, onUpdate, debug, checkUpdate, lastUpdat
           </div>
         );
       })()}
+      {waitLetter && (
+        <button class="tracker skip" disabled={skipIn > 0} onClick={() => game.skipStoryWait()}>
+          <span class="tracker-title">{skipIn > 0 ? 'Skip the wait' : 'Skip the wait?'}</span>
+          <span class="tracker-obj">{skipIn > 0 ? `You can skip again in ${formatDuration(skipIn)}` : 'The letter arrives now. Once a day.'}</span>
+        </button>
+      )}
       {side && (
         <button class="tracker side" onClick={() => setSheet('board')}>
           <span class="tracker-title">Side quest: {side.title}</span>

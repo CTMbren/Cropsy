@@ -80,6 +80,41 @@ export function itemsWanted(state: FarmState, content: Content): Record<string, 
   return want;
 }
 
+// ── Skipping a wait ──────────────────────────────────────────────
+/** How long after a skip the next one is allowed. */
+export const STORY_SKIP_COOLDOWN_S = 24 * 3600;
+
+/**
+ * The letter the story is waiting on that hasn't arrived yet (usually "tomorrow morning"): a letter
+ * the active quest asks you to read, or the letter whose flag opens the next quest. Null when the
+ * story isn't waiting on the clock (waiting on a level, or nothing to wait for).
+ */
+export function storyWaitLetter(state: FarmState, content: Content, now: number): string | null {
+  const coming = (id: string) => state.mail.some((m) => m.id === id && m.arrivesAt > now);
+  for (const o of activeQuest(state, content)?.objectives ?? []) if (o.type === 'read_mail' && coming(o.id)) return o.id;
+  const w = waitingFor(state, content);
+  if (w?.flag) {
+    const m = state.mail.find((x) => x.arrivesAt > now && content.letters.get(x.id)?.effects?.flags?.includes(w.flag!));
+    if (m) return m.id;
+  }
+  return null;
+}
+
+/** Seconds until the skip can be used again (0 = ready). */
+export function storySkipCooldown(state: FarmState, now: number): number {
+  return state.storySkipAt === undefined ? 0 : Math.max(0, state.storySkipAt + STORY_SKIP_COOLDOWN_S - now);
+}
+
+/** Delivers the letter the story is waiting on right now. Once every 24 hours. Returns the letter id. */
+export function skipStoryWait(state: FarmState, content: Content, now: number): string | null {
+  const id = storyWaitLetter(state, content, now);
+  if (!id || storySkipCooldown(state, now) > 0) return null;
+  const m = state.mail.find((x) => x.id === id)!;
+  m.arrivesAt = now;
+  state.storySkipAt = now;
+  return id;
+}
+
 /** Where the letter a quest is waiting on stands: not sent, on its way, in the mailbox, or read. */
 export function letterStatus(state: FarmState, id: string, now: number): { state: 'missing' | 'coming' | 'waiting' | 'read'; arrivesAt?: number } {
   const m = state.mail.find((x) => x.id === id);
