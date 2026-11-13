@@ -9,7 +9,9 @@
  */
 import { fulfilOrder, handInLine, isSketch, isSpecial, lineReady, refreshBoard, type FulfilResult } from '../src/core/board';
 import { loadContent, type Content } from '../src/core/content';
-import { barnCapacity, barnUsed, upgradeSoil, clearObstacle, harvest, newFarm, OBSTACLES, plant, sell, stageOf, unlockedCrops, type FarmState } from '../src/core/farm';
+import { barnCapacity, barnUsed, chooseMastery, clearObstacle, coinStep, cratePrice, growTimeFor, harvest, masteryOptions, masteryPending, masteryPicks, masteryToChoose, newFarm, OBSTACLES, plant, redoMastery, redoReady, seedCost, sell, stageOf, unlockedCrops, upgradeSoil, type FarmState, type MasteryPick } from '../src/core/farm';
+import { syncAlmanac } from '../src/core/almanac';
+import { dayIndex as day0 } from '../src/core/time';
 import { buyBuilding, collect, startRecipe } from '../src/core/processing';
 import { buyBarn, buyMaterial, buyTool, deliverStage, nextBarn } from '../src/core/shop';
 import { clearCost, landOpen, plotCap, plotCount, startClearing, syncLand, touchesField, wildCells } from '../src/core/land';
@@ -34,6 +36,10 @@ export interface BoardStats {
   specialsIn24h: number;
   /** Most plots the board's crops ever asked for at once, as a share of the field. */
   peakPlotShare: number;
+  /** Mastery picks made, by track. */
+  picks: Record<string, number>;
+  /** Crops auto-shipped because the barn was full. */
+  overflow: number;
 }
 
 export interface SimResult {
@@ -43,7 +49,7 @@ export interface SimResult {
   board: BoardStats;
 }
 
-const newStats = (): BoardStats => ({ filled: {}, orderCoins: 0, crateCoins: 0, ribbons: 0, specials: 0, specialsIn24h: 0, peakPlotShare: 0 });
+const newStats = (): BoardStats => ({ filled: {}, orderCoins: 0, crateCoins: 0, ribbons: 0, specials: 0, specialsIn24h: 0, peakPlotShare: 0, picks: {}, overflow: 0 });
 let stats = newStats();
 const specialSeen = new Map<string, number>();
 
@@ -104,9 +110,55 @@ function reserve(s: FarmState, c: Content, withOrders = true, extras = true): Re
   return keep;
 }
 
+/**
+ * How the simulated player spends mastery stars. 'none' leaves them unspent (the pre-Nov-13 sim);
+ * 'value' takes the pick worth the most coins per harvest; 'speed', 'bounty' or 'thrift' take that
+ * track first until it caps (speed is the pacing worst case, bounty the barn's), then 'value'. Both use the weekly re-do once, when the Almanac opens.
+ */
+export type MasteryStrategy = 'none' | 'value' | 'speed' | 'bounty' | 'thrift';
+let strategy: MasteryStrategy = 'value';
+
+function pickValue(s: FarmState, c: Content, id: string, kind: MasteryPick): number {
+  const crop = c.cropById.get(id)!;
+  const crate = cratePrice(crop);
+  if (strategy === kind) return Infinity;
+  switch (kind) {
+    case 'coin':
+      return coinStep(crop.sell) * crate;
+    case 'xp':
+      return 0;
+    case 'speed':
+      return 0.05 * Math.max(0, crate - seedCost(s, crop));
+    case 'bounty':
+      return 0.04 * crate;
+    case 'thrift':
+      return 0.1 * crop.seed_cost;
+  }
+}
+
+function spendStars(s: FarmState, c: Content, now: number): void {
+  if (strategy === 'none') return;
+  syncAlmanac(s, now, TZ);
+  const day = day0(now, TZ);
+  // when the Almanac opens, re-do the crop with the most early picks
+  if (redoReady(s, day) && s.masteryRedo === undefined) {
+    const most = Object.keys(s.masteryPicks ?? {}).sort((a, b) => masteryPicks(s, b).length - masteryPicks(s, a).length)[0];
+    if (most) redoMastery(s, most, day);
+  }
+  for (const id of masteryToChoose(s))
+    while (masteryPending(s, id) > 0) {
+      const best = masteryOptions(s, id, c)
+        .filter((o) => o.open)
+        .sort((a, b) => pickValue(s, c, id, b.kind) - pickValue(s, c, id, a.kind))[0];
+      if (!best || !chooseMastery(s, id, best.kind, c)) break;
+      stats.picks[best.kind] = (stats.picks[best.kind] ?? 0) + 1;
+    }
+}
+
 function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e: string) => void): void {
   const ev = (e: Parameters<typeof onEvent>[2]) => onEvent(s, c, e, now, TZ);
   advance(s, c, now, TZ);
+  spendStars(s, c, now);
   for (const m of inbox(s, now).filter((x) => !x.read)) readMail(s, c, m.id, now, TZ);
   refreshBoard(s, c, now, TZ);
   for (const o of s.board.orders) if (isSpecial(o) && !specialSeen.has(o.id)) {
@@ -149,6 +201,7 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
     const p = s.plots[k];
     if (p.crop && stageOf(p, now) === 'ripe') {
       const r = harvest(s, c, k, now);
+      if (r.ok && r.kind === 'harvested') stats.overflow += r.shipped;
       if (r.ok && r.kind === 'harvested') ev({ type: 'harvest', crop: r.crop.id });
     }
   }
@@ -275,8 +328,10 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
   // ready by the next check-in
   const gap = nextAt - now;
   const crops = unlockedCrops(s, c);
-  const fits = crops.filter((x) => x.grow_s <= gap);
-  const pick = (fits.length ? fits : crops.slice(0, 1)).reduce((a, x) => (x.sell - x.seed_cost > a.sell - a.seed_cost ? x : a));
+  // grow time and seed cost after soil, greenhouse and mastery (plain soil as the yardstick)
+  const fits = crops.filter((x) => growTimeFor(s, c, x, 0) <= gap);
+  const profit = (x: (typeof crops)[number]) => x.sell - seedCost(s, x);
+  const pick = (fits.length ? fits : crops.slice(0, 1)).reduce((a, x) => (profit(x) > profit(a) ? x : a));
   const growing: Record<string, number> = {};
   for (const p of Object.values(s.plots)) if (p.crop) growing[p.crop] = (growing[p.crop] ?? 0) + 1;
   const isCrop = (id: string) => crops.some((x) => x.id === id);
@@ -314,7 +369,8 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
   advance(s, c, now, TZ);
 }
 
-export function simulate(days = 42): SimResult {
+export function simulate(days = 42, mastery: MasteryStrategy = 'value'): SimResult {
+  strategy = mastery;
   const c = loadContent();
   const s = newFarm(T0);
   stats = newStats();

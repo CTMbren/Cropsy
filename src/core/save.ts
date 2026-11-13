@@ -1,4 +1,4 @@
-import { SAVE_VERSION, type FarmState } from './farm';
+import { masteryLevelFor, masteryThreshold, oldMasteryThreshold, SAVE_VERSION, type FarmState } from './farm';
 
 /** A save record as stored in one of the two alternating slots. */
 export interface SaveRecord {
@@ -61,6 +61,14 @@ const migrations: ((d: Record<string, unknown>) => Record<string, unknown>)[] = 
     barnLevel: 0,
     settings: { ...((d.settings as object) ?? {}), music: true },
   }),
+  // v4 → v5 (Almanac mastery): gentler mastery curve. Levels are recounted from harvests, and every
+  // level the new curve adds pays the Ribbon it would have paid; its pick waits on the crop.
+  (d) => {
+    const harvests = (d.harvests as Record<string, number>) ?? {};
+    let owed = 0;
+    for (const n of Object.values(harvests)) owed += Math.max(0, masteryLevelFor(n, masteryThreshold) - masteryLevelFor(n, oldMasteryThreshold));
+    return { ...d, ribbons: ((d.ribbons as number) ?? 0) + owed };
+  },
 ];
 
 export class SaveTooNewError extends Error {}

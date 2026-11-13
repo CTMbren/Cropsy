@@ -2,7 +2,7 @@ import type { Content, CropDef, ObstacleKind, OrderDef, OrderTier } from './cont
 import { addXp } from './progression';
 import type { TimeState } from './time';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export type { ObstacleKind };
 
@@ -146,6 +146,12 @@ export interface FarmState {
   harvests?: Record<string, number>;
   /** Bonus chosen at each mastery level, per crop. */
   masteryPicks?: Record<string, MasteryPick[]>;
+  /** Monday-week the weekly mastery re-do was last used. */
+  masteryRedo?: number;
+  /** Per-crop numbers for the Almanac pages. */
+  cropStats?: Record<string, CropStats>;
+  /** Fractions of a coin from coin mastery, paid out once they add up (spare change). */
+  coinDust?: number;
   merchant?: { day: number; bought: number[]; stock?: import('./merchant').MerchantSlot[] };
   /** Local-only event log for playtests (capped). */
   log: { t: number; e: string }[];
@@ -290,6 +296,8 @@ export function unplant(state: FarmState, content: Content, k: string, now: numb
   const crop = content.cropById.get(p.crop);
   const refund = crop ? seedCost(state, crop) : 0;
   state.coins += refund;
+  const saved = crop ? crop.seed_cost - refund : 0;
+  if (saved > 0 && state.cropStats?.[crop!.id]?.saved) state.cropStats[crop!.id].saved = Math.max(0, state.cropStats[crop!.id].saved! - saved);
   state.plots[k] = { crop: null, plantedAt: 0, growS: 0, soil: p.soil };
   return { ok: true, crop: p.crop, refund };
 }
@@ -320,25 +328,50 @@ function beautyBonus(state: FarmState, content: Content): number {
 
 // ── Crop Mastery ────────────────────────────────────────────────
 /**
- * Mastery levels never end. Level n needs 75·n^1.75 harvests of that crop (rounded to 25):
- * 75, 250, 525, 850, 1250, 1725, 2250… Each level the player picks +5% coins or +5% XP for that crop.
+ * Mastery levels never end. Level 1 needs 75 harvests of that crop, level 2 needs 250, and after that
+ * each gap is 50 bigger than the last: 400, 600, 850, 1150, 1500, 1900, 2350, 2850…
+ * Each level the player picks one bonus for that crop. Coins and XP are always offered and never cap;
+ * Quick Growth, Bountiful and Thrifty open with Hazel's Almanac and cap out.
  */
 export const MASTERY_STEP = 0.05;
-export type MasteryPick = 'coin' | 'xp';
+export type MasteryPick = 'coin' | 'xp' | 'speed' | 'bounty' | 'thrift';
+export const MASTERY_PICKS: MasteryPick[] = ['coin', 'xp', 'speed', 'bounty', 'thrift'];
+/** The three tracks Hazel's Almanac adds. */
+export const ALMANAC_PICKS: MasteryPick[] = ['speed', 'bounty', 'thrift'];
+/** Per pick: −5% grow time (10 picks), +4% chance of an extra crop (5), −10% seed cost (5). */
+export const SPEED_STEP = 0.05;
+export const BOUNTY_STEP = 0.04;
+export const THRIFT_STEP = 0.1;
+export const MASTERY_CAPS: Record<MasteryPick, number> = { coin: Infinity, xp: Infinity, speed: 10, bounty: 5, thrift: 5 };
+/** Soil, greenhouse and Quick Growth together never take a crop below this share of its grow time. */
+export const MIN_GROW_SHARE = 0.35;
+/** Mastery level that earns a crop its gold signature. */
+export const SIGNATURE_LEVEL = 10;
 
 export function masteryThreshold(level: number): number {
+  if (level <= 1) return 75;
+  if (level === 2) return 250;
+  // 250 + 150 + 200 + … (level − 2 gaps, each 50 bigger)
+  const g = level - 2;
+  return 250 + 150 * g + 25 * g * (g - 1);
+}
+
+/** The curve before Nov 2026 (75·n^1.75), kept only to pay the Ribbons owed when old saves are recounted. */
+export function oldMasteryThreshold(level: number): number {
   return Math.max(25, Math.round((75 * Math.pow(level, 1.75)) / 25) * 25);
 }
 
-export function masteryLevel(state: FarmState, cropId: string): number {
-  const n = state.harvests?.[cropId] ?? 0;
+export function masteryLevelFor(n: number, threshold = masteryThreshold): number {
   let lv = 0;
-  while (n >= masteryThreshold(lv + 1)) lv++;
+  while (n >= threshold(lv + 1)) lv++;
   return lv;
 }
 
+export const masteryLevel = (state: FarmState, cropId: string): number => masteryLevelFor(state.harvests?.[cropId] ?? 0);
+
 /** Bonus choices already made for a crop. */
 export const masteryPicks = (state: FarmState, cropId: string): MasteryPick[] => state.masteryPicks?.[cropId] ?? [];
+export const pickCount = (state: FarmState, cropId: string, kind: MasteryPick) => masteryPicks(state, cropId).filter((p) => p === kind).length;
 
 /** Levels reached but not yet spent on a bonus. */
 export const masteryPending = (state: FarmState, cropId: string) => Math.max(0, masteryLevel(state, cropId) - masteryPicks(state, cropId).length);
@@ -346,29 +379,123 @@ export const masteryPending = (state: FarmState, cropId: string) => Math.max(0, 
 /** Crops with an unspent mastery choice. */
 export const masteryToChoose = (state: FarmState) => Object.keys(state.harvests ?? {}).filter((id) => masteryPending(state, id) > 0);
 
-export function chooseMastery(state: FarmState, cropId: string, pick: MasteryPick): boolean {
+/** How many picks a track takes for this crop. Thrifty can't help a seed that already costs 1 coin. */
+export function masteryCap(cropId: string, kind: MasteryPick, content?: { cropById: Map<string, CropDef> }): number {
+  if (kind === 'thrift' && (content?.cropById.get(cropId)?.seed_cost ?? 2) <= 1) return 0;
+  return MASTERY_CAPS[kind];
+}
+
+/** Tracks offered for this crop right now: Coins and XP always; the Almanac three once it's open. */
+export function masteryOptions(state: FarmState, cropId: string, content?: { cropById: Map<string, CropDef> }): { kind: MasteryPick; open: boolean; mastered: boolean }[] {
+  const almanac = state.flags.includes('almanac_open');
+  return MASTERY_PICKS.filter((k) => almanac || !ALMANAC_PICKS.includes(k)).map((kind) => {
+    const mastered = pickCount(state, cropId, kind) >= masteryCap(cropId, kind, content);
+    return { kind, open: !mastered, mastered };
+  });
+}
+
+export function chooseMastery(state: FarmState, cropId: string, pick: MasteryPick, content?: { cropById: Map<string, CropDef> }): boolean {
   if (masteryPending(state, cropId) <= 0) return false;
+  if (!masteryOptions(state, cropId, content).some((o) => o.kind === pick && o.open)) return false;
   state.masteryPicks ??= {};
   state.masteryPicks[cropId] = [...masteryPicks(state, cropId), pick];
   return true;
 }
 
+/** Coin bonus per pick: 5% for crops worth 100+ coins, more for cheap ones (5% × √(100 ÷ sell)), up to 20%. */
+export function coinStep(sell: number): number {
+  return Math.min(0.2, Math.max(MASTERY_STEP, MASTERY_STEP * Math.sqrt(100 / Math.max(1, sell))));
+}
+
 /** Multiplier on coins (crate, market, auto-ship, Fresh tip) or harvest XP for one crop. */
-export function masteryMult(state: FarmState, cropId: string, kind: MasteryPick): number {
-  return 1 + MASTERY_STEP * masteryPicks(state, cropId).filter((p) => p === kind).length;
+export function masteryMult(state: FarmState, cropId: string, kind: 'coin' | 'xp', content?: { cropById: Map<string, CropDef> }): number {
+  const step = kind === 'coin' ? coinStep(content?.cropById.get(cropId)?.sell ?? 100) : MASTERY_STEP;
+  return 1 + step * pickCount(state, cropId, kind);
+}
+
+/** Quick Growth multiplier on grow time (1 → 0.5). */
+export const speedMult = (state: FarmState, cropId: string) => 1 - SPEED_STEP * Math.min(MASTERY_CAPS.speed, pickCount(state, cropId, 'speed'));
+/** Bountiful: added chance of +1 crop. */
+export const bountyChance = (state: FarmState, cropId: string) => BOUNTY_STEP * Math.min(MASTERY_CAPS.bounty, pickCount(state, cropId, 'bounty'));
+/** Thrifty multiplier on seed cost (1 → 0.5). */
+export const thriftMult = (state: FarmState, cropId: string) => 1 - THRIFT_STEP * Math.min(MASTERY_CAPS.thrift, pickCount(state, cropId, 'thrift'));
+
+/** Grow time with soil, the greenhouse and Quick Growth, never below 35% of the base. */
+export function growTimeFor(state: FarmState, content: Content, crop: CropDef, soil: number): number {
+  const soilSpeed = content.economy.soil[soil]?.speed ?? 1;
+  const greenhouse = state.flags.includes('imp:greenhouse') ? 0.9 : 1;
+  return Math.max(1, Math.round(crop.grow_s * Math.max(MIN_GROW_SHARE, soilSpeed * greenhouse * speedMult(state, crop.id))));
+}
+
+/** Has this crop earned its ★10 gold signature? */
+export const hasSignature = (state: FarmState, cropId: string) => masteryLevel(state, cropId) >= SIGNATURE_LEVEL;
+
+// ── Weekly re-do ─────────────────────────────────────────────────
+/** Week number that starts on Monday (local day 4 since the epoch was a Monday). */
+export const mondayWeek = (day: number) => Math.floor((day + 3) / 7);
+
+/** Once the Almanac is open, one free re-do a week (refreshing Monday at local midnight). It never stacks. */
+export function redoReady(state: FarmState, day: number): boolean {
+  if (!state.flags.includes('almanac_open')) return false;
+  return state.masteryRedo === undefined || state.masteryRedo < mondayWeek(day);
+}
+
+/** Clears every pick on one crop so its stars can be chosen again. Ribbons already earned stay. */
+export function redoMastery(state: FarmState, cropId: string, day: number): boolean {
+  if (!redoReady(state, day) || !masteryPicks(state, cropId).length) return false;
+  state.masteryPicks![cropId] = [];
+  state.masteryRedo = mondayWeek(day);
+  return true;
+}
+
+// ── Mastery stats (Almanac crop pages) ──────────────────────────
+export interface CropStats {
+  /** Extra crops Bountiful gave. */
+  bonus?: number;
+  /** Coins Thrifty saved on seeds. */
+  saved?: number;
+  /** Fastest grow time planted, in seconds. */
+  fastest?: number;
+}
+export const cropStats = (state: FarmState, cropId: string): CropStats => state.cropStats?.[cropId] ?? {};
+function bumpStats(state: FarmState, cropId: string, f: (x: CropStats) => void): void {
+  state.cropStats ??= {};
+  const x = (state.cropStats[cropId] ??= {});
+  f(x);
+}
+
+// ── Coins with bonuses ───────────────────────────────────────────
+/**
+ * Spare change: the part of a payout that comes from coin mastery is paid in whole coins, and the
+ * fraction waits in a hidden purse for the next payout, so even one radish at a time adds up.
+ */
+function masteryExtra(state: FarmState, extra: number): number {
+  const total = extra + (state.coinDust ?? 0);
+  const whole = Math.floor(total + 1e-9);
+  state.coinDust = Math.max(0, total - whole);
+  return whole;
+}
+
+/** The golden scarecrow (+10%) and Bramblewick's town level (+2% a level, up to +50%). */
+export const townBonus = (state: FarmState) => (state.flags.includes('imp:scarecrow') ? 1.1 : 1) * (1 + 0.02 * Math.min(state.townLevel ?? 0, 25));
+
+/** Coins for selling `base` coins' worth of an item: town bonuses, then the crop's coin mastery (with spare change). */
+export function saleCoins(state: FarmState, content: Content, itemId: string, base: number): number {
+  const b = base * townBonus(state);
+  const m = masteryMult(state, itemId, 'coin', content);
+  return Math.round(b) + (m > 1 ? masteryExtra(state, b * (m - 1)) : 0);
 }
 
 /** Every crop harvested, all time. */
 export const lifetimeHarvests = (state: FarmState) => Object.values(state.harvests ?? {}).reduce((a, n) => a + n, 0);
 
-export function seedCost(_state: FarmState, crop: CropDef): number {
-  return crop.seed_cost;
+/** Seed cost after Thrifty, rounded and never below 1 coin. */
+export function seedCost(state: FarmState, crop: CropDef): number {
+  const m = thriftMult(state, crop.id);
+  return m < 1 ? Math.max(1, Math.round(crop.seed_cost * m)) : crop.seed_cost;
 }
 
 export const isUnlocked = (state: FarmState, crop: CropDef) => crop.unlock_level <= state.level || state.flags.includes(`early:${crop.id}`);
-
-/** The golden scarecrow (+10%), Bramblewick's town level (+2% a level, up to +50%) and the crop's coin mastery. */
-export const sellBonus = (state: FarmState, itemId?: string) => (itemId ? masteryMult(state, itemId, 'coin') : 1) * (state.flags.includes('imp:scarecrow') ? 1.1 : 1) * (1 + 0.02 * Math.min(state.townLevel ?? 0, 25));
 
 /** Shipping crate pays 70% of an item's value (never less than 1 coin). */
 export const cratePrice = (item: { sell: number }) => Math.max(1, Math.round(item.sell * 0.7));
@@ -475,9 +602,13 @@ export function plant(state: FarmState, content: Content, k: string, cropId: str
   if (state.coins < cost) return { ok: false, reason: 'no-coins' };
   state.coins -= cost;
   const soil = plot.soil ?? 0;
-  const speed = content.economy.soil[soil]?.speed ?? 1;
-  const greenhouse = state.flags.includes('imp:greenhouse') ? 0.9 : 1;
-  state.plots[k] = { crop: crop.id, plantedAt: now, growS: Math.max(1, Math.round(crop.grow_s * speed * greenhouse)), soil };
+  const growS = growTimeFor(state, content, crop, soil);
+  state.plots[k] = { crop: crop.id, plantedAt: now, growS, soil };
+  if (cost < crop.seed_cost || growS < crop.grow_s)
+    bumpStats(state, crop.id, (x) => {
+      if (cost < crop.seed_cost) x.saved = (x.saved ?? 0) + crop.seed_cost - cost;
+      x.fastest = Math.min(x.fastest ?? Infinity, growS);
+    });
   state.lastCrop[k] = crop.id;
   return { ok: true, kind: 'planted', crop };
 }
@@ -501,15 +632,19 @@ export function harvest(state: FarmState, content: Content, k: string, now: numb
     return { ok: true, kind: 'harvested', crop, qty: 1, shipped: stored.shipped, tip: stored.coins, xp, fresh: false, levelsGained, firstTime: false, bloom: bloom.id, bloomNew: firstTime };
   }
   const fresh = isFresh(plot, now);
-  const coinMult = masteryMult(state, crop.id, 'coin');
-  const tip = fresh ? Math.max(1, Math.round(crop.sell * 0.2 * (1 + beautyBonus(state, content)) * coinMult)) : 0;
+  const coinMult = masteryMult(state, crop.id, 'coin', content);
+  const tipBase = crop.sell * 0.2 * (1 + beautyBonus(state, content));
+  const tip = fresh ? Math.max(1, Math.round(tipBase)) + (coinMult > 1 ? masteryExtra(state, tipBase * (coinMult - 1)) : 0) : 0;
   const level = masteryLevel(state, crop.id);
   // Hazel's 5-heart perk: +10% harvest XP
   const xp = Math.round(crop.xp * (fresh ? 1.5 : 1) * (state.flags.includes('perk:hazel') ? 1.1 : 1) * masteryMult(state, crop.id, 'xp'));
   state.coins += tip;
   const soil = plot.soil ?? 0;
-  const bonusChance = content.economy.soil[soil]?.bonus ?? 0;
-  const qty = 1 + (plot.fertilized ? 1 : 0) + (bonusChance > 0 && luck(`${k}:${plot.plantedAt}`) < bonusChance ? 1 : 0);
+  const soilChance = content.economy.soil[soil]?.bonus ?? 0;
+  const bonusChance = soilChance + bountyChance(state, crop.id);
+  const roll = bonusChance > 0 ? luck(`${k}:${plot.plantedAt}`) : 1;
+  const qty = 1 + (plot.fertilized ? 1 : 0) + (roll < bonusChance ? 1 : 0);
+  if (roll >= soilChance && roll < bonusChance) bumpStats(state, crop.id, (x) => (x.bonus = (x.bonus ?? 0) + 1));
   state.harvests ??= {};
   state.harvests[crop.id] = (state.harvests[crop.id] ?? 0) + 1;
   const star = masteryLevel(state, crop.id) > level ? level + 1 : undefined;
@@ -541,7 +676,7 @@ export function sell(state: FarmState, content: Content, itemId: string, n: numb
   const have = state.inventory[itemId] ?? 0;
   const qty = Math.min(n, have);
   if (!item || qty <= 0) return 0;
-  const coins = Math.round(cratePrice(item) * qty * sellBonus(state, itemId));
+  const coins = saleCoins(state, content, itemId, cratePrice(item) * qty);
   addItem(state, itemId, -qty);
   state.coins += coins;
   return coins;
@@ -642,7 +777,7 @@ export function storeInBarn(state: FarmState, content: Content, id: string, n: n
   const shipped = n - stored;
   if (stored) addItem(state, id, stored);
   const item = content.cropById.get(id) ?? content.goods.get(id);
-  const coins = shipped && item ? Math.round(cratePrice(item) * shipped * sellBonus(state, id)) : 0;
+  const coins = shipped && item ? saleCoins(state, content, id, cratePrice(item) * shipped) : 0;
   state.coins += coins;
   return { stored, shipped, coins };
 }

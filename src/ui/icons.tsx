@@ -172,6 +172,36 @@ export function Icon({ name, size = 22 }: { name: string; size?: number }) {
           <circle cx="16" cy="16" r="5.5" fill="none" stroke="#e09b0e" stroke-width="2" />
         </svg>
       );
+    case 'xp':
+      return (
+        <svg {...common}>
+          <path d="M16 4l3.5 7.4 8 1-5.9 5.5 1.5 8L16 22l-7.1 3.9 1.5-8L4.5 12.4l8-1z" fill="#7cdc4f" stroke={INK} stroke-width="2.4" stroke-linejoin="round" />
+        </svg>
+      );
+    case 'speed':
+      return (
+        <svg {...common}>
+          <circle cx="16" cy="18" r="10" fill="#6ec8f0" stroke={INK} stroke-width="2.4" />
+          <path d="M16 18v-6m0 6 4 3" stroke={INK} stroke-width="2.4" stroke-linecap="round" />
+          <path d="M13 4h6M16 4v4" stroke={INK} stroke-width="2.4" stroke-linecap="round" />
+        </svg>
+      );
+    case 'bounty':
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="4.5" fill="#e8323c" stroke={INK} stroke-width="2" />
+          <circle cx="20" cy="11" r="4.5" fill="#f28a1e" stroke={INK} stroke-width="2" />
+          <path d="M4 15h24l-3 12H7z" fill="#c9955c" stroke={INK} stroke-width="2.4" stroke-linejoin="round" />
+          <path d="M9 19h14M10 23h12" stroke={INK} stroke-width="1.6" stroke-linecap="round" />
+        </svg>
+      );
+    case 'thrift':
+      return (
+        <svg {...common}>
+          <ellipse cx="16" cy="22" rx="7" ry="5" fill="#c9955c" stroke={INK} stroke-width="2.4" />
+          <path d="M16 18v-7m0 0c-3 0-5-2-5-5 3 0 5 2 5 5zm0 0c3 0 5-2 5-5-3 0-5 2-5 5z" fill="#5cb83a" stroke={INK} stroke-width="2" stroke-linejoin="round" />
+        </svg>
+      );
     default:
       return null;
   }

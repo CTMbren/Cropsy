@@ -21,7 +21,7 @@ function afterCh3(level = 15): FarmState {
 describe('Crop Mastery', () => {
   it('levels forever on a formula, with a coin or XP choice each level', () => {
     const s = afterCh3();
-    expect([1, 2, 3, 4, 5].map(masteryThreshold)).toEqual([75, 250, 525, 850, 1250]);
+    expect([1, 2, 3, 4, 5].map(masteryThreshold)).toEqual([75, 250, 400, 600, 850]);
     expect(masteryThreshold(10)).toBeGreaterThan(masteryThreshold(9));
     s.harvests = { radish: 74 };
     s.seen = ['radish', 'carrot'];
@@ -33,11 +33,11 @@ describe('Crop Mastery', () => {
     expect(s.ribbons).toBe(ribbons + 1);
     expect(masteryPending(s, 'radish')).toBe(1);
     expect(masteryToChoose(s)).toEqual(['radish']);
-    // coin pick: +5% crate value for radish only
-    expect(chooseMastery(s, 'radish', 'coin')).toBe(true);
-    expect(chooseMastery(s, 'radish', 'xp')).toBe(false);
-    expect(masteryMult(s, 'radish', 'coin')).toBeCloseTo(1.05);
-    expect(masteryMult(s, 'carrot', 'coin')).toBe(1);
+    // coin pick: radish is cheap, so its coin step is the full 20%; radish only
+    expect(chooseMastery(s, 'radish', 'coin', content)).toBe(true);
+    expect(chooseMastery(s, 'radish', 'xp', content)).toBe(false);
+    expect(masteryMult(s, 'radish', 'coin', content)).toBeCloseTo(1.2);
+    expect(masteryMult(s, 'carrot', 'coin', content)).toBe(1);
     // xp pick raises harvest XP
     s.harvests.carrot = 75;
     chooseMastery(s, 'carrot', 'xp');

@@ -1,0 +1,117 @@
+{
+  "notes": {
+    "radish": {
+      "1": "Raphanus sativus. Ready in half a minute, which makes it the most impatient vegetable I've ever catalogued.",
+      "3": "Tobias wrote 'good for snacking while waiting for other things' next to this entry. Scientifically accurate.",
+      "5": "You have grown more radishes than the rest of Bramblewick combined. Pip wants to know if you'll sell him a sack.",
+      "7": "I've started a radish growth chart. It is very short and very crowded.",
+      "10": "A gold-leaf page for the humble radish. It earned every flake."
+    },
+    "carrot": {
+      "1": "Daucus carota. Pull gently from the shoulders. Moss will try to help. Moss will not help.",
+      "3": "Carrots taste sweeter after a long wait in cool soil. Yours are not waiting long, and are still very good.",
+      "5": "Juniper says carrots are the only crop she can draw from memory. She's drawn about forty of yours.",
+      "7": "The almanac's carrot page now has more jam stains than writing. I'm blaming Tobias retroactively.",
+      "10": "Gold border, carrot page. Moss has been informed and is very proud of himself for some reason."
+    },
+    "lettuce": {
+      "1": "Lactuca sativa. Crisp, leafy, and mostly water. A bit like Ziggy's promises.",
+      "3": "Picked at the right moment, a lettuce squeaks. I'm told this is not a normal thing to listen for.",
+      "5": "Goldie's sandwiches have improved noticeably since you started growing lettuce in volume.",
+      "7": "I pressed one of your lettuce leaves in the almanac. It took up four pages.",
+      "10": "The lettuce page goes gold. I didn't expect to feel this strongly about a salad."
+    },
+    "strawberry": {
+      "1": "Fragaria × ananassa. The seeds are on the outside. Nobody has ever explained to me why.",
+      "3": "Tobias's jam stains are mostly strawberry. Mystery solved, though not the mystery of why he read with jam.",
+      "5": "Your strawberries keep showing up in Pip's tarts. Do not tell him I told you he hides the best ones.",
+      "7": "A bee on your strawberry patch visited eleven flowers while I watched. I had nowhere else to be.",
+      "10": "Strawberry, gold-leafed. Tobias would want this page framed. With jam on it, probably."
+    },
+    "wheat": {
+      "1": "Triticum aestivum. Ten thousand years of farmers have stood where you're standing, watching it sway.",
+      "3": "Rufus says the mill wheel turns happier with your wheat. He refuses to explain what 'happier' means.",
+      "5": "Bramblewick hasn't milled this much flour since before the wheel jammed.",
+      "7": "Stand in your wheat on a windy day and you'll hear it whisper. Or that's Moss. Check for Moss.",
+      "10": "Wheat earns its gold page. Fitting: it's practically the colour already."
+    },
+    "tomato": {
+      "1": "Solanum lycopersicum. Botanically a fruit, culinarily a vegetable, and personally my favourite argument.",
+      "3": "A ripe tomato should feel heavy for its size. Yours feel heavy for their size and also slightly smug.",
+      "5": "Bruno puts your tomatoes on everything. Everything. I've seen him put one on a pastry.",
+      "7": "I've counted the seeds in one of your tomatoes for the record. It was a slow afternoon. 214.",
+      "10": "The tomato page goes gold, and the fruit-versus-vegetable debate stays closed in this book."
+    },
+    "corn": {
+      "1": "Zea mays. Every strand of silk is attached to one kernel. Every single one. Go and look.",
+      "3": "Corn grows so fast in summer you can almost hear it creak. Almost. I've tried.",
+      "5": "Pip has started a popcorn experiment with your corn. The bakery smells wonderful and slightly alarming.",
+      "7": "Your corn is tall enough now that I lost Juniper in it for twenty minutes.",
+      "10": "Gold border for corn. I'm told the scarecrow is jealous."
+    },
+    "potato": {
+      "1": "Solanum tuberosum. Same family as the tomato, which explains nothing and everything.",
+      "3": "Every potato you dig is a little surprise. Some of yours have faces. I've named three.",
+      "5": "Goldie says your potatoes are why the store's soup sells out by noon.",
+      "7": "A potato can regrow a whole plant from one eye. Resilient. Rather like this farm.",
+      "10": "The potato page goes gold. I've moved my three named potatoes onto it as witnesses."
+    },
+    "blueberry": {
+      "1": "Vaccinium corymbosum. The blue is in a waxy bloom on the skin. Rub it off and they look almost black.",
+      "3": "Blueberries want acid soil. Yours don't seem to care. I've stopped arguing with your soil.",
+      "5": "Nell says your blueberries make the best bait she's ever been too fond of to use.",
+      "7": "Juniper painted your blueberry bushes and ran out of blue. She had to send to the city for more.",
+      "10": "Blueberry, gold-leafed. The page is very blue and very gold. I approve."
+    },
+    "pumpkin": {
+      "1": "Cucurbita pepo. Starts as a flower, ends as furniture.",
+      "3": "Your pumpkins are getting big enough that Bruno has started measuring them with a tape.",
+      "5": "Somebody carved a face into one of your pumpkins overnight. My money is on Ziggy.",
+      "7": "The pumpkin vines have crept two plots over. They're ambitious. I respect that in a squash.",
+      "10": "The pumpkin page goes gold. It's also the heaviest page in the almanac, somehow."
+    },
+    "sunflower": {
+      "1": "Helianthus annuus. Young flowers follow the sun across the sky. Old ones just face east and wait.",
+      "3": "Each sunflower head is hundreds of tiny flowers in a spiral. Count the spirals. Actually, don't. It takes hours.",
+      "5": "The bees have voted. Your sunflowers are the best address in Bramblewick.",
+      "7": "Pip toasts your sunflower seeds. The whole street knows when he does.",
+      "10": "Gold page for the sunflower. It finally has something as bright as it is."
+    },
+    "cotton": {
+      "1": "Gossypium hirsutum. The fluff is the seed's way of hitching a ride. Clever plant.",
+      "3": "Cotton bolls split open when they're ready, like they're showing off.",
+      "5": "Bramblewick's quilts have been patched with your cotton. Mine included. Thank you.",
+      "7": "A field of open cotton looks like snow that forgot what season it is.",
+      "10": "The cotton page goes gold. I pressed a boll into the corner for softness."
+    },
+    "grapes": {
+      "1": "Vitis vinifera. Some vines live for over a century. Plan accordingly.",
+      "3": "Grapes ripen in clusters, never all at once. They're as patient as you've had to be.",
+      "5": "Rufus has been 'testing' your grapes. Daily. In quantity. For science, he says.",
+      "7": "Your vines have started to twist into shapes. One looks like Tobias. I may be tired.",
+      "10": "Grape page, gold border. Tobias always said a good vine outlives its farmer. This one will outlive the almanac."
+    },
+    "coffee": {
+      "1": "Coffea arabica. A cherry, not a bean. Every cup in town starts as fruit on your farm.",
+      "3": "Coffee takes a whole day to ripen and about four seconds to drink. Bruno has opinions on this ratio.",
+      "5": "Nell claims she can taste which plot your coffee came from. I've tested her. She can't.",
+      "7": "The almanac's coffee page is the only one without jam on it. Tobias drank his black, apparently.",
+      "10": "Coffee, gold-leafed. I'd celebrate, but I'm already on my third cup."
+    },
+    "golden_melon": {
+      "1": "Cucumis aureus. Not in any book but this one. Tobias found the first seed in a hollow log, he says. I have doubts.",
+      "3": "Two days in the ground and still worth every hour. The Golden Moth agrees.",
+      "5": "You've grown more golden melons than I thought existed. I may need to revise 'rare'.",
+      "7": "Hold a golden melon to your ear. You won't hear anything. But everybody tries.",
+      "10": "The golden melon gets a gold page. Redundant? Perhaps. Deserved? Absolutely."
+    }
+  },
+  "later": [
+    "Still growing. Still counting. Still impressed, and I don't impress easily.",
+    "I've run out of margin on this page. I'm writing on the next one. You've earned two pages.",
+    "At this point the crop knows you better than I do.",
+    "Tobias wrote 'patience is a farming tool' on the inside cover. You've worn that tool smooth.",
+    "Another milestone. I'll need a bigger almanac.",
+    "The numbers on this page are getting silly. Good silly."
+  ]
+}

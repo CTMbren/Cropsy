@@ -14,6 +14,7 @@ import {
   plant,
   unplant,
   chooseMastery,
+  redoMastery,
   type MasteryPick,
   replantAll,
   sell,
@@ -28,6 +29,7 @@ import {
 import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, type MossFind } from './core/friendship';
 import { buyBuilding, collect, startRecipe, upgradeSlots } from './core/processing';
 import { markBackedUp, snoozeBackup } from './core/backup';
+import { syncAlmanac } from './core/almanac';
 import { syncCritters, tapCritter, type SyncResult, type TapResult } from './core/critters';
 import { catchFish, rollFish, syncBites, type CatchResult, type FishDef } from './core/fishing';
 import { startClearing, syncLand, type ClearResult } from './core/land';
@@ -153,6 +155,7 @@ export class Game {
     if (restored.length) log(this.state, now, `restored ${restored.join(' ')}`);
     this.applyStory(advance(this.state, this.content, now, this.tz()));
     refreshQuest(this.state, this.content);
+    syncAlmanac(this.state, now, this.tz());
     this.checkAway();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
@@ -663,11 +666,19 @@ export class Game {
     this.emit();
   }
 
-  /** Spend a mastery level on +5% coins or +5% XP for that crop. */
+  /** Spend a mastery level on one of that crop's bonuses. */
   chooseMastery(cropId: string, pick: MasteryPick): void {
-    if (!chooseMastery(this.state, cropId, pick)) return;
+    if (!chooseMastery(this.state, cropId, pick, this.content)) return;
     log(this.state, this.now(), `mastery ${cropId} ${pick}`);
     this.changed();
+  }
+
+  /** The weekly free re-do: clears one crop's picks so its stars can be chosen again. */
+  redoMastery(cropId: string): boolean {
+    if (!redoMastery(this.state, cropId, this.day())) return false;
+    log(this.state, this.now(), `mastery redo ${cropId}`);
+    this.changed();
+    return true;
   }
 
   setMode(mode: 'plant' | 'fertilize' | 'soil' | 'decorate'): void {
@@ -888,6 +899,7 @@ export class Game {
     this.finishClearing();
     this.syncVisitors();
     syncBites(this.state, this.content, this.now());
+    syncAlmanac(this.state, this.now(), this.tz());
     // keep the active quest possible (places missing weeds, branches or rocks on free plots)
     ensureQuestMaterials(this.state, this.content);
     // quests measured from the farm (crops discovered, mastery) can finish without an event

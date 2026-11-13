@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { hasFlag, isFresh, key, parseKey, stageOf, type ObstacleKind } from '../core/farm';
+import { hasFlag, hasSignature, isFresh, key, parseKey, stageOf, type ObstacleKind } from '../core/farm';
 import { decorDefs, decorSpots, placed, spotCell } from '../core/decor';
 import type { Game } from '../game';
 import { ArtRegistry } from './art';
@@ -786,7 +786,23 @@ export class FarmScene extends Phaser.Scene {
   }
 
   /** Per-frame motion only (no redrawing): ripe sway, bubble bob, fresh sparkle blink, planting pop. */
+  private nextGlint = 0;
+
+  /** ★10 signature crops twinkle gold when ripe: a few plots at a time, so a full field costs nothing extra. */
+  private glintSignatures(time: number): void {
+    if (time < this.nextGlint) return;
+    this.nextGlint = time + 1400;
+    const s = this.game_.state;
+    if (this.game_.reducedMotion() || s.settings.batterySaver) return;
+    const ripe = this.views.filter((v) => v.ripe && hasSignature(s, s.plots[v.k]?.crop ?? ''));
+    for (let i = 0; i < Math.min(4, ripe.length); i++) {
+      const v = ripe.splice(Math.floor(Math.random() * ripe.length), 1)[0];
+      this.fxLayer.glint(v.sx, v.sy);
+    }
+  }
+
   private animatePlots(time: number): void {
+    this.glintSignatures(time);
     const bob = Math.sin(time / 250) * 3;
     const blink = Math.floor(time / 400) % 2 === 0;
     for (const v of this.views) {
