@@ -639,3 +639,7 @@ button:active:not(:disabled) { transform: translateY(2px) scale(0.97); }
 .row-item.locked { opacity: 0.7; }
 .row-item.locked .needs { color: #8a5a2b; }
 .upgrade-card.done { background: #eef6e2; }
+
+.tracker.skip { background: rgba(232, 240, 255, 0.95); }
+.tracker.skip .tracker-title { color: #2a6fb0; }
+.tracker.skip:disabled { opacity: 0.75; cursor: default; }

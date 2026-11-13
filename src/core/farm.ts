@@ -158,6 +158,8 @@ export interface FarmState {
   coinDust?: number;
   /** Tobias's notes: pages read and pages known to be open (signatures "page:bullets"). */
   notes?: { read: string[]; known?: string[] };
+  /** When the story's "skip the wait" was last used (once every 24 hours). */
+  storySkipAt?: number;
   /** Side quests: steps reached (Tobias's Pickle Crocks: 0–3). */
   side?: { pickles?: number };
   /** Tips and nudges shown, habit counters. */

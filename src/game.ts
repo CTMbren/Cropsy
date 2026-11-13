@@ -41,7 +41,7 @@ import { buildImprovement, deliverTownProject, raiseTownLevel, syncTownProject, 
 import { buyDecor, claimGift, decorDef, grantDecor, pickUpDecor, placeDecor, type CalendarReward } from './core/decor';
 import { buyFromMerchant, syncMerchant, type MerchantResult } from './core/merchant';
 import { buyBarn, buyMaterial, buyTool, deliverStage, featuredCrop, marketOpen, marketPrice, marketSell, type BuyResult } from './core/shop';
-import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, restoreQuestFlags, ensureQuestMail, itemsWanted, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
+import { advance, ensureQuestMaterials, onEvent, readMail, refreshQuest, restoreQuestFlags, ensureQuestMail, skipStoryWait, itemsWanted, talk, type GameEvent, type StoryOutcome, type TalkResult } from './core/story';
 import { dayIndex, gameNow, localOffsetMinutes, marketPeriod, nextMarketPeriod, systemNow } from './core/time';
 import { dailyBackup, loadSave, readBackup, requestPersistence, unblockSaves, writeBackup, writeSave } from './platform/storage';
 import { recordError } from './platform/errors';
@@ -465,6 +465,16 @@ export class Game {
     if (r.leftForSpace) this.screenFx({ kind: 'barn-full' });
     else this.checkBarn();
     return n;
+  }
+
+  /** Skip the story's overnight wait: the letter it's waiting on arrives now. Once every 24 hours. */
+  skipStoryWait(): boolean {
+    const id = skipStoryWait(this.state, this.content, this.now());
+    if (!id) return false;
+    log(this.state, this.now(), `story skip ${id}`);
+    this.fx({ kind: 'toast', text: 'The letter arrived early. Check your Mail!' });
+    this.changed();
+    return true;
   }
 
   /** The building's 40,000+ upgrade: a second line, so two recipes work at once. */
