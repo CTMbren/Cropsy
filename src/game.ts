@@ -28,7 +28,7 @@ import {
   type FarmState,
 } from './core/farm';
 import { giveGift, patMoss, watchEvent, type FriendshipChange, type HeartEvent, type MossFind } from './core/friendship';
-import { buyBuilding, buyUpgrade, collect, startRecipe, upgradeSlots } from './core/processing';
+import { buyBuilding, buyUpgrade, collect, linesOf, reschedule, startRecipe, upgradeSlots } from './core/processing';
 import { sideQuestOrderDone, syncLoomLetter, syncRecipeCards, syncSideQuest } from './core/crafting';
 import { markBackedUp, snoozeBackup } from './core/backup';
 import { syncAlmanac } from './core/almanac';
@@ -479,7 +479,7 @@ export class Game {
 
   /** The building's 40,000+ upgrade: a second line, so two recipes work at once. */
   buyUpgrade(buildingId: string): boolean {
-    const r = buyUpgrade(this.state, this.content, buildingId);
+    const r = buyUpgrade(this.state, this.content, buildingId, this.now());
     if (!r.ok) return false;
     log(this.state, this.now(), `upgrade ${buildingId}`);
     this.fx({ kind: 'toast', text: `${this.content.buildings.get(buildingId)?.upgrade?.name} built: two at once!` });
@@ -965,6 +965,11 @@ export class Game {
     }
     syncLoomLetter(this.state, this.content, now, this.tz());
     syncSideQuest(this.state, now, this.tz());
+    // queues planned for one line (before an upgrade, or before pickling went hands-off) use every line
+    for (const [id, b] of Object.entries(this.state.buildings)) {
+      const def = this.content.buildings.get(id);
+      if (def && linesOf(b, def) > 1) reschedule(b, def, now);
+    }
   }
 
   // ── Tips and nudges ─────────────────────────────────────────────

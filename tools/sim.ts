@@ -355,7 +355,7 @@ function checkIn(s: FarmState, c: Content, now: number, nextAt: number, log: (e:
     const u = c.buildings.get(id)?.upgrade;
     if (!u || (s.buildings[id].lines ?? 1) >= 2 || s.level < u.level || s.coins < u.coins * 1.5) continue;
     for (const [k, n] of Object.entries(u.items ?? {})) while ((s.inventory[k] ?? 0) < n && s.coins > u.coins * 1.2 && buyMaterial(s, c, k).ok);
-    if (buyUpgrade(s, c, id).ok) log(`upgrade ${id}`);
+    if (buyUpgrade(s, c, id, now).ok) log(`upgrade ${id}`);
   }
   // the weekly town project, Bramblewick improvements and the odd decoration
   const day = dayIndex(now, TZ);
