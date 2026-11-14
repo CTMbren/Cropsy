@@ -6,7 +6,7 @@ import { fulfilOrder } from '../../src/core/board';
 import { newFarm, setFlag, type FarmState } from '../../src/core/farm';
 import { advance } from '../../src/core/story';
 import { migrate } from '../../src/core/save';
-import { buyBuilding, buyUpgrade, grantBuilding, queueView, recipeLock, startRecipe, upgradeStatus } from '../../src/core/processing';
+import { buyBuilding, buyUpgrade, grantBuilding, queueView, recipeLock, reschedule, startRecipe, upgradeStatus } from '../../src/core/processing';
 import { hasItemIcon } from '../../src/ui/itemArt';
 
 const content = loadContent();
@@ -147,7 +147,7 @@ describe('second-line upgrades', () => {
     s.coins = 39_999;
     expect(upgradeStatus(s, content, 'jam_maker')).toEqual({ ok: false, reason: 'coins' });
     s.coins = 40_000;
-    expect(buyUpgrade(s, content, 'jam_maker').ok).toBe(true);
+    expect(buyUpgrade(s, content, 'jam_maker', T0).ok).toBe(true);
     expect(s.coins).toBe(0);
     expect(upgradeStatus(s, content, 'jam_maker')).toEqual({ ok: false, reason: 'done' });
   });
@@ -200,13 +200,30 @@ describe('second-line upgrades', () => {
     expect(m.buildings.pickling.lines).toBe(1);
   });
 
-  it('leave items already queued as they were', () => {
+  it('start whatever was waiting on the new line as soon as it is bought', () => {
     const s = farm(15);
     grantBuilding(s, content, 'jam_maker');
     giveItems(s, { strawberry: 8, wood: 20, stone: 20 });
     startRecipe(s, content, 'jam_maker', 'jam', T0);
-    const second = startRecipe(s, content, 'jam_maker', 'jam', T0);
-    buyUpgrade(s, content, 'jam_maker');
-    expect(second.ok && s.buildings.jam_maker.queue[1].startsAt).toBe(T0 + 1200);
+    startRecipe(s, content, 'jam_maker', 'jam', T0);
+    expect(s.buildings.jam_maker.queue[1].startsAt).toBe(T0 + 1200);
+    // bought 5 minutes later: the first keeps going, the second starts now
+    buyUpgrade(s, content, 'jam_maker', T0 + 300);
+    expect(s.buildings.jam_maker.queue.map((q) => q.startsAt)).toEqual([T0, T0 + 300]);
+    expect(queueView(s.buildings.jam_maker, T0 + 400).map((v) => v.status)).toEqual(['working', 'working']);
+  });
+
+  it('fix queues on upgraded buildings that were planned for one line', () => {
+    const s = farm(15);
+    grantBuilding(s, content, 'bakery');
+    const b = s.buildings.bakery;
+    b.lines = 2;
+    b.slots = 3;
+    // an old save: three pastries one after another
+    b.queue = [0, 1, 2].map((i) => ({ recipe: 'pastry', startsAt: T0 + i * 2700, durS: 2700 }));
+    expect(reschedule(b, content.buildings.get('bakery')!, T0 + 100)).toBe(2);
+    expect(b.queue.map((q) => q.startsAt)).toEqual([T0, T0 + 100, T0 + 2700]);
+    // already right: nothing moves
+    expect(reschedule(b, content.buildings.get('bakery')!, T0 + 200)).toBe(0);
   });
 });

@@ -167,12 +167,43 @@ export function upgradeStatus(state: FarmState, content: Content, id: string): U
 }
 
 /** Buys the building's second line. Items already queued keep their times; new ones use the free line. */
-export function buyUpgrade(state: FarmState, content: Content, id: string): UpgradeResult {
+export function buyUpgrade(state: FarmState, content: Content, id: string, now: number): UpgradeResult {
   const r = upgradeStatus(state, content, id);
   if (!r.ok) return r;
-  const u = content.buildings.get(id)!.upgrade!;
-  state.coins -= u.coins;
-  takeItems(state, u.items ?? {});
+  const def = content.buildings.get(id)!;
+  state.coins -= def.upgrade!.coins;
+  takeItems(state, def.upgrade!.items ?? {});
   state.buildings[id].lines = 2;
+  // whatever was waiting in line starts on the new line straight away
+  reschedule(state.buildings[id], def, now);
   return r;
+}
+
+/**
+ * Re-plans items that haven't started yet onto the earliest free line (items already working keep
+ * their times). Run after the line count changes, so a queue built for one line uses both.
+ * Returns how many items moved.
+ */
+export function reschedule(b: BuildingState, def: BuildingDef, now: number): number {
+  const lines = linesOf(b, def);
+  const started = b.queue.filter((q) => q.startsAt <= now);
+  const waiting = b.queue.filter((q) => q.startsAt > now).sort((a, c) => a.startsAt - c.startsAt);
+  if (!waiting.length) return 0;
+  // when each line is free: the latest-ending started items hold lines, the rest are free now
+  const free = started
+    .map(endOf)
+    .sort((a, c) => c - a)
+    .slice(0, lines)
+    .map((t) => Math.max(now, t));
+  while (free.length < lines) free.push(now);
+  let moved = 0;
+  for (const q of waiting) {
+    let i = 0;
+    for (let j = 1; j < free.length; j++) if (free[j] < free[i]) i = j;
+    const start = Math.max(now, free[i]);
+    if (start !== q.startsAt) moved++;
+    q.startsAt = start;
+    free[i] = start + q.durS;
+  }
+  return moved;
 }
